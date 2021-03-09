@@ -251,7 +251,7 @@ version = "1.2.9"
 
 [[MITgcmTools]]
 deps = ["DataFrames", "Dates", "MeshArrays", "NetCDF", "Pkg", "Printf", "SparseArrays"]
-git-tree-sha1 = "a968622f7310e1c2563a677aaafd7f236d4e3c3a"
+git-tree-sha1 = "7b6a8dceac17a3f85a5cec77d7364d5164dc1073"
 repo-rev = "master"
 repo-url = "https://github.com/ggebbie/MITgcmTools.jl"
 uuid = "62725fbc-3a66-4df3-9000-e33e85b3a198"
@@ -275,9 +275,7 @@ uuid = "d6f4376e-aef5-505a-96c1-9c027394607a"
 
 [[MeshArrays]]
 deps = ["CatViews", "NearestNeighbors", "Pkg", "Printf", "SparseArrays", "Statistics", "Unitful"]
-git-tree-sha1 = "d7b5673ad571120e37e917b41a4c0a6c8fcd5169"
-repo-rev = "master"
-repo-url = "https://github.com/ggebbie/MeshArrays.jl"
+git-tree-sha1 = "8e15c9157eacdf1c11becf06a0b6c4c725f35c6a"
 uuid = "cb8c808f-1acf-59a3-9d2b-6e38d009f683"
 version = "0.2.15"
 
