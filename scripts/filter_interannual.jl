@@ -1,6 +1,6 @@
 #  Instead use this to remove the interannual frequency energy in surface forcing fields.
 #  Diagnostic plots have been removed from this version.
-# First steps: 1. go into Reemergence project directory. 2. go into julia REPL package mode with `]`. 3. `activate .` 4. Backspace to return to command mode in REPL.
+#  First steps: 1. go into Reemergence project directory. 2. go into julia REPL package mode with `]`. 3. `activate .` 4. Backspace to return to command mode in REPL.
 
 using Revise
 using Reemergence
