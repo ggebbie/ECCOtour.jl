@@ -6,3 +6,12 @@
 [![Coverage](https://codecov.io/gh/ggebbie/Reemergence.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/ggebbie/Reemergence.jl)
 
 Tracking seawater property anomalies through the oceanic tunnel until reemergence
+
+# Getting started
+from the Julia prompt
+`;`
+`git clone https://github.com/ggebbie/Reemergence.jl`
+`cd Reemergence`
+`]`
+`activate .`
+`instantiate`
