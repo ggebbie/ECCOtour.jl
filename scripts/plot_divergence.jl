@@ -1,8 +1,22 @@
 # Work in progress.
 # Called from experiment_divergence.jl.
+using PyPlot
 
 zlev = 20
 cval = 1
+
+figure()
+clf()
+#title(titlelbl)
+plot(σx[:,zlev,cval],label=L"std()")
+plot(xbar[:,zlev,cval],label=L"mean(||)")
+plot(xmax[:,zlev,cval],label=L"max(||)")
+xlabel("month starting in Jan. 1992")
+#ylabel(ylbl)
+grid(true)
+legend()
+
+
 caseff = true
 case0 = false
 if cval == 1 && case0

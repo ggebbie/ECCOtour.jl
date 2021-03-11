@@ -13,5 +13,5 @@ from the Julia REPL\
 `git clone https://github.com/ggebbie/Reemergence.jl # only do this the first time on each machine`\
 `cd Reemergence`\
 `]`\
-`activate .`\ 
+`activate .`\
 `instantiate # only do this the first time on each machine`
