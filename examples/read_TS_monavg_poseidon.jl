@@ -16,7 +16,7 @@ filelist = searchdir(path,fileroot) # first filter for state_3d_set1
 datafilelist  = filter(x -> occursin("data",x),filelist) # second filter for "data"
 
 # read the first one into a 4D array: lon, lat, depth, variable type
-state = read_mdsio(path,datafilelist[1])
+@time state = read_mdsio(path,datafilelist[1])
 
 θ = state[:,:,:,1]
 S = state[:,:,:,2]

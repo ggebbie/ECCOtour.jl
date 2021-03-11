@@ -10,8 +10,8 @@ Tracking seawater property anomalies through the oceanic tunnel until reemergenc
 # Getting started
 from the Julia REPL\
 `;`\
-`git clone https://github.com/ggebbie/Reemergence.jl`\
+`git clone https://github.com/ggebbie/Reemergence.jl # only do this the first time on each machine`\
 `cd Reemergence`\
 `]`\
-`activate .`\
-`instantiate`
+`activate .`\ 
+`instantiate # only do this the first time on each machine`
