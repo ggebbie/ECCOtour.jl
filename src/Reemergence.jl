@@ -8,7 +8,7 @@ using MeshArrays, MITgcmTools, LaTeXStrings
 export hanncoeffs, hannsum, hannsum!, hannfilter
 export get_filtermatrix, matrixfilter, matrixspray, columnscale!
 export seasonal_matrices, position_label, searchdir, setupLLCgrid
-export listexperiments
+export listexperiments, expnames
 
 include("HannFilter.jl")
 include("MatrixFilter.jl")
@@ -46,8 +46,6 @@ function listexperiments(exppath)
     
     dirlist = searchdir(exppath,"") # all files in directory
     explist  = filter(x -> !occursin("README",x),dirlist) # remove README to get explist
-    #runpath = 
-    #diagpath = runpath.*"diags/"
 
     runpath = Dict(explist .=> exppath.*explist.*"/run/")
     diagpath = Dict(explist .=> exppath.*explist.*"/run/diags/")
@@ -61,5 +59,18 @@ function listexperiments(exppath)
     return runpath,diagpath
     
 end       
+
+function expnames()
+    # Here are some abbreviations/shortnames for some experiments
+    # This is hand-coded and needs manual change with new experiments.
+
+    shortnames = Dict("iter129_bulkformula" => "129bf")
+    push!(shortnames,"iter0_bulkformula" => "0bf")
+    push!(shortnames,"iter129_fluxforced" => "129ff")
+    push!(shortnames,"noinitadjust" => "noINIT")
+    push!(shortnames,"nosfcadjust" => "noSFC")
+    push!(shortnames,"nointerannual" => "noIA")
+    return shortnames
+end
 
 end
