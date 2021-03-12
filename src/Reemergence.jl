@@ -14,6 +14,14 @@ include("HannFilter.jl")
 include("MatrixFilter.jl")
 include("SeasonalCycle.jl")
 
+"""
+    function position_label(lon,lat)
+# Arguments
+- `lon`: longitude
+- `lat`: latitude
+# Output
+- `lbl`: LaTex string used for figure labels
+"""
 function position_label(lon,lat)
     # produce label for a title by rounding to nearest whole integer.
     if lat >= 0
@@ -32,7 +40,13 @@ function position_label(lon,lat)
     return lbl
 end
 
-# a useful one-line function
+"""
+    function searchdir(path,key)
+    a useful one-line function
+# Arguments
+- `path`: directory to search for file
+- `key`: expression to search for in path
+"""
 searchdir(path,key) = filter(x->occursin(key,x), readdir(path))
 
 function setupLLCgrid(path_grid)
@@ -42,8 +56,16 @@ function setupLLCgrid(path_grid)
     return γ
 end
 
+"""
+    function listexperiments(exppath)
+    get a dictionary of experiments and their locations
+# Arguments
+- `exppath`: directory of experiments
+# Output
+- `runpath`: dictionary with keys=experiments, values=run paths
+- `diagpath`: dictionary with keys=experiments, values=diagnostic paths
+"""
 function listexperiments(exppath)
-    
     dirlist = searchdir(exppath,"") # all files in directory
     explist  = filter(x -> !occursin("README",x),dirlist) # remove README to get explist
 
@@ -60,10 +82,14 @@ function listexperiments(exppath)
     
 end       
 
+"""
+    function expnames()
+    Abbreviations/shortnames for some experiments, useful for labels
+    Hand-coded and needs manual change with new experiments.
+# Output
+- `shortnames`: dictionary with keys=experiments, values=abbreviations
+"""
 function expnames()
-    # Here are some abbreviations/shortnames for some experiments
-    # This is hand-coded and needs manual change with new experiments.
-
     shortnames = Dict("iter129_bulkformula" => "129bf")
     push!(shortnames,"iter0_bulkformula" => "0bf")
     push!(shortnames,"iter129_fluxforced" => "129ff")
