@@ -29,65 +29,67 @@ end
 
 ##### Choose the depth level and variable of interest. #########
 zlev = 20
-cval = 1
 
-################ Linear scaling of divergence ##################
-xlbl = "month starting in Jan. 1992"
-depthlbl = string(round(Int,-z[zlev]))*"m"
-if cval == 1
-    str1 = raw"$\theta_{"*shortnames[expbase]*raw"}$"
-    str2 = raw"$\theta_{"*shortnames[expcompare]*raw"}$"
-    titlelbl = str1*raw"$-$"*str2
-    savefname = outpath*"dtheta_"*shortnames[expbase]*"_vs_"*shortnames[expcompare]*"_1992-2017_"*depthlbl*".eps"
-    ylbl = L"\theta [^{\circ}C]"
-elseif cval == 2
-    str1 = raw"$S_{"*shortnames[expbase]*raw"}$"
-    str2 = raw"$S_{"*shortnames[expcompare]*raw"}$"
-    titlelbl = str1*raw"$-$"*str2
-    savefname = outpath*"dsalt_"*shortnames[expbase]*"_vs_"*shortnames[expcompare]*"_1992-2017_"*depthlbl*".eps"
-    ylbl = L"salinity  [PSS-1978]"
+for cval = 1:2
+
+    ################ Linear scaling of divergence ##################
+    xlbl = "month starting in Jan. 1992"
+    depthlbl = string(round(Int,-z[zlev]))*"m"
+    if cval == 1
+        str1 = raw"$\theta_{"*shortnames[expbase]*raw"}$"
+        str2 = raw"$\theta_{"*shortnames[expcompare]*raw"}$"
+        titlelbl = str1*raw"$-$"*str2*","*depthlbl
+        savefname = outpath*"dtheta_"*shortnames[expbase]*"_vs_"*shortnames[expcompare]*"_1992-2017_"*depthlbl*".eps"
+        ylbl = L"\theta [^{\circ}C]"
+    elseif cval == 2
+        str1 = raw"$S_{"*shortnames[expbase]*raw"}$"
+        str2 = raw"$S_{"*shortnames[expcompare]*raw"}$"
+        titlelbl = str1*raw"$-$"*str2*","*depthlbl
+        savefname = outpath*"dsalt_"*shortnames[expbase]*"_vs_"*shortnames[expcompare]*"_1992-2017_"*depthlbl*".eps"
+        ylbl = L"salinity  [PSS-1978]"
+    end
+
+    figure(10)
+    clf()
+    title(titlelbl)
+    plot(σx[:,zlev,cval],label=L"std()")
+    plot(abs.(xbar[:,zlev,cval]),label=L"|mean()|")
+    plot(xmax[:,zlev,cval],label=L"max()")
+    xlabel(xlbl)
+    ylabel(ylbl)
+    grid(true)
+    legend()
+    savefig(savefname)
+
+    ###### Log scaling of divergence ##############################
+    xlbl = "month starting in Jan. 1992"
+    depthlbl = string(round(Int,-z[zlev]))*"m"
+    if cval == 1
+        str1 = raw"$\theta_{"*shortnames[expbase]*raw"}$"
+        str2 = raw"$\theta_{"*shortnames[expcompare]*raw"}$"
+        titlelbl = str1*raw"$-$"*str2*","*depthlbl
+        savefname = outpath*"logdtheta_"*shortnames[expbase]*"_vs_"*shortnames[expcompare]*"_1992-2017_"*depthlbl*".eps"
+        ylbl = L"\theta [^{\circ}C]"
+    elseif cval == 2
+        str1 = raw"$S_{"*shortnames[expbase]*raw"}$"
+        str2 = raw"$S_{"*shortnames[expcompare]*raw"}$"
+        titlelbl = str1*raw"$-$"*str2*","*depthlbl
+        savefname = outpath*"logdsalt_"*shortnames[expbase]*"_vs_"*shortnames[expcompare]*"_1992-2017_"*depthlbl*".eps"
+        ylbl = L"salinity  [PSS-1978]"
+    end
+
+    figure(11)
+    clf()
+    title(titlelbl)
+    semilogy(σx[:,zlev,cval],label=L"std()")
+    semilogy(abs.(xbar[:,zlev,cval]),label=L"|mean()|")
+    semilogy(xmax[:,zlev,cval],label=L"max()")
+    xlabel(xlbl)
+    ylabel(ylbl)
+    grid(true)
+    legend()
+    savefig(savefname)
 end
-
-figure(10)
-clf()
-title(titlelbl)
-plot(σx[:,zlev,cval],label=L"std()")
-plot(abs.(xbar[:,zlev,cval]),label=L"|mean()|")
-plot(xmax[:,zlev,cval],label=L"max()")
-xlabel(xlbl)
-ylabel(ylbl)
-grid(true)
-legend()
-savefig(savefname)
-
-###### Log scaling of divergence ##############################
-xlbl = "month starting in Jan. 1992"
-depthlbl = string(round(Int,-z[zlev]))*"m"
-if cval == 1
-    str1 = raw"$\theta_{"*shortnames[expbase]*raw"}$"
-    str2 = raw"$\theta_{"*shortnames[expcompare]*raw"}$"
-    titlelbl = str1*raw"$-$"*str2
-    savefname = outpath*"logdtheta_"*shortnames[expbase]*"_vs_"*shortnames[expcompare]*"_1992-2017_"*depthlbl*".eps"
-    ylbl = L"\theta [^{\circ}C]"
-elseif cval == 2
-    str1 = raw"$S_{"*shortnames[expbase]*raw"}$"
-    str2 = raw"$S_{"*shortnames[expcompare]*raw"}$"
-    titlelbl = str1*raw"$-$"*str2
-    savefname = outpath*"logdsalt_"*shortnames[expbase]*"_vs_"*shortnames[expcompare]*"_1992-2017_"*depthlbl*".eps"
-    ylbl = L"salinity  [PSS-1978]"
-end
-
-figure(11)
-clf()
-title(titlelbl)
-semilogy(σx[:,zlev,cval],label=L"std()")
-semilogy(abs.(xbar[:,zlev,cval]),label=L"|mean()|")
-semilogy(xmax[:,zlev,cval],label=L"max()")
-xlabel(xlbl)
-ylabel(ylbl)
-grid(true)
-legend()
-savefig(savefname)
 
 ##################################
 ## to do: work on these other types of plots.
