@@ -49,6 +49,14 @@ end
 """
 searchdir(path,key) = filter(x->occursin(key,x), readdir(path))
 
+"""
+    function setupLLCgrid(path_grid)
+    Load the ECCOv4r4 grid at location path_grid into a MeshArray variable
+# Arguments
+- `path_grid`: directory to search for grid files
+# Output
+- `γ::gcmgrid`: MITgcm grid
+"""
 function setupLLCgrid(path_grid)
     http="https://github.com/gaelforget/GRID_LLC90"
     !isdir(path_grid) ? run(`git clone $http $path_grid`) : nothing;

@@ -13,7 +13,9 @@ shortnames = expnames()
 # call 
 expbase = "iter129_bulkformula"
 # comparison experiment(s)
-expcompare = "iter129_fluxforced"
+#expcompare = "iter129_fluxforced"
+expcompare = "nosfcadjust"
+#expcompare = "noinitadjust"
 
 # recompute or read from file?
 readfromfile = true

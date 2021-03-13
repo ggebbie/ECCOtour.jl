@@ -31,7 +31,9 @@ expbase = "iter129_bulkformula"
 # comparison experiment(s)
 #expcompare = "iter129_fluxforced"
 #expcompare = "iter0_bulkformula"
-expcompare = "nointerannual"
+#expcompare = "nointerannual"
+#expcompare = "nosfcadjust"
+expcompare = "noinitadjust"
 #################################################################
 
 # Improve code here to compare to multiple experiments.
@@ -83,10 +85,10 @@ for fname in datafilelist
                 σx[tt,zz,cc] = sqrt(x²sum/(sum(xcount)-1))
                 
             else
-                xbar[tt,zz,cc] = missing
-                xmax[tt,zz,cc] = missing
-                xmin[tt,zz,cc] = missing
-                σx[tt,zz,cc] = missing
+                xbar[tt,zz,cc] = NaN
+                xmax[tt,zz,cc] = NaN
+                xmin[tt,zz,cc] = NaN
+                σx[tt,zz,cc] = NaN
             end
         end
     end
