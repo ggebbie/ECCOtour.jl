@@ -21,4 +21,6 @@ Type backspace to return to command mode.
 # Running a script (not interactively)
 
 `cd Reemergence.jl`\
-`julia --project=@. scripts/experiment_divergence.jl` 
+`julia --project=@. scripts/experiment_divergence.jl`
+
+# Check export command for list of available functions
