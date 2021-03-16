@@ -8,7 +8,7 @@ using MeshArrays, MITgcmTools, LaTeXStrings
 export hanncoeffs, hannsum, hannsum!, hannfilter
 export get_filtermatrix, matrixfilter, matrixspray, columnscale!
 export seasonal_matrices, position_label, searchdir, setupLLCgrid
-export listexperiments, expnames
+export listexperiments, expnames, time_label
 
 include("HannFilter.jl")
 include("MatrixFilter.jl")
@@ -105,6 +105,27 @@ function expnames()
     push!(shortnames,"nosfcadjust" => "noSFC")
     push!(shortnames,"nointerannual" => "noIA")
     return shortnames
+end
+
+"""
+    function time_label(index)
+    Time label useful in plots. For ECCOv4r4.
+# Input
+- `index::Integer`: index number for monthly average field, number of months since Jan. 1992
+# Output
+- `tlbl`: label with month name (abbrev. with 3 letters) and calendar year CE
+"""
+function time_label(index::Integer)
+    startyear = 1992 # could be an input argument
+    monlbl = "Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"
+
+    year = convert(Integer,floor(startyear + ( index./12)))
+    mon  = index%12 + 1
+
+    monthlbl = monlbl[mon]
+    yearlbl = string(year)
+    tlbl = monthlbl*" "*yearlbl
+    return tlbl
 end
 
 end

@@ -27,12 +27,13 @@ else
     include("experiment_divergence.jl")
 end
 
-# To improve, look at both min and max to get the most extreme value.
+# Look at both min and max to get the most extreme value.
+xextreme = max.(-xmin,xmax);
 
-##### Choose the depth level and variable of interest. #########
-zlev = 20
+# Choose the depth level and variable of interest.
+zlev = 20  # there are nz=50 levels for ECCOv4r4.
 
-for cval = 1:2
+for cval = 1:2 # variable 1 = theta, variable 2 = practical salinity
 
     ################ Linear scaling of divergence ##################
     xlbl = "month starting in Jan. 1992"
@@ -42,59 +43,65 @@ for cval = 1:2
         str2 = raw"$\theta_{"*shortnames[expcompare]*raw"}$"
         titlelbl = str1*raw"$-$"*str2*","*depthlbl
         savefname = outpath*"dtheta_"*shortnames[expbase]*"_vs_"*shortnames[expcompare]*"_1992-2017_"*depthlbl*".eps"
+        savetimefname = outpath*"dtheta_"*shortnames[expbase]*"_vs_"*shortnames[expcompare]*"_"*tlbl[1:3]*tlbl[5:8]*".eps"
+         savelogfname = outpath*"logdtheta_"*shortnames[expbase]*"_vs_"*shortnames[expcompare]*"_1992-2017_"*depthlbl*".eps"
         ylbl = L"\theta [^{\circ}C]"
     elseif cval == 2
         str1 = raw"$S_{"*shortnames[expbase]*raw"}$"
         str2 = raw"$S_{"*shortnames[expcompare]*raw"}$"
         titlelbl = str1*raw"$-$"*str2*","*depthlbl
         savefname = outpath*"dsalt_"*shortnames[expbase]*"_vs_"*shortnames[expcompare]*"_1992-2017_"*depthlbl*".eps"
+        savetimefname = outpath*"dsalt_"*shortnames[expbase]*"_vs_"*shortnames[expcompare]*"_"*tlbl[1:3]*tlbl[5:8]*".eps"
+        savelogfname = outpath*"logdsalt_"*shortnames[expbase]*"_vs_"*shortnames[expcompare]*"_1992-2017_"*depthlbl*".eps"
         ylbl = L"salinity  [PSS-1978]"
     end
+    zlbl  = "depth [m]"
 
-    figure(10)
+    figure(10+cval)
     clf()
     title(titlelbl)
     plot(σx[:,zlev,cval],label=L"std()")
     plot(abs.(xbar[:,zlev,cval]),label=L"|mean()|")
-    plot(xmax[:,zlev,cval],label=L"max()")
+    plot(xextreme[:,zlev,cval],label=L"max(||)")
     xlabel(xlbl)
     ylabel(ylbl)
     grid(true)
     legend()
     savefig(savefname)
 
-    ###### Log scaling of divergence ##############################
-    xlbl = "month starting in Jan. 1992"
-    depthlbl = string(round(Int,-z[zlev]))*"m"
-    if cval == 1
-        str1 = raw"$\theta_{"*shortnames[expbase]*raw"}$"
-        str2 = raw"$\theta_{"*shortnames[expcompare]*raw"}$"
-        titlelbl = str1*raw"$-$"*str2*","*depthlbl
-        savefname = outpath*"logdtheta_"*shortnames[expbase]*"_vs_"*shortnames[expcompare]*"_1992-2017_"*depthlbl*".eps"
-        ylbl = L"\theta [^{\circ}C]"
-    elseif cval == 2
-        str1 = raw"$S_{"*shortnames[expbase]*raw"}$"
-        str2 = raw"$S_{"*shortnames[expcompare]*raw"}$"
-        titlelbl = str1*raw"$-$"*str2*","*depthlbl
-        savefname = outpath*"logdsalt_"*shortnames[expbase]*"_vs_"*shortnames[expcompare]*"_1992-2017_"*depthlbl*".eps"
-        ylbl = L"salinity  [PSS-1978]"
-    end
-
-    figure(11)
+    figure(20+cval)
     clf()
     title(titlelbl)
     semilogy(σx[:,zlev,cval],label=L"std()")
     semilogy(abs.(xbar[:,zlev,cval]),label=L"|mean()|")
-    semilogy(xmax[:,zlev,cval],label=L"max()")
+    semilogy(xextreme[:,zlev,cval],label=L"max(||)")
     xlabel(xlbl)
     ylabel(ylbl)
     grid(true)
     legend()
-    savefig(savefname)
+    savefig(savelogfname)
+
+    ## make divergence at a snapshot as a function of depth
+    #  pick a time index
+    tlist = (1,nt)
+    for tt ∈ tlist
+        tlbl = time_label(tt-1) # subtract one, months since Jan 1992
+        figure(12+tt+cval)
+        clf()
+        semilogx(σx[tt,:,cval],z,label=L"std()")
+        semilogx(xbar[tt,:,cval],z,label=L"|mean()|")
+        semilogx(xextreme[tt,:,cval],z,label=L"max(||)")
+        title(str1*raw"$-$"*str2*", "*tlbl)
+        xlabel(ylbl)
+        ylabel(zlbl)
+        grid("true")
+        legend()
+        savefig(savetimefname)
+
+    end
 end
 
-##################################
-## to do: work on these other types of plots.
+# Ratio of divergence 
 # zlev = 20
 # #figure()
 # #plot(σ[:,20,1])
@@ -108,19 +115,6 @@ end
 # grid(true)
 # legend()
 # savefig("dtheta_129v0vff_1992-2017_299m_nomax_12feb2021.eps")
-
-# # make depth plot with std, median, etc.
-# figure()
-# clf()
-# semilogx(σ[:,1],Z,label=L"std(\theta_{129}-\theta_{0})")
-# semilogx(σ50[:,1],Z,label=L"median(|\theta_{129}-\theta_{0}|)")
-# semilogx(σmean[:,1],Z,label=L"mean(|\theta_{129}-\theta_{0}|)")
-# semilogx(σmax[:,1],Z,label=L"max(|\theta_{129}-\theta_{0}|)")
-# title("January 1992")
-# xlabel(L"\theta  [^{\circ}C]")
-# ylabel("depth [m]")
-# grid("true")
-# legend()
 
 
 # plot a timeseries of T vs T and S vs S would be interesting. 
