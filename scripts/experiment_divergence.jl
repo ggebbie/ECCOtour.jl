@@ -63,9 +63,8 @@ for fname in datafilelist
     @time x = γ.read(diagpath[expcompare]*fname,MeshArray(γ,Float32,nz*nc))
 
     x = x - xbase # turn into a difference 
-    
-    for zz = 1:nz
-        xbar[tt,zz],xmax[tt,zz],xmin[tt,zz],σx[tt,zz],absxbar[tt,zz] = faststats(x[:,zz])
+    for zc = 1:nz*nc
+        xbar[tt,zc],xmax[tt,zc],xmin[tt,zc],σx[tt,zc],absxbar[tt,zc] = faststats(x[:,zc])
     end
 end
 
