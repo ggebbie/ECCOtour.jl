@@ -49,9 +49,9 @@ nt = length(datafilelist)
 nc = 2 # do first two of three properties in state_3d_set1
 
 # pre-allocate
-σx = Array{Float32, 3}(undef, nt, nz, nc)
+σx = Array{Float32, 2}(undef, nt, nz*nc)
 # xmed = similar(σ); median was slow so I dropped it.
-xbar = similar(σx); xmax = similar(σx); xmin = similar(σx)
+xbar = similar(σx); xmax = similar(σx); xmin = similar(σx); absxbar = similar(xbar);
 
 tt = 0
 for fname in datafilelist
@@ -63,38 +63,13 @@ for fname in datafilelist
     @time x = γ.read(diagpath[expcompare]*fname,MeshArray(γ,Float32,nz*nc))
 
     x = x - xbase # turn into a difference 
-    ntiles = size(x,1)
     
-    # get a vector list of nonzero elements for each level.
     for zz = 1:nz
-        for cc = 1:nc
-            xtmp = x[:,(cc-1)*nz+zz]
-
-            xcount = [sum(count(!iszero,xtmp[i])) for i = 1:ntiles]
-            if sum(xcount) > 0
-
-                xmax[tt,zz,cc] = maximum([maximum(filter(!iszero,xtmp[i])) for i = 1:ntiles if xcount[i] > 0])
-                xmin[tt,zz,cc] = minimum([minimum(filter(!iszero,xtmp[i])) for i = 1:ntiles if xcount[i] > 0])
-
-                # compute mean the old fashioned way
-                xsum = sum([sum(xtmp[i]) for i = 1:ntiles if xcount[i] > 0]) # works b.c. 0 on land
-                xbar[tt,zz,cc] = xsum/sum(xcount)
-
-                # compute standard deviation
-                x²sum = sum([sum((filter(!iszero,xtmp[i]).-xbar[tt,zz,cc]).^2) for i=1:ntiles if xcount[i]>0])
-                σx[tt,zz,cc] = sqrt(x²sum/(sum(xcount)-1))
-                
-            else
-                xbar[tt,zz,cc] = NaN
-                xmax[tt,zz,cc] = NaN
-                xmin[tt,zz,cc] = NaN
-                σx[tt,zz,cc] = NaN
-            end
-        end
+        xbar[tt,zz],xmax[tt,zz],xmin[tt,zz],σx[tt,zz],absxbar[tt,zz] = faststats(x[:,zz])
     end
 end
 
-# save output as JLD2?
+# save output as JLD2
 if output2file
     outpath = "../outputs/"
     outfile = outpath*"divergence_"*shortnames[expbase]*"_vs_"*shortnames[expcompare]*".jld2"

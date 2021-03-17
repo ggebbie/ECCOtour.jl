@@ -8,7 +8,7 @@ using MeshArrays, MITgcmTools, LaTeXStrings
 export hanncoeffs, hannsum, hannsum!, hannfilter
 export get_filtermatrix, matrixfilter, matrixspray, columnscale!
 export seasonal_matrices, position_label, searchdir, setupLLCgrid
-export listexperiments, expnames, time_label
+export listexperiments, expnames, time_label, faststats
 
 include("HannFilter.jl")
 include("MatrixFilter.jl")
@@ -126,6 +126,49 @@ function time_label(index::Integer)
     yearlbl = string(year)
     tlbl = monthlbl*" "*yearlbl
     return tlbl
+end
+
+
+"""
+    function faststats(x)
+    Compute statistics of gcmgrid type 
+# Input
+- `x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}}`: input of gcmarray type
+# Output
+- `xmax::`: maximum value of 2D field
+- `xmin::`: minimum value of 2D field
+"""
+function faststats(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}})
+
+    nfaces = size(x,1)
+    #σx = Array{Float32, 1}(undef, nz)
+    #xbar = similar(σx); xmax = similar(σx); xmin = similar(σx)
+
+    #  vector list of nonzero elements
+    xcount = [sum(count(!iszero,x[i])) for i = 1:nfaces]
+    if sum(xcount) > 0
+
+        xmax = maximum([maximum(filter(!iszero,x[i])) for i = 1:nfaces if xcount[i] > 0])
+        xmin = minimum([minimum(filter(!iszero,x[i])) for i = 1:nfaces if xcount[i] > 0])
+
+        # compute mean the old fashioned way
+        xsum = sum([sum(x[i]) for i = 1:nfaces if xcount[i] > 0]) # works b.c. 0 on land
+        xbar = xsum/sum(xcount)
+
+        # compute standard deviation
+        x²sum = sum([sum((filter(!iszero,x[i]).-xbar).^2) for i=1:nfaces if xcount[i]>0])
+        σx = sqrt(x²sum/(sum(xcount)-1))
+
+        absxsum = sum([sum(abs.(x[i])) for i = 1:nfaces if xcount[i] > 0]) # works b.c. 0 on land
+        absxbar = absxsum/sum(xcount)
+
+    else
+        xbar = NaN
+        xmax = NaN
+        xmin = NaN
+        σx = NaN
+    end
+    return xbar, xmax, xmin, σx, absxbar
 end
 
 end
