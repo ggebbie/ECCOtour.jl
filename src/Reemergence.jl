@@ -8,7 +8,7 @@ using MeshArrays, MITgcmTools, LaTeXStrings
 export hanncoeffs, hannsum, hannsum!, hannfilter
 export get_filtermatrix, matrixfilter, matrixspray, columnscale!
 export seasonal_matrices, position_label, searchdir, setupLLCgrid
-export listexperiments, expnames, time_label, faststats
+export listexperiments, expnames, time_label, faststats, allstats, std, mean
 
 include("HannFilter.jl")
 include("MatrixFilter.jl")
@@ -130,36 +130,64 @@ end
 
 
 """
-    function faststats(x)
-    Compute statistics of gcmgrid type 
+    function allstats(x)
+    Compute fast statistics of gcmgrid type using function calls, same as faststats
 # Input
 - `x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}}`: input of gcmarray type
 # Output
-- `xmax::`: maximum value of 2D field
-- `xmin::`: minimum value of 2D field
+- `xbar::Float32`: mean value after discarding dryval
+- `xmax::Float32`: maximum value
+- `xmin::Float32`: minimum value
+- `σx::Float32`: standard deviation
+- `absxbar::Float32`: mean of absolute value
+"""
+function allstats(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}})
+
+    dryval = 0.f0 # land points are zeroes, use NaN32 for NaN's
+    
+    xmax = maximum(x,dryval)
+    xmin = minimum(x,dryval)
+    xbar = mean(x,dryval)
+
+    # why does it require an explicit call to MeshArrays?
+    absxbar = MeshArrays.mean(abs.(x),dryval)
+    σx   = std(x,xbar,dryval)
+    
+    return xbar, xmax, xmin, σx, absxbar
+end
+
+"""
+    function faststats(x)
+    Compute fast statistics of gcmgrid type using function calls, eliminate redundancy
+# Input
+- `x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}}`: input of gcmarray type
+# Output
+- `xbar::Float32`: mean value after discarding dryval
+- `xmax::Float32`: maximum value
+- `xmin::Float32`: minimum value
+- `σx::Float32`: standard deviation
+- `absxbar::Float32`: mean of absolute value
 """
 function faststats(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}})
 
-    nfaces = size(x,1)
-    #σx = Array{Float32, 1}(undef, nz)
-    #xbar = similar(σx); xmax = similar(σx); xmin = similar(σx)
+    dryval = 0.f0 # land points are zeroes, use NaN32 for NaN's
 
-    #  vector list of nonzero elements
-    xcount = [sum(count(!iszero,x[i])) for i = 1:nfaces]
-    if sum(xcount) > 0
-
-        xmax = maximum([maximum(filter(!iszero,x[i])) for i = 1:nfaces if xcount[i] > 0])
-        xmin = minimum([minimum(filter(!iszero,x[i])) for i = 1:nfaces if xcount[i] > 0])
+    isdry(z) = (z == dryval)
+    xcount = [sum(count(!isdry,x[i])) for i in eachindex(x)]
+    if sum(xcount)>0
+        xmax = maximum([maximum(filter(!iszero,x[i])) for i ∈ eachindex(x) if xcount[i] > 0])
+        xmin = minimum([minimum(filter(!iszero,x[i])) for i ∈ eachindex(x) if xcount[i] > 0])
 
         # compute mean the old fashioned way
-        xsum = sum([sum(x[i]) for i = 1:nfaces if xcount[i] > 0]) # works b.c. 0 on land
+        xsum = sum([sum(filter(!isdry,x[i])) for i ∈ eachindex(x) if xcount[i] > 0]) 
         xbar = xsum/sum(xcount)
 
         # compute standard deviation
-        x²sum = sum([sum((filter(!iszero,x[i]).-xbar).^2) for i=1:nfaces if xcount[i]>0])
+        x′ = x.-xbar
+        x²sum = sum([sum(filter(!isdry,x′[i]).^2) for i ∈ eachindex(x′) if xcount[i]>0])
         σx = sqrt(x²sum/(sum(xcount)-1))
 
-        absxsum = sum([sum(abs.(x[i])) for i = 1:nfaces if xcount[i] > 0]) # works b.c. 0 on land
+        absxsum = sum([sum(abs.(x[i])) for i ∈ eachindex(x) if xcount[i] > 0]) # works b.c. 0 on land
         absxbar = absxsum/sum(xcount)
 
     else
@@ -167,8 +195,30 @@ function faststats(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}})
         xmax = NaN
         xmin = NaN
         σx = NaN
+        absxbar = NaN
     end
     return xbar, xmax, xmin, σx, absxbar
+end
+
+"""
+    function std(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},xbar::Float32,dryval)
+    Compute standard deviation of gcmgrid type using function calls, eliminate redundancy
+    Eliminate all values = dryval
+    Avoid a name clash with StatsBase and MeshArrays
+"""
+function std(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},xbar::Float32,dryval)
+     MeshArrays.std(x,xbar,dryval)
+end
+
+# avoid another name clash.
+"""
+    function function mean(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},dryval::Float32)
+    Compute mean of gcmgrid type using function calls, eliminate redundancy
+    Eliminate all values = dryval
+    Avoid a name clash with StatsBase and MeshArrays
+"""
+function mean(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},dryval::Float32)
+     MeshArrays.mean(x,dryval)
 end
 
 end
