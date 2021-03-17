@@ -72,8 +72,8 @@ end
 # save output as JLD2
 if output2file
     outpath = "../outputs/"
-    outfile = outpath*"divergence_"*shortnames[expbase]*"_vs_"*shortnames[expcompare]*".jld2"
-    @save outfile xbar σx xmax xmin z 
+    outfile = outpath*"faststats_"*shortnames[expbase]*"_vs_"*shortnames[expcompare]*".jld2"
+    @save outfile absxbar xbar σx xmax xmin z 
 end
 
 # Work in progress

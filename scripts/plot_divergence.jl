@@ -43,7 +43,6 @@ for cval = 1:2 # variable 1 = theta, variable 2 = practical salinity
         str2 = raw"$\theta_{"*shortnames[expcompare]*raw"}$"
         titlelbl = str1*raw"$-$"*str2*","*depthlbl
         savefname = outpath*"dtheta_"*shortnames[expbase]*"_vs_"*shortnames[expcompare]*"_1992-2017_"*depthlbl*".eps"
-        savetimefname = outpath*"dtheta_"*shortnames[expbase]*"_vs_"*shortnames[expcompare]*"_"*tlbl[1:3]*tlbl[5:8]*".eps"
          savelogfname = outpath*"logdtheta_"*shortnames[expbase]*"_vs_"*shortnames[expcompare]*"_1992-2017_"*depthlbl*".eps"
         ylbl = L"\theta [^{\circ}C]"
     elseif cval == 2
@@ -51,7 +50,6 @@ for cval = 1:2 # variable 1 = theta, variable 2 = practical salinity
         str2 = raw"$S_{"*shortnames[expcompare]*raw"}$"
         titlelbl = str1*raw"$-$"*str2*","*depthlbl
         savefname = outpath*"dsalt_"*shortnames[expbase]*"_vs_"*shortnames[expcompare]*"_1992-2017_"*depthlbl*".eps"
-        savetimefname = outpath*"dsalt_"*shortnames[expbase]*"_vs_"*shortnames[expcompare]*"_"*tlbl[1:3]*tlbl[5:8]*".eps"
         savelogfname = outpath*"logdsalt_"*shortnames[expbase]*"_vs_"*shortnames[expcompare]*"_1992-2017_"*depthlbl*".eps"
         ylbl = L"salinity  [PSS-1978]"
     end
@@ -60,9 +58,10 @@ for cval = 1:2 # variable 1 = theta, variable 2 = practical salinity
     figure(10+cval)
     clf()
     title(titlelbl)
-    plot(σx[:,zlev,cval],label=L"std()")
-    plot(abs.(xbar[:,zlev,cval]),label=L"|mean()|")
-    plot(xextreme[:,zlev,cval],label=L"max(||)")
+    lev = zlev + (cval-1)*50
+    plot(σx[:,lev],label=L"std()")
+    plot(absxbar[:,lev],label=L"mean(||)")
+    plot(xextreme[:,lev],label=L"max(||)")
     xlabel(xlbl)
     ylabel(ylbl)
     grid(true)
@@ -72,9 +71,9 @@ for cval = 1:2 # variable 1 = theta, variable 2 = practical salinity
     figure(20+cval)
     clf()
     title(titlelbl)
-    semilogy(σx[:,zlev,cval],label=L"std()")
-    semilogy(abs.(xbar[:,zlev,cval]),label=L"|mean()|")
-    semilogy(xextreme[:,zlev,cval],label=L"max(||)")
+    semilogy(σx[:,lev],label=L"std()")
+    semilogy(absxbar[:,lev],label=L"mean(||)")
+    semilogy(xextreme[:,lev],label=L"max(||)")
     xlabel(xlbl)
     ylabel(ylbl)
     grid(true)
@@ -86,15 +85,24 @@ for cval = 1:2 # variable 1 = theta, variable 2 = practical salinity
     tlist = (1,nt)
     for tt ∈ tlist
         tlbl = time_label(tt-1) # subtract one, months since Jan 1992
+        if cval == 1
+            savetimefname = outpath*"dtheta_"*shortnames[expbase]*"_vs_"*shortnames[expcompare]*"_"*tlbl[1:3]*tlbl[5:8]*".eps"
+        elseif cval ==2
+            
+            savetimefname = outpath*"dsalt_"*shortnames[expbase]*"_vs_"*shortnames[expcompare]*"_"*tlbl[1:3]*tlbl[5:8]*".eps"
+        end
+        
+        levs = 1+(cval-1)*50:cval*50
+            
         figure(12+tt+cval)
         clf()
-        semilogx(σx[tt,:,cval],z,label=L"std()")
-        semilogx(xbar[tt,:,cval],z,label=L"|mean()|")
-        semilogx(xextreme[tt,:,cval],z,label=L"max(||)")
+        semilogx(σx[tt,levs],z,label=L"std()")
+        semilogx(absxbar[tt,levs],z,label=L"mean(||)")
+        semilogx(xextreme[tt,levs],z,label=L"max(||)")
         title(str1*raw"$-$"*str2*", "*tlbl)
         xlabel(ylbl)
         ylabel(zlbl)
-        grid("true")
+        grid(true)
         legend()
         savefig(savetimefname)
 
