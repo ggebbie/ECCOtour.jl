@@ -11,12 +11,8 @@ workdir = pwd()
 push!(LOAD_PATH, workdir)
 cd(workdir)
 
-pth="../inputs/GRID_LLC90/"
-
-http="https://github.com/gaelforget/GRID_LLC90"
-!isdir(pth) ? run(`git clone $http $pth`) : nothing;
-
-γ=GridSpec("LatLonCap",pth)
+path_grid="../inputs/GRID_LLC90/"
+γ = setupLLCgrid(path_grid)
 
 D=γ.read(γ.path*"Depth.data",MeshArray(γ,Float64))
 tmp1=write(D); tmp2=read(tmp1,D)
