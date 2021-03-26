@@ -305,9 +305,7 @@ uuid = "d6f4376e-aef5-505a-96c1-9c027394607a"
 
 [[MeshArrays]]
 deps = ["CatViews", "NearestNeighbors", "Pkg", "Printf", "SparseArrays", "Statistics", "Unitful"]
-git-tree-sha1 = "eb14b624c04279d53a9d62074f346588901335ad"
-repo-rev = "master"
-repo-url = "https://github.com/ggebbie/MeshArrays.jl"
+path = "../MeshArrays.jl"
 uuid = "cb8c808f-1acf-59a3-9d2b-6e38d009f683"
 version = "0.2.15"
 

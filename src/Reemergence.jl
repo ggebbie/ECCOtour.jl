@@ -9,6 +9,7 @@ export hanncoeffs, hannsum, hannsum!, hannfilter
 export get_filtermatrix, matrixfilter, matrixspray, columnscale!
 export seasonal_matrices, position_label, searchdir, setupLLCgrid
 export listexperiments, expnames, time_label, faststats, allstats, std, mean
+export inrectangle, isnino34, isnino3, isnino4, isnino12, readlatlon, readarea, patchmean
 
 include("HannFilter.jl")
 include("MatrixFilter.jl")
@@ -62,6 +63,103 @@ function setupLLCgrid(path_grid)
     !isdir(path_grid) ? run(`git clone $http $path_grid`) : nothing;
     γ=GridSpec("LatLonCap",path_grid)
     return γ
+end
+
+"""
+    function inrectangle(lonin,latin,lons,lats)
+    find all gridcells within Cartesian rectangle
+# Arguments
+- `lons`: tuple of longitude range
+- `lats`: tuple of latitude range
+# Output
+- `rectangle`: boolean of type gcmarray
+"""
+function inrectangle(latpt,lonpt,latrect,lonrect)
+
+    # load latitude and longitude on this grid.
+    # watch out for wraparound; didn't code a solution
+    inrectangle = minimum(lonrect) <= lonpt <= maximum(lonrect) &&
+        minimum(latrect) <= latpt <= maximum(latrect)
+
+end
+
+
+isnino34(lat,lon) = inrectangle(lat,lon,(-5,5),(-170,-90))
+isnino3(lat,lon) = inrectangle(lat,lon,(-5,5),(-150,-90))
+isnino4(lat,lon) = inrectangle(lat,lon,(-5,5),(-170,-120))
+isnino12(lat,lon) = inrectangle(lat,lon,(-10,0),(-90,-80))
+
+function readlatlon(γ)
+    ϕ=γ.read(γ.path*"YC.data",MeshArray(γ,Float64))
+    λ=γ.read(γ.path*"XC.data",MeshArray(γ,Float64))
+return ϕ,λ
+end
+
+function readarea(γ)
+    area=γ.read(γ.path*"RAC.data",MeshArray(γ,Float64))
+return area
+end
+
+# get weight for rectangle region.
+function nino34mean(x,area,ϕ,λ,isnino34,iswet)
+
+    # x = variable
+    # area = weighting
+    # isnino34 = true in nino34 region
+    # ϕ = lat, λ = lon
+
+    x = x*area
+    
+    #area = readarea(γ) # weight by area
+    #weight = similar(area)
+    #weight = fill(0.0,weight)
+    #ϕ,λ = readlatlon(γ)
+
+#    ncount = [count(map(isnino34,ϕ[i],λ[i])) for i in eachindex(ϕ)]
+    xsum = 0.0
+    asum = 0.0
+#    if sum(ncount) > 0 # if not, then no good points. 
+
+    for i in eachindex(x)
+        mask = isnino34.(ϕ[i],λ[i]) .* iswet.(x[i])
+        for j in eachindex(ϕ[i])
+            if mask[j] 
+                xsum += x[i][j]
+                asum += area[i][j]
+            end
+        end
+    end
+    xbar = xsum/asum
+    return xbar
+end
+
+# get weight for rectangle region.
+function patchmean(x,area,ϕ,λ,ispatch,iswet)
+
+    # x = variable
+    # area = weighting
+    # ϕ = lat, λ = lon
+    # ispatch = true in patch of interest
+    # iswet = function that is true if in ocean
+
+    x = x*area
+    xsum = 0.0
+    asum = 0.0
+    for i in eachindex(x)
+        mask = ispatch.(ϕ[i],λ[i]) .* iswet.(x[i])
+        for j in eachindex(ϕ[i])
+            if mask[j] 
+                xsum += x[i][j]
+                asum += area[i][j]
+            end
+        end
+    end
+    if asum > 0.0
+        xbar = xsum/asum
+    else
+        xbar = NaN32
+    end
+    return xbar
 end
 
 """
@@ -212,13 +310,40 @@ end
 
 # avoid another name clash.
 """
-    function function mean(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},dryval::Float32)
+    function mean(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},dryval::Float32)
     Compute mean of gcmgrid type using function calls, eliminate redundancy
     Eliminate all values = dryval
     Avoid a name clash with StatsBase and MeshArrays
 """
 function mean(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},dryval::Float32)
      MeshArrays.mean(x,dryval)
+end
+
+"""
+    function mean(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},dryval::Float32)
+    Compute area-weighted mean of gcmgrid type using function calls, eliminate redundancy
+    Area weighting = area
+    Eliminate all values = dryval
+    Avoid a name clash with StatsBase and MeshArrays
+"""
+function mean(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},area::MeshArrays.gcmarray{Float64,1,Array{Float64,2}},dryval::Float64)
+
+    MeshArrays.mean(x,area,dryval)
+end
+
+"""
+    function mean(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},dryval::Float32)
+    Compute area-weighted mean of gcmgrid type using filtered with function isgood
+    Area weighting = area
+    Eliminate all values = isgood(x) -> true
+    Avoid a name clash with StatsBase and MeshArrays
+"""
+function mean(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},area::MeshArrays.gcmarray{Float64,1,Array{Float64,2}},isgood)
+    MeshArrays.mean(x,area,isgood)
+end
+
+function tester(isgood,x)
+   println(isgood(x))
 end
 
 end
