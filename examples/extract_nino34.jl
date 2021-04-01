@@ -25,16 +25,8 @@ runpath,diagpath = listexperiments(exppath);
 shortnames = expnames()
 marks = expsymbols()
 nexp = length(shortnames) # number of experiments
-
-# find center of nino34 region. 145 W, equator
-#yv = 75; xv = 106, fv = 4
-#tmplat  = LAT[fv]; lat_point = tmplat[xv,yv]
-#tmplon  = LON[fv]; lon_point = tmplon[xv,yv]
-# could use extract_timeseries to read this.
-
+ 
 fileroot = "state_3d_set1"
-#sst34monthly = zeros(6,312)
-expno = 0
 dryval = 0.0
 iswet(x) = x != dryval # or was this defined in Reemergence.jl
 
@@ -82,6 +74,7 @@ axis((1992,2018,axorig[3],axorig[4]))
 outputpath = "../outputs/"
 savefig(outputpath*"nino34comparison_sameSSTscale.eps")
 
+## make second figure with different SST baseline
 ylbl  = "NINO3.4 relative to modeled SST "*L"[\degree C]"
 figure(101); clf();
 plot(thadisst,nino34hadisst,label="HADISST 1")
