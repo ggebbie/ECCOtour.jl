@@ -8,8 +8,11 @@ using MeshArrays, MITgcmTools, LaTeXStrings
 export hanncoeffs, hannsum, hannsum!, hannfilter
 export get_filtermatrix, matrixfilter, matrixspray, columnscale!
 export seasonal_matrices, position_label, searchdir, setupLLCgrid
-export listexperiments, expnames, time_label, faststats, allstats, std, mean
+export listexperiments, expnames, expsymbols, time_label
+export faststats, allstats, std, mean
 export inrectangle, isnino34, isnino3, isnino4, isnino12, readlatlon, readarea, patchmean
+export nino34mean, nino3mean, nino4mean, nino12mean, extract_sst34
+export remove_climatology, remove_seasonal
 
 include("HannFilter.jl")
 include("MatrixFilter.jl")
@@ -83,7 +86,6 @@ function inrectangle(latpt,lonpt,latrect,lonrect)
 
 end
 
-
 isnino34(lat,lon) = inrectangle(lat,lon,(-5,5),(-170,-90))
 isnino3(lat,lon) = inrectangle(lat,lon,(-5,5),(-150,-90))
 isnino4(lat,lon) = inrectangle(lat,lon,(-5,5),(-170,-120))
@@ -100,38 +102,6 @@ function readarea(γ)
 return area
 end
 
-# get weight for rectangle region.
-function nino34mean(x,area,ϕ,λ,isnino34,iswet)
-
-    # x = variable
-    # area = weighting
-    # isnino34 = true in nino34 region
-    # ϕ = lat, λ = lon
-
-    x = x*area
-    
-    #area = readarea(γ) # weight by area
-    #weight = similar(area)
-    #weight = fill(0.0,weight)
-    #ϕ,λ = readlatlon(γ)
-
-#    ncount = [count(map(isnino34,ϕ[i],λ[i])) for i in eachindex(ϕ)]
-    xsum = 0.0
-    asum = 0.0
-#    if sum(ncount) > 0 # if not, then no good points. 
-
-    for i in eachindex(x)
-        mask = isnino34.(ϕ[i],λ[i]) .* iswet.(x[i])
-        for j in eachindex(ϕ[i])
-            if mask[j] 
-                xsum += x[i][j]
-                asum += area[i][j]
-            end
-        end
-    end
-    xbar = xsum/asum
-    return xbar
-end
 
 # get weight for rectangle region.
 function patchmean(x,area,ϕ,λ,ispatch,iswet)
@@ -161,6 +131,11 @@ function patchmean(x,area,ϕ,λ,ispatch,iswet)
     end
     return xbar
 end
+
+nino34mean(x,area,ϕ,λ,iswet) = patchmean(x,area,ϕ,λ,isnino34,iswet)
+nino3mean(x,area,ϕ,λ,iswet) = patchmean(x,area,ϕ,λ,isnino3,iswet)
+nino4mean(x,area,ϕ,λ,iswet) = patchmean(x,area,ϕ,λ,isnino4,iswet)
+nino12mean(x,area,ϕ,λ,iswet) = patchmean(x,area,ϕ,λ,isnino12,iswet)
 
 """
     function listexperiments(exppath)
@@ -203,6 +178,23 @@ function expnames()
     push!(shortnames,"nosfcadjust" => "noSFC")
     push!(shortnames,"nointerannual" => "noIA")
     return shortnames
+end
+
+"""
+    function expsymbols()
+    List of symbols for some experiments, useful for distinguishing plots
+    Hand-coded and needs manual change with new experiments.
+# Output
+- `marks`: dictionary with keys=experiments, values=abbreviations
+"""
+function expsymbols()
+    marks = Dict("iter129_bulkformula" => "o")
+    push!(marks,"iter0_bulkformula" => "x")
+    push!(marks,"iter129_fluxforced" => "*")
+    push!(marks,"noinitadjust" => ".")
+    push!(marks,"nosfcadjust" => "+")
+    push!(marks,"nointerannual" => "s")
+    return marks
 end
 
 """
@@ -342,8 +334,80 @@ function mean(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},area::MeshArray
     MeshArrays.mean(x,area,isgood)
 end
 
-function tester(isgood,x)
-   println(isgood(x))
+"""
+    function extract_sst34
+    extract by reading multiple files
+"""
+function extract_sst34(expname,diagpath,fileroot,γ,area,ϕ,λ,iswet)
+
+    filelist = searchdir(diagpath[expname],fileroot) # first filter for state_3d_set1
+    datafilelist  = filter(x -> occursin("data",x),filelist) # second filter for "data"
+
+    nt = length(datafilelist)
+    tt = 0
+    sst34 = Float32[]
+    for fname in datafilelist
+        tt += 1
+        println("time index ",tt)
+
+        x = γ.read(diagpath[expname]*fname,MeshArray(γ,Float32,1))
+
+        # area-weighted filtered mean.
+        sst34 = push!(sst34,nino34mean(x,area,ϕ,λ,iswet))
+    end
+    return sst34
+end
+
+"""
+    function remove_climatology(x,xbar)
+    `x` = long monthly timeseries, starting in Jan
+    `xbar` = 12-month climatology, starting in Jan
+                                         
+    remove climatology
+"""
+function remove_climatology(x,xbar)
+    xprime = similar(x)
+    for nmon = 1:12
+        xprime[nmon:12:end] = x[nmon:12:end] .- xbar[nmon]
+    end
+    return xprime
+end
+
+"""
+    function remove_seasonal(x,Ecycle,Fcycle,γ) natively
+    `x` = long monthly timeseries, starting in Jan
+                                         
+    remove seasonal cycle of this timeseries
+"""
+function remove_seasonal(x,Ecycle,Fcycle)
+
+    # remove seasonal cycle from 14-day averaged timeseries
+    # solve for seasonal cycle parameters
+    βcycle = Fcycle*x
+    xseasonal = Ecycle*βcycle
+    
+
+    # remove it from total signal
+    xprime = x - xseasonal
+    return xprime
+end
+
+"""
+    function remove_seasonal(x,Ecycle,Fcycle,γ) natively
+    `x` = gcmarray of long monthly timeseries, starting in Jan
+                                         
+    remove seasonal cycle of this timeseries
+"""
+function remove_seasonal(x,Ecycle,Fcycle,γ)
+
+    # remove seasonal cycle from 14-day averaged timeseries
+    # solve for seasonal cycle parameters
+
+    # for gcmarray input:
+    βcycle = matmul(Fcycle,x,γ)
+    # reconstruct the full seasonal cycle.
+    xseasonal = matmul(Ecycle,βcycle,γ)
+    xprime = x - xseasonal
 end
 
 end
