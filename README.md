@@ -23,4 +23,10 @@ Type backspace to return to command mode.
 `cd Reemergence.jl`\
 `julia --project=@. scripts/experiment_divergence.jl`
 
-# Check export command for list of available functions
+# Functions
+Check `export` line in src/Reemergence.jl for list of available functions.
+
+# Directory structure
+- `examples`: code snippets useful for making new scripts and functions
+- `test`: testing routines, currently empty
+- `scripts`: production-ready scripts
