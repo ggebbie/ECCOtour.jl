@@ -33,20 +33,13 @@ iy = 400
 # filter out zeroes.
 θz = filter(!iszero,θ[ix,iy,:])
 Sz = filter(!iszero,S[ix,iy,:])
-nz = length(θprofile)
+nz = length(θz)
 pz = p[1:nz]
 p₀ = 1000
 
-# ρI is in-situ density    
-#(ρP,ρI,ρR) = SeaWaterDensity.(θz[1],Sz[1],pz[1],pz₀[1]) # didn't sort correctly
-ρtuple = SeaWaterDensity.(θz,Sz,pz,p₀)
-
-# must be a better way to untangle this
-σ₁ = fill(0.,nz) 
-for zz = 1:nz
-    tmp = ρtuple[zz]
-    σ₁[zz] = tmp[3] - 1000 # sigma 1 in third spot
-end
+# ρI is in-situ density, ρR is density referenced to p0.     
+(ρP,ρI,ρR) = SeaWaterDensity(θz,Sz,pz,p₀)
+σ₁ = ρR .- 1000
 
 # could add loops for the entire domain.
 
