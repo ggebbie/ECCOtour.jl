@@ -103,16 +103,20 @@ function readarea(γ)
 return area
 end
 
-
-# get weight for rectangle region.
+"""
+     function patchmean(x,area,ϕ,λ,ispatch,iswet)
+     get weight for rectangle region.
+# Arguments
+- `x`: variable of interest
+- `area`: weighting
+- `ϕ`: lat
+- `λ`: lon
+- `ispatch`: true in patch of interest
+- `iswet` = function that is true if in ocean
+# Output
+- `xbar`: weighted filtered average of x
+"""
 function patchmean(x,area,ϕ,λ,ispatch,iswet)
-
-    # x = variable
-    # area = weighting
-    # ϕ = lat, λ = lon
-    # ispatch = true in patch of interest
-    # iswet = function that is true if in ocean
-
     x = x*area
     xsum = 0.0
     asum = 0.0
