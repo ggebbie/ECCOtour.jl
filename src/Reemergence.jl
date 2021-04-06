@@ -12,7 +12,7 @@ export listexperiments, expnames, expsymbols, time_label
 export faststats, allstats, std, mean
 export inrectangle, isnino34, isnino3, isnino4, isnino12, readlatlon, readarea, patchmean
 export nino34mean, nino3mean, nino4mean, nino12mean, extract_sst34
-export remove_climatology, remove_seasonal
+export remove_climatology, remove_seasonal, sigma, sigmacolumn
 
 include("HannFilter.jl")
 include("MatrixFilter.jl")
@@ -407,7 +407,50 @@ function remove_seasonal(x,Ecycle,Fcycle,γ)
     βcycle = matmul(Fcycle,x,γ)
     # reconstruct the full seasonal cycle.
     xseasonal = matmul(Ecycle,βcycle,γ)
-    xprime = x - xseasonal
+    x′ = x - xseasonal
+    return x′
 end
 
+"""
+    function sigma(θ,S,pz,p₀)
+    sigma values from SeaWaterDensity for gcmarrays
+# Arguments
+- `θ::MeshArrays.gcmarray{Float32,2,Array{Float32,2}}`: potential temperature
+- `S::MeshArrays.gcmarray{Float32,2,Array{Float32,2}}`: practical salinity
+- `pz::Array{Float64,1}` : vertical profile of standard pressures
+- `p₀::Int64` : reference pressure for sigma value
+# Output
+- `σ::MeshArrays.gcmarray{Float32,2,Array{Float32,2}}`: potential density referenced to p₀ minus 1000 kg/m³
+"""
+function sigma(θ::MeshArrays.gcmarray{Float32,2,Array{Float32,2}},S::MeshArrays.gcmarray{Float32,2,Array{Float32,2}},pz::Array{Float64,1},p₀::Int64)
+
+    # loop over faces
+    nf,nz = size(θ)
+    σ₁ = similar(θ)
+    for ff = 1:nf
+        nx,ny = size(θ[ff,1])
+        for xx = 1:nx
+            for yy = 1:ny
+                θz = [θ[ff,zz][xx,yy] for zz = 1:nz]
+                Sz = [S[ff,zz][xx,yy] for zz = 1:nz]
+                σ1,σ2,σ3 = MITgcmTools.SeaWaterDensity(θz,Sz,pz,p₀)
+                [σ₁[ff,zz][xx,yy] = convert(Float32,σ3[zz]) .- 1000 for zz = 1:nz]
+            end
+        end
+    end
+    return σ₁
+end
+
+# """
+#     sigma values from SeaWaterDensity for gcmarrays
+# """
+# function sigmacolumn(θ::Array{Float32,1},S::Array{Float32,1},pz::Array{Float64,1},p₀::Int64)
+
+#     (ρP,ρI,ρR) = SeaWaterDensity(θ,S,pz,p₀)
+    
+#     σ = ρR .- 1000
+#     return σ
+# end
+
+    
 end
