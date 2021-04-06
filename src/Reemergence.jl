@@ -17,6 +17,7 @@ export remove_climatology, remove_seasonal, sigma, sigmacolumn
 include("HannFilter.jl")
 include("MatrixFilter.jl")
 include("SeasonalCycle.jl")
+include("interp_TSP_to_sigma1.jl")
 
 """
     function position_label(lon,lat)
