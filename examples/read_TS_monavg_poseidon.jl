@@ -6,7 +6,7 @@ using Reemergence, MeshArrays, MITgcmTools
 # other useful packages in Reemergence project
 # using Statistics, PyPlot, Distributions, FFTW, LinearAlgebra, StatsBase
 
-path = "/poseidon/ecco/ECCOv4r4/MITgcm/exps/iter129_bulkformula/run/diags/"
+path = "/poseidon/ECCOv4r4/MITgcm/exps/iter129_bulkformula/run/diags/"
 fileroot = "state_3d_set1" # contains θ, S, dρ/dz, see accompanying meta file
 
 # get a list of all files in directory.
