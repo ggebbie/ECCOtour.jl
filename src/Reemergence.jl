@@ -445,17 +445,5 @@ function sigma(θ::MeshArrays.gcmarray{Float32,2,Array{Float32,2}},S::MeshArrays
     end
     return σ₁
 end
-
-# """
-#     sigma values from SeaWaterDensity for gcmarrays
-# """
-# function sigmacolumn(θ::Array{Float32,1},S::Array{Float32,1},pz::Array{Float64,1},p₀::Int64)
-
-#     (ρP,ρI,ρR) = SeaWaterDensity(θ,S,pz,p₀)
-    
-#     σ = ρR .- 1000
-#     return σ
-# end
-
     
 end
