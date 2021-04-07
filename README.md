@@ -18,6 +18,8 @@ from the Julia REPL\
 To verify you are in the project environment, `]` should return `(Reemergence) pkg>`\
 Type backspace to return to command mode.
 
+Using an editor like Atom/Juno of Visual Studio Code, activate the environment on one of the frame panels. The default environment is @v1.x. 
+
 # Running a script (not interactively)
 
 `cd Reemergence.jl`\

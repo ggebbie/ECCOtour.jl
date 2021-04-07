@@ -3,7 +3,7 @@ module Reemergence
 # add them with text below, or create a new file in "src" and include it.
 
 using Statistics, PyPlot, Distributions, FFTW, LinearAlgebra, StatsBase
-using MeshArrays, MITgcmTools, LaTeXStrings
+using MeshArrays, MITgcmTools, LaTeXStrings, Dierckx
 
 export hanncoeffs, hannsum, hannsum!, hannfilter
 export get_filtermatrix, matrixfilter, matrixspray, columnscale!
@@ -12,7 +12,7 @@ export listexperiments, expnames, expsymbols, time_label
 export faststats, allstats, std, mean
 export inrectangle, isnino34, isnino3, isnino4, isnino12, readlatlon, readarea, patchmean
 export nino34mean, nino3mean, nino4mean, nino12mean, extract_sst34
-export remove_climatology, remove_seasonal, sigma, sigmacolumn
+export remove_climatology, remove_seasonal, sigma, TSP2sigma1, all2sigma1
 
 include("HannFilter.jl")
 include("MatrixFilter.jl")
@@ -103,16 +103,20 @@ function readarea(γ)
 return area
 end
 
-
-# get weight for rectangle region.
+"""
+     function patchmean(x,area,ϕ,λ,ispatch,iswet)
+     get weight for rectangle region.
+# Arguments
+- `x`: variable of interest
+- `area`: weighting
+- `ϕ`: lat
+- `λ`: lon
+- `ispatch`: true in patch of interest
+- `iswet` = function that is true if in ocean
+# Output
+- `xbar`: weighted filtered average of x
+"""
 function patchmean(x,area,ϕ,λ,ispatch,iswet)
-
-    # x = variable
-    # area = weighting
-    # ϕ = lat, λ = lon
-    # ispatch = true in patch of interest
-    # iswet = function that is true if in ocean
-
     x = x*area
     xsum = 0.0
     asum = 0.0
@@ -442,16 +446,251 @@ function sigma(θ::MeshArrays.gcmarray{Float32,2,Array{Float32,2}},S::MeshArrays
     return σ₁
 end
 
-# """
-#     sigma values from SeaWaterDensity for gcmarrays
-# """
-# function sigmacolumn(θ::Array{Float32,1},S::Array{Float32,1},pz::Array{Float64,1},p₀::Int64)
+"""
+    function TSP2sigma1(θ,S,p,sig1grid,spline_order)
+    sigma values from SeaWaterDensity for gcmarrays
+# Arguments
+- `θ::MeshArrays.gcmarray{Float32,2,Array{Float32,2}}`: potential temperature
+- `S::MeshArrays.gcmarray{Float32,2,Array{Float32,2}}`: practical salinity
+- `p::Array{Float64,1}` : vertical profile of standard pressures
+- `sig1grid`: σ₁ surface values
+- `γ`: grid description needed for preallocation
+- `splorder`: 1-5, order of spline
+# Output
+- `θσ`: gcmarray of potential temperature on sigma-1 surfaces
+- `Sσ`: gcmarray of practical salinity on sigma-1 surfaces
+- `pσ`: gcmarray of pressure on sigma-1 surfaces
+"""
+function TSP2sigma1(θ::MeshArrays.gcmarray{Float32,2,Array{Float32,2}},S::MeshArrays.gcmarray{Float32,2,Array{Float32,2}},p::Array{Float64,1},sig1grid,γ::gcmgrid,splorder)
+    # loop over faces
+    nf,nz = size(θ)
+    nσ = length(sig1grid)
 
-#     (ρP,ρI,ρR) = SeaWaterDensity(θ,S,pz,p₀)
+    # pre-allocate θσ,Sσ,pσ
+    #σ₁ = similar(θ)
+    θσ = MeshArray(γ,Float32,nσ); fill!(θσ,NaN32) 
+    Sσ = MeshArray(γ,Float32,nσ); fill!(Sσ,NaN32) 
+    pσ = MeshArray(γ,Float32,nσ); fill!(pσ,NaN32) 
     
-#     σ = ρR .- 1000
-#     return σ
+    for ff = 1:nf
+        nx,ny = size(θ[ff,1])
+        for xx = 1:nx
+            for yy = 1:ny
+                θz = [θ[ff,zz][xx,yy] for zz = 1:nz]
+                Sz = [S[ff,zz][xx,yy] for zz = 1:nz]
+
+                # also need to filter dry values and to change zz
+                # Consider using `isdry` function and dryval in future.
+                filter!(!iszero,θz)
+                filter!(!iszero,Sz)
+                if length(θz) != length(Sz)
+                    error("T,S zeroes inconsistent")
+                end
+                nw = length(θz) # number of wet points in column
+                # incurs error if splorder > number of points in column
+                if nw > splorder #need at least n+1 points to do order-n interpolation
+                    pz = p[1:nw]
+                    if length(θz) < 3
+                        println("Warming")
+                        println(θz)
+                        println(splorder)
+                        println(nw)
+                    end
+                    
+                    σ₁=sigma1column(θz,Sz,pz)
+
+                    # proceed if no inversions
+                    if sum(diff(σ₁).<0)==0
+                    # eliminate any extrapolation
+                        sgood = findall(minimum(σ₁).<=sig1grid.<=maximum(σ₁))
+                        ngood = length(sgood)
+
+                        if ngood > 0 # don't make the call if it doesn't span
+                            # enough of sigma-1 space
+                            θonσ=var2sigma1column(σ₁,θz,sig1grid[sgood],splorder)
+                            [θσ[ff,sgood[ss]][xx,yy] = convert(Float32,θonσ[ss]) for ss = 1:ngood]
+                            Sonσ=var2sigma1column(σ₁,Sz,sig1grid[sgood],splorder)
+                            [Sσ[ff,sgood[ss]][xx,yy] = convert(Float32,Sonσ[ss]) for ss = 1:ngood]
+                            ponσ=var2sigma1column(σ₁,pz,sig1grid[sgood],splorder)
+                            [pσ[ff,sgood[ss]][xx,yy] = convert(Float32,ponσ[ss]) for ss = 1:ngood]
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return θσ,Sσ,pσ
+end
+
+"""
+    function all2sigma1(θ,S,p,u,v,w,sig1grid,γ,spline_order)
+    sigma values from SeaWaterDensity for gcmarrays
+# Arguments
+- `θ::MeshArrays.gcmarray{Float32,2,Array{Float32,2}}`: potential temperature
+- `S::MeshArrays.gcmarray{Float32,2,Array{Float32,2}}`: practical salinity
+- `p::Array{Float64,1}` : vertical profile of standard pressures
+- `u::Array{Float64,1}` : vertical profile of zonal velocity
+- `v::Array{Float64,1}` : vertical profile of meridional velocity
+- `w::Array{Float64,1}` : vertical profile of vertical velocity
+- `sig1grid`: σ₁ surface values
+- `γ`: grid description needed for preallocation
+- `splorder`: 1-5, order of spline
+# Output
+- `θσ`: gcmarray of potential temperature on sigma-1 surfaces
+- `Sσ`: gcmarray of practical salinity on sigma-1 surfaces
+- `pσ`: gcmarray of pressure on sigma-1 surfaces
+- `uσ`: gcmarray of zonal velocity on sigma-1 surfaces
+- `vσ`: gcmarray of meridional velocity on sigma-1 surfaces
+- `wσ`: gcmarray of verticl velocity on sigma-1 surfaces
+"""
+function all2sigma1(θ::MeshArrays.gcmarray{Float32,2,Array{Float32,2}},S::MeshArrays.gcmarray{Float32,2,Array{Float32,2}},p::Array{Float64,1},u::MeshArrays.gcmarray{Float32,2,Array{Float32,2}},v::MeshArrays.gcmarray{Float32,2,Array{Float32,2}},w::MeshArrays.gcmarray{Float32,2,Array{Float32,2}},sig1grid,γ::gcmgrid,splorder)
+    # loop over faces
+    nf,nz = size(θ)
+    nσ = length(sig1grid)
+
+    # pre-allocate θσ,Sσ,pσ
+    #σ₁ = similar(θ)
+    θσ = MeshArray(γ,Float32,nσ); fill!(θσ,NaN32) 
+    Sσ = MeshArray(γ,Float32,nσ); fill!(Sσ,NaN32) 
+    pσ = MeshArray(γ,Float32,nσ); fill!(pσ,NaN32) 
+    uσ = MeshArray(γ,Float32,nσ); fill!(uσ,NaN32) 
+    vσ = MeshArray(γ,Float32,nσ); fill!(vσ,NaN32) 
+    wσ = MeshArray(γ,Float32,nσ); fill!(wσ,NaN32) 
+    
+    for ff = 1:nf
+        nx,ny = size(θ[ff,1])
+        for xx = 1:nx
+            for yy = 1:ny
+                θz = [θ[ff,zz][xx,yy] for zz = 1:nz]
+                Sz = [S[ff,zz][xx,yy] for zz = 1:nz]
+                uz = [u[ff,zz][xx,yy] for zz = 1:nz]
+                vz = [v[ff,zz][xx,yy] for zz = 1:nz]
+                wz = [w[ff,zz][xx,yy] for zz = 1:nz]
+
+                # also need to filter dry values and to change zz
+                # Consider using `isdry` function and dryval in future.
+                filter!(!iszero,θz)
+                filter!(!iszero,Sz)
+                if length(θz) != length(Sz)
+                    error("T,S zeroes inconsistent")
+                end
+                nw = length(θz) # number of wet points in column
+                # incurs error if splorder > number of points in column
+                if nw > splorder #need at least n+1 points to do order-n interpolation
+                    pz = p[1:nw]
+                    σ₁=sigma1column(θz,Sz,pz)
+
+                    # proceed if no inversions
+                    if sum(diff(σ₁).<0)==0
+                        # get velocities
+                        uz = uz[1:nw]
+                        vz = vz[1:nw]
+                        wz = wz[1:nw]
+
+                        # eliminate any extrapolation
+                        sgood = findall(minimum(σ₁).<=sig1grid.<=maximum(σ₁))
+                        ngood = length(sgood)
+
+                        if ngood > 0 # don't make the call if it doesn't span
+                            # enough of sigma-1 space
+                            θonσ=var2sigma1column(σ₁,θz,sig1grid[sgood],splorder)
+                            [θσ[ff,sgood[ss]][xx,yy] = convert(Float32,θonσ[ss]) for ss = 1:ngood]
+                            Sonσ=var2sigma1column(σ₁,Sz,sig1grid[sgood],splorder)
+                            [Sσ[ff,sgood[ss]][xx,yy] = convert(Float32,Sonσ[ss]) for ss = 1:ngood]
+                            ponσ=var2sigma1column(σ₁,pz,sig1grid[sgood],splorder)
+                            [pσ[ff,sgood[ss]][xx,yy] = convert(Float32,ponσ[ss]) for ss = 1:ngood]
+                            uonσ=var2sigma1column(σ₁,uz,sig1grid[sgood],splorder)
+                            [uσ[ff,sgood[ss]][xx,yy] = convert(Float32,uonσ[ss]) for ss = 1:ngood]
+                            vonσ=var2sigma1column(σ₁,vz,sig1grid[sgood],splorder)
+                            [vσ[ff,sgood[ss]][xx,yy] = convert(Float32,vonσ[ss]) for ss = 1:ngood]
+                            wonσ=var2sigma1column(σ₁,wz,sig1grid[sgood],splorder)
+                            [wσ[ff,sgood[ss]][xx,yy] = convert(Float32,wonσ[ss]) for ss = 1:ngood]
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return θσ,Sσ,pσ,uσ,vσ,wσ
+end
+
+"""
+    function sigma1column(θ,S,p)
+    σ₁ for a water column
+# Arguments
+- `θz::Array{Float,1}}`: potential temperature
+- `Sz::Array{Float,1}}`: practical salinity
+- `pz::Array{Float,1}`: vertical profile of standard pressures
+# Output
+- `σ₁`:  sigma-1 for wet points in column
+"""
+function sigma1column(θz,Sz,pz)
+    # p0 hard coded to 1000 dbar for sigma1
+    nz = length(θz)
+    σ₁ = similar(θz)
+    # hard coded for sigma1
+    σa,σb,σc = MITgcmTools.SeaWaterDensity(θz,Sz,pz,1000f0)
+    [σ₁[zz] = convert(Float32,σc[zz]) .- 1000 for zz = 1:nz]
+    return σ₁
+end
+
+"""
+    function var2sigma1column(σ₁,θ,sig1grid,splorder)
+    map θ,S, p onto σ₁ surfaces for a water column
+# Arguments
+- `σ₁`::Array{Float,1}}`: sigma-1
+- `θ::Array{Float,1}}`: variable of interest
+- `sig1`: σ₁ surface values
+- `splorder`: 1-5, order of spline
+# Output
+- `θonσ`: variable on sigma-1 surfaces
+"""
+function var2sigma1column(σ₁,θz,sig1,splorder)
+    θspl = Spline1D(σ₁,θz;k=splorder)
+    #θspl = Spline1D(σ₁,θz)
+    θonσ = θspl(sig1)
+    return θonσ
+end
+
+# """
+#     function interp_TSP_to_sigma1(sig1grid,ix,iy,filename,spline_order)
+# # Arguments
+# - `sig1grid`: sigma1 grid to interpolate to
+# - `ix`: longitude index
+# - 'iy': latitude index
+# - 'it': month index
+# - 'spline_order': 1-5, order of spline interpolation
+# # Output
+# - 'θonσ': potential temperature on sigma1 grid (vector length of sigma1 grid with NaNs outside of data)
+# - 'Sonσ': salinity on sigma1 grid
+# - 'ponσ': pressure on sigma1 grid
+# """
+# function TSP2sigma1(sig1grid,ix,iy,filename,spline_order)
+
+#     p₀ = 1000 # reference pressure = 1000 dbar
+
+#     # ECCOv4r4 uses approximation for pressure without any horizontal deviations.
+#     # Can precompute pressure for each depth level.
+#     ρ₀ = 1029 # from "data" text file in run directory
+#     g  = 9.81 # from "data"
+
+#     # depths of MITgcm levels
+#     pathLLC = "../inputs/GRID_LLC90/" # need to input grid earlier: see example
+#     fileZ = "RC" # "R" = radius, "C"= center of grid cell
+#     Z = read_mdsio(pathLLC,fileZ)
+#     Z = vec(Z)
+
+#     # standard pressures via hydrostatic balance
+#     Pa2dbar = 1/10000
+#     p = -ρ₀ .*g .* Pa2dbar .* Z # 10000 to change Pa to dbar
+
+#     # filter out zeroes.
+#     θz = filter(!iszero,θ[ix,iy,:])
+#     Sz = filter(!iszero,S[ix,iy,:])
+#     nz = length(θz)
+#     pz = p[1:nz]
+#     p₀ = 1000
+
 # end
 
-    
 end
