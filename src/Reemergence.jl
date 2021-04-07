@@ -508,11 +508,11 @@ function TSP2sigma1(θ::MeshArrays.gcmarray{Float32,2,Array{Float32,2}},S::MeshA
                         if ngood > 0 # don't make the call if it doesn't span
                             # enough of sigma-1 space
                             θonσ=var2sigma1column(σ₁,θz,sig1grid[sgood],splorder)
-                            [θσ[ff,sgood[ss]][xx,yy] = convert(Float32,θonσ[ss]) .- 1000 for ss = 1:ngood]
+                            [θσ[ff,sgood[ss]][xx,yy] = convert(Float32,θonσ[ss]) for ss = 1:ngood]
                             Sonσ=var2sigma1column(σ₁,Sz,sig1grid[sgood],splorder)
-                            [Sσ[ff,sgood[ss]][xx,yy] = convert(Float32,Sonσ[ss]) .- 1000 for ss = 1:ngood]
+                            [Sσ[ff,sgood[ss]][xx,yy] = convert(Float32,Sonσ[ss]) for ss = 1:ngood]
                             ponσ=var2sigma1column(σ₁,pz,sig1grid[sgood],splorder)
-                            [pσ[ff,sgood[ss]][xx,yy] = convert(Float32,ponσ[ss]) .- 1000 for ss = 1:ngood]
+                            [pσ[ff,sgood[ss]][xx,yy] = convert(Float32,ponσ[ss]) for ss = 1:ngood]
                         end
                     end
                 end
@@ -594,17 +594,17 @@ function all2sigma1(θ::MeshArrays.gcmarray{Float32,2,Array{Float32,2}},S::MeshA
                         if ngood > 0 # don't make the call if it doesn't span
                             # enough of sigma-1 space
                             θonσ=var2sigma1column(σ₁,θz,sig1grid[sgood],splorder)
-                            [θσ[ff,sgood[ss]][xx,yy] = convert(Float32,θonσ[ss]) .- 1000 for ss = 1:ngood]
+                            [θσ[ff,sgood[ss]][xx,yy] = convert(Float32,θonσ[ss]) for ss = 1:ngood]
                             Sonσ=var2sigma1column(σ₁,Sz,sig1grid[sgood],splorder)
-                            [Sσ[ff,sgood[ss]][xx,yy] = convert(Float32,Sonσ[ss]) .- 1000 for ss = 1:ngood]
+                            [Sσ[ff,sgood[ss]][xx,yy] = convert(Float32,Sonσ[ss]) for ss = 1:ngood]
                             ponσ=var2sigma1column(σ₁,pz,sig1grid[sgood],splorder)
-                            [pσ[ff,sgood[ss]][xx,yy] = convert(Float32,ponσ[ss]) .- 1000 for ss = 1:ngood]
+                            [pσ[ff,sgood[ss]][xx,yy] = convert(Float32,ponσ[ss]) for ss = 1:ngood]
                             uonσ=var2sigma1column(σ₁,uz,sig1grid[sgood],splorder)
-                            [uσ[ff,sgood[ss]][xx,yy] = convert(Float32,uonσ[ss]) .- 1000 for ss = 1:ngood]
+                            [uσ[ff,sgood[ss]][xx,yy] = convert(Float32,uonσ[ss]) for ss = 1:ngood]
                             vonσ=var2sigma1column(σ₁,vz,sig1grid[sgood],splorder)
-                            [vσ[ff,sgood[ss]][xx,yy] = convert(Float32,vonσ[ss]) .- 1000 for ss = 1:ngood]
+                            [vσ[ff,sgood[ss]][xx,yy] = convert(Float32,vonσ[ss]) for ss = 1:ngood]
                             wonσ=var2sigma1column(σ₁,wz,sig1grid[sgood],splorder)
-                            [wσ[ff,sgood[ss]][xx,yy] = convert(Float32,wonσ[ss]) .- 1000 for ss = 1:ngood]
+                            [wσ[ff,sgood[ss]][xx,yy] = convert(Float32,wonσ[ss]) for ss = 1:ngood]
                         end
                     end
                 end

@@ -22,6 +22,9 @@ nz = length(z)
 exppath = "/poseidon/ECCOv4r4/MITgcm/exps/"
 runpath,diagpath = listexperiments(exppath);
 
+# print output here
+path_out = "/home/gebbie/julia/outputs/"
+
 # abbreviations for each experiment for labels, etc.
 shortnames = expnames()
 
@@ -66,6 +69,11 @@ for exp in exps
     # Look at /poseidon ... exps/run/data.diagnostics for this info.
     filelist = searchdir(diagpath[exp],TSroot) # first filter for state_3d_set1
     datafilelist  = filter(x -> occursin("data",x),filelist) # second filter for "data"
+
+    # make an output directory for each experiment
+    pathoutexp = path_out*exp
+    !isdir(pathoutexp) ? mkdir(pathoutexp) : nothing;
+    
     nt = length(datafilelist)
     
     # Improve code here to read meta file, make variable selection transparent.
@@ -89,23 +97,38 @@ for exp in exps
         # get velocity:
         @time UVW = γ.read(diagpath[exp]*UVWname,MeshArray(γ,Float32,nz*3))
 
+        # Not needed in this program
         # sigma works column-by-column
         # consider doing something similar for vertical interpolation.
         #@time σ₁=sigma(TS[:,1:nz],TS[:,nz+1:2*nz],pstdz,p₀)
 
         # put into variable names
         # solve for sigma1 on depth levels.
-        @time θσ,Sσ,pσ,uσ,vσ,wσ=all2sigma1(TS[:,1:nz],TS[:,nz+1:2*nz],pstdz,UVW[:,1:nz],UVW[:,nz+1:2*nz],UVW[:,2*nz+1,3*nz],sig1grid,γ,splorder)
+        @time θσ,Sσ,pσ,uσ,vσ,wσ=all2sigma1(TS[:,1:nz],TS[:,nz+1:2*nz],pstdz,UVW[:,1:nz],UVW[:,nz+1:2*nz],UVW[:,2*nz+1:3*nz],sig1grid,γ,splorder)
 
+        Toutname = pathoutexp*"/theta_on_sigma1"*TSname[14:end]
         # save to file before analysis is overwritten the next time step.
+        γ.write(Toutname,θσ)
 
+        Soutname = pathoutexp*"/S_on_sigma1"*TSname[14:end]
+        # save to file before analysis is overwritten the next time step.
+        γ.write(Soutname,Sσ)
+
+        Poutname = pathoutexp*"/p_on_sigma1"*TSname[14:end]
+        # save to file before analysis is overwritten the next time step.
+        γ.write(Poutname,pσ)
+
+        Uoutname = pathoutexp*"/u_on_sigma1"*TSname[14:end]
+        # save to file before analysis is overwritten the next time step.
+        γ.write(Uoutname,uσ)
+
+        Voutname = pathoutexp*"/v_on_sigma1"*TSname[14:end]
+        # save to file before analysis is overwritten the next time step.
+        γ.write(Voutname,vσ)
+
+        Woutname = pathoutexp*"/w_on_sigma1"*TSname[14:end]
+        # save to file before analysis is overwritten the next time step.
+        γ.write(Woutname,wσ)
+        
     end
 end
-
-# save output as JLD2
-if output2file
-    outpath = "../outputs/"
-    outfile = outpath*"faststats_"*shortnames[expbase]*"_vs_"*shortnames[expcompare]*".jld2"
-    @save outfile absxbar xbar σx xmax xmin z 
-end
-
