@@ -3,7 +3,7 @@
 # ggebbie, 1-Apr-2021
 
 using Revise 
-using MITgcmTools, MeshArrays, Statistics, Reemergence, JLD2
+using MITgcmTools, MeshArrays, Statistics, Reemergence, JLD2, Dierckx
 
 # save output to file?
 output2file = true
@@ -36,15 +36,16 @@ exps = ("iter129_bulkformula","nointerannual")
 nexps = length(exps) # number of experiments
 
 ## DEFINE THE LIST OF SIGMA1 VALUES.
-sigma1 = 25:0.1:28.4 # sample values.
+sig1grida = 24:0.05:31
+sig1gridb = 31.02:0.02:33
+sig1grid = vcat(sig1grida,sig1gridb)
+sig1grid = sig1grid[1:3:end]
 
 tecco= 1992+1/24:1/12:2018 # ecco years
 
 TSroot = "state_3d_set1" # 1: θ, 2: S
 RProot = "state_3d_set2" # 1:rhoanoma, 2 phihyd
 UVWroot = "trsp_3d_set1" # 1: uvelmass, 2: vvelmass, 3:wvelmass
-
-p₀ = 1000 # reference pressure = 1000 dbar
 
 # ECCOv4r4 uses approximation for pressure without any horizontal deviations.
 # Can precompute pressure for each depth level.
@@ -57,6 +58,7 @@ Pa2dbar = 1/10000
 pstdz = -ρ₀ .*g .* Pa2dbar .* z # 10000 to change Pa to dbar
 #p₀ = 1000f0 # dbar
 p₀ = 1000 # dbar
+splorder = 3 # spline order
 
 # cycle through all chosen experiments
 for exp in exps
@@ -74,9 +76,9 @@ for exp in exps
     UVW = Array{Float32, 2}(undef, nt, nz*3)
     #RP = Array{Float32, 2}(undef, nt, nz*2)
     
-    tt = 0
+    global tt = 0
     for TSname in datafilelist
-        global tt += 1
+        tt += 1
         println("time index ",tecco[tt])
 
         # get θ, S
@@ -87,17 +89,13 @@ for exp in exps
         # get velocity:
         @time UVW = γ.read(diagpath[exp]*UVWname,MeshArray(γ,Float32,nz*3))
 
-        # get density, doesn't do any good because it is sigma0
-        #Rname = RProot*TSname[nstart:end]
-        #@time R = γ.read(diagpath[exp]*RPname,MeshArray(γ,Float32,nz*1))
-
-        # sigma works in column space.
+        # sigma works column-by-column
         # consider doing something similar for vertical interpolation.
-        @time σ₁ = sigma(TS[:,1:nz],TS[:,nz+1:2*nz],pstdz,p₀)
+        #@time σ₁=sigma(TS[:,1:nz],TS[:,nz+1:2*nz],pstdz,p₀)
 
         # put into variable names
         # solve for sigma1 on depth levels.
-        #map_allvars(sigma1,pstdz,TS[:,1:50],TS[:,51:100],UVW[:,1:50],UVW[:,51:100],UVW[101:150])
+        @time θσ,Sσ,pσ,uσ,vσ,wσ=all2sigma1(TS[:,1:nz],TS[:,nz+1:2*nz],pstdz,UVW[:,1:nz],UVW[:,nz+1:2*nz],UVW[:,2*nz+1,3*nz],sig1grid,γ,splorder)
 
         # save to file before analysis is overwritten the next time step.
 
