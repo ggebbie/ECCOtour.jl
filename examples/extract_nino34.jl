@@ -1,7 +1,3 @@
-#  Instead use this to remove the interannual frequency energy in surface forcing fields.
-#  Diagnostic plots have been removed from this version.
-#  First steps: 1. go into Reemergence project directory. 2. go into julia REPL package mode with `]`. 3. `activate .` 4. Backspace to return to command mode in REPL.
-
 using Revise
 using Reemergence, MeshArrays, MITgcmTools
 using PyPlot, JLD2
@@ -31,9 +27,10 @@ dryval = 0.0
 iswet(x) = x != dryval # or was this defined in Reemergence.jl
 
 # transfer to nino34 by removing seasonal climatology. Read climatology.
-inputpath = "../inputs/"
-@load inputpath*"nino34_1870-2020.jld2" nino34 nino34yr SSTclimatology
-nino34hadisst = nino34; thadisst = nino34yr; sst34hadisst = SSTclimatology;
+#inputpath = "../inputs/"
+#@load inputpath*"nino34_1870-2020.jld2" nino34 nino34yr SSTclimatology
+#nino34hadisst = nino34; thadisst = nino34yr; sst34hadisst = SSTclimatology;
+nino34hadisst,thadisst,sst34hadisst = historicalNino34((1960,2020))
 
 # pre-define
 nino34 = Dict{String,Array{Any,1}}() # don't forget trailing parentheses
