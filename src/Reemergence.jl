@@ -10,14 +10,14 @@ export get_filtermatrix, matrixfilter, matrixspray, columnscale!
 export seasonal_matrices, position_label, searchdir, setupLLCgrid
 export listexperiments, expnames, expsymbols, time_label
 export faststats, allstats, std, mean
-export inrectangle, isnino34, isnino3, isnino4, isnino12, readlatlon, readarea, patchmean
+export inrectangle, isnino34, isnino3, isnino4, isnino12
+export readlatlon, readarea, patchmean
 export nino34mean, nino3mean, nino4mean, nino12mean, extract_sst34
 export remove_climatology, remove_seasonal, sigma, TSP2sigma1, all2sigma1
 
 include("HannFilter.jl")
 include("MatrixFilter.jl")
 include("SeasonalCycle.jl")
-include("interp_TSP_to_sigma1.jl")
 
 """
     function position_label(lon,lat)
@@ -163,9 +163,7 @@ function listexperiments(exppath)
     for (key,value) in runpath
         println(key)
     end
-
     return runpath,diagpath
-    
 end       
 
 """
@@ -213,16 +211,13 @@ end
 function time_label(index::Integer)
     startyear = 1992 # could be an input argument
     monlbl = "Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"
-
     year = convert(Integer,floor(startyear + ( index./12)))
     mon  = index%12 + 1
-
     monthlbl = monlbl[mon]
     yearlbl = string(year)
     tlbl = monthlbl*" "*yearlbl
     return tlbl
 end
-
 
 """
     function allstats(x)
@@ -284,7 +279,6 @@ function faststats(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}})
 
         absxsum = sum([sum(abs.(x[i])) for i ∈ eachindex(x) if xcount[i] > 0]) # works b.c. 0 on land
         absxbar = absxsum/sum(xcount)
-
     else
         xbar = NaN
         xmax = NaN
@@ -324,7 +318,6 @@ end
     Avoid a name clash with StatsBase and MeshArrays
 """
 function mean(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},area::MeshArrays.gcmarray{Float64,1,Array{Float64,2}},dryval::Float64)
-
     MeshArrays.mean(x,area,dryval)
 end
 
@@ -344,10 +337,8 @@ end
     extract by reading multiple files
 """
 function extract_sst34(expname,diagpath,fileroot,γ,area,ϕ,λ,iswet)
-
     filelist = searchdir(diagpath[expname],fileroot) # first filter for state_3d_set1
     datafilelist  = filter(x -> occursin("data",x),filelist) # second filter for "data"
-
     nt = length(datafilelist)
     tt = 0
     sst34 = Float32[]
@@ -367,7 +358,6 @@ end
     function remove_climatology(x,xbar)
     `x` = long monthly timeseries, starting in Jan
     `xbar` = 12-month climatology, starting in Jan
-                                         
     remove climatology
 """
 function remove_climatology(x,xbar)
@@ -381,16 +371,13 @@ end
 """
     function remove_seasonal(x,Ecycle,Fcycle,γ) natively
     `x` = long monthly timeseries, starting in Jan
-                                         
     remove seasonal cycle of this timeseries
 """
 function remove_seasonal(x,Ecycle,Fcycle)
-
     # remove seasonal cycle from 14-day averaged timeseries
     # solve for seasonal cycle parameters
     βcycle = Fcycle*x
     xseasonal = Ecycle*βcycle
-    
 
     # remove it from total signal
     xprime = x - xseasonal
@@ -400,7 +387,6 @@ end
 """
     function remove_seasonal(x,Ecycle,Fcycle,γ) natively
     `x` = gcmarray of long monthly timeseries, starting in Jan
-                                         
     remove seasonal cycle of this timeseries
 """
 function remove_seasonal(x,Ecycle,Fcycle,γ)
@@ -549,7 +535,6 @@ function all2sigma1(θ::MeshArrays.gcmarray{Float32,2,Array{Float32,2}},S::MeshA
     nσ = length(sig1grid)
 
     # pre-allocate θσ,Sσ,pσ
-    #σ₁ = similar(θ)
     θσ = MeshArray(γ,Float32,nσ); fill!(θσ,NaN32) 
     Sσ = MeshArray(γ,Float32,nσ); fill!(Sσ,NaN32) 
     pσ = MeshArray(γ,Float32,nσ); fill!(pσ,NaN32) 
@@ -647,50 +632,8 @@ end
 """
 function var2sigma1column(σ₁,θz,sig1,splorder)
     θspl = Spline1D(σ₁,θz;k=splorder)
-    #θspl = Spline1D(σ₁,θz)
     θonσ = θspl(sig1)
     return θonσ
 end
-
-# """
-#     function interp_TSP_to_sigma1(sig1grid,ix,iy,filename,spline_order)
-# # Arguments
-# - `sig1grid`: sigma1 grid to interpolate to
-# - `ix`: longitude index
-# - 'iy': latitude index
-# - 'it': month index
-# - 'spline_order': 1-5, order of spline interpolation
-# # Output
-# - 'θonσ': potential temperature on sigma1 grid (vector length of sigma1 grid with NaNs outside of data)
-# - 'Sonσ': salinity on sigma1 grid
-# - 'ponσ': pressure on sigma1 grid
-# """
-# function TSP2sigma1(sig1grid,ix,iy,filename,spline_order)
-
-#     p₀ = 1000 # reference pressure = 1000 dbar
-
-#     # ECCOv4r4 uses approximation for pressure without any horizontal deviations.
-#     # Can precompute pressure for each depth level.
-#     ρ₀ = 1029 # from "data" text file in run directory
-#     g  = 9.81 # from "data"
-
-#     # depths of MITgcm levels
-#     pathLLC = "../inputs/GRID_LLC90/" # need to input grid earlier: see example
-#     fileZ = "RC" # "R" = radius, "C"= center of grid cell
-#     Z = read_mdsio(pathLLC,fileZ)
-#     Z = vec(Z)
-
-#     # standard pressures via hydrostatic balance
-#     Pa2dbar = 1/10000
-#     p = -ρ₀ .*g .* Pa2dbar .* Z # 10000 to change Pa to dbar
-
-#     # filter out zeroes.
-#     θz = filter(!iszero,θ[ix,iy,:])
-#     Sz = filter(!iszero,S[ix,iy,:])
-#     nz = length(θz)
-#     pz = p[1:nz]
-#     p₀ = 1000
-
-# end
 
 end
