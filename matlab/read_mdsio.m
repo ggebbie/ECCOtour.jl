@@ -8,7 +8,7 @@
 
 % OPTIONAL: make your own branch
 cd gcmfaces
-!git checkout -b poseidon
+!git checkout -b poseidon_taris
 cd ..
 % END OF OPTION
 
@@ -41,8 +41,9 @@ expnames={'iter129_bulkformula','iter129_fluxforced','iter0_bulkformula','nointe
 % choose an experiment
 expno = 1;
 
-%example: MITgcm monthly-average output
-filename = ['/poseidon/ECCOv4r4/MITgcm/exps/',expnames{expno},'/run/diags/state_3d_set1.0000000732.data']
+%example: MITgcm monthly-average output, available on poseidon or backup (batou)
+%filename = ['/poseidon/ECCOv4r4/MITgcm/exps/',expnames{expno},'/run/diags/state_3d_set1.0000000732.data']
+filename = ['/batou/ECCOv4r4/MITgcm/exps/',expnames{expno},'/run/diags/state_3d_set1.0000000732.data']
 
 %% this is gcmfaces format with 5 faces/tiles
 % according to the accompanying meta file:
@@ -75,5 +76,9 @@ fldall = rdmds2gcmfaces(filename)
 %% Example: read property values on sigma-1 surfaces
 % Need to check: does this work if accompanying meta files are not available?
 filename = ['/batou/ECCOv4r4/MITgcm/exps/',expnames{expno},'/run/sigma1/theta_on_sigma1.0000000732.data']
+ilev = 50; % pick a sigma-1 surface
 fld = read_bin(filename) % this is gcmfaces format with 5 faces/tiles
-
+fld_interp=gcmfaces_interp_2d(fld(:,:,ilev),lon,lat); % slow: takes ~100 s
+figure(1)
+[c,h]=contourf(fld_interp',-2:32);
+clabel(c,h)
