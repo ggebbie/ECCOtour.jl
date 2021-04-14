@@ -77,7 +77,7 @@ for exp in exps
     global tt = 0
     for Tname in datafilelist
         tt += 1
-        println("year ",floor(tecco[tt])," month ",((tt-1)%12)+1)
+        println("year ",floor(Int(tecco[tt]))," month ",((tt-1)%12)+1)
 
         # read θ for timestep
         @time θ = γ.read(diagpath[exp]*Tname,MeshArray(γ,Float32,nz))
