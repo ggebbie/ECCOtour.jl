@@ -18,20 +18,7 @@ D=γ.read(γ.path*"Depth.data",MeshArray(γ,Float64))
 tmp1=write(D); tmp2=read(tmp1,D)
 show(D)
 
-LAT=γ.read(γ.path*"YC.data",MeshArray(γ,Float64))
-tmp1=write(LAT); tmp2=read(tmp1,LAT)
-show(LAT)
-
-LON=γ.read(γ.path*"XC.data",MeshArray(γ,Float64))
-tmp1=write(LON); tmp2=read(tmp1,LON)
-show(LON)
-
-# p=dirname(pathof(MeshArrays))
-# include(joinpath(p,"../examples/Plots.jl"))
-# heatmap(D,title="Ocean Depth",clims=(0.,6000.))
-# size(D)
-# eltype(D)
-# view(D,:)
+lat,lon = readlatlon(γ)
 
 ###################################################
 # Determine tiepoints where fluxes are adjusted.
@@ -53,8 +40,8 @@ varnames = ("atmPload","oceFWflx","oceQsw","oceSflux","oceSPflx","oceTAUE","oceT
 yv = 40
 xv = 180
 fv = 5
-tmplat  = LAT[fv]; lat_point = tmplat[xv,yv]
-tmplon  = LON[fv]; lon_point = tmplon[xv,yv]
+tmplat  = lat[fv]; lat_point = tmplat[xv,yv]
+tmplon  = lon[fv]; lon_point = tmplon[xv,yv]
 frootsample = inputdir*varnames[end]*midname
 years = 1992:2017
 fluxsample_point,nseries = extract_timeseries(frootsample,years,γ,xv,yv,fv)

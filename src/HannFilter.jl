@@ -1,6 +1,4 @@
-
 export hanncoeffs, hannsum, hannsum!, hannfilter
-
 
 """
     hanncoeffs(tin,tout,L)

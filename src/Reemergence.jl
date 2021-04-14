@@ -7,11 +7,12 @@ using MeshArrays, MITgcmTools, LaTeXStrings, Dierckx, DelimitedFiles
 
 export hanncoeffs, hannsum, hannsum!, hannfilter
 export get_filtermatrix, matrixfilter, matrixspray, columnscale!
-export seasonal_matrices, position_label, searchdir, setupLLCgrid
+export seasonal_matrices, trend_matrices
+export position_label, searchdir, setupLLCgrid
 export listexperiments, expnames, expsymbols, time_label
 export faststats, allstats, std, mean
 export inrectangle, isnino34, isnino3, isnino4, isnino12
-export readlatlon, readarea, patchmean
+export latlon, depthlevels, readarea, patchmean
 export nino34mean, nino3mean, nino4mean, nino12mean, extract_sst34
 export remove_climatology, remove_seasonal, sigma, TSP2sigma1, all2sigma1
 export historicalNino34
@@ -157,7 +158,6 @@ function inrectangle(latpt,lonpt,latrect,lonrect)
     # watch out for wraparound; didn't code a solution
     inrectangle = minimum(lonrect) <= lonpt <= maximum(lonrect) &&
         minimum(latrect) <= latpt <= maximum(latrect)
-
 end
 
 isnino34(lat,lon) = inrectangle(lat,lon,(-5,5),(-170,-90))
@@ -165,10 +165,20 @@ isnino3(lat,lon) = inrectangle(lat,lon,(-5,5),(-150,-90))
 isnino4(lat,lon) = inrectangle(lat,lon,(-5,5),(-170,-120))
 isnino12(lat,lon) = inrectangle(lat,lon,(-10,0),(-90,-80))
 
-function readlatlon(γ)
+function latlon(γ)
     ϕ=γ.read(γ.path*"YC.data",MeshArray(γ,Float64))
     λ=γ.read(γ.path*"XC.data",MeshArray(γ,Float64))
 return ϕ,λ
+end
+
+function depthlevels(γ)
+    #z=γ.read(γ.path*"RC.data",MeshArray(γ,Float64))
+    #λ=γ.read(γ.path*"XC.data",MeshArray(γ,Float64))
+    #fileZ = "RC"
+    #z = read_mdsio(path_grid,fileZ)
+    z = read_mdsio(γ.path,"RC")
+    z = vec(z)
+    return z
 end
 
 function readarea(γ)
