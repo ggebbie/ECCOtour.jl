@@ -12,7 +12,6 @@ cd(workdir)
 
 path_grid="../inputs/GRID_LLC90/"
 γ = setupLLCgrid(path_grid)
-
 lat,lon = latlon(γ)
 
 # get standard levels of MITgcm
@@ -32,10 +31,10 @@ shortnames = expnames()
 
 ## SELECT EXPERIMENTS TO ANALYZE #################################
 # manually choose from available experiments listed above.
-exps = ("iter129_bulkformula","nointerannual")
+#exps = ("iter129_bulkformula","nointerannual")
 
 # to do all experiments:
-# exps = keys(shortnames)
+exps = keys(shortnames)
 #################################################################
 
 nexps = length(exps) # number of experiments
@@ -56,7 +55,6 @@ path_out = "/home/gebbie/julia/outputs/"
 # pre-allocate β, linear trends
 β = MeshArray(γ,Float32,nz) # some nans here
 
-# read theta for timestep
 # cycle through all chosen experiments
 for exp in exps
     # name of file inside diagspath
@@ -79,9 +77,9 @@ for exp in exps
     global tt = 0
     for Tname in datafilelist
         tt += 1
-        println("time index ",tecco[tt])
+        println("year ",floor(tecco[tt])," month ",((tt-1)%12)+1)
 
-        # get θ, S
+        # read θ for timestep
         @time θ = γ.read(diagpath[exp]*Tname,MeshArray(γ,Float32,nz))
 
         # multiply by the correct part of F matrix
@@ -90,9 +88,28 @@ for exp in exps
         # equal to matrix multiplication w/ columns (θ) times weighting F
         β += F[2,tt] * θ
     end
+
     # save β for each experiment
+    Toutname = path_out*"DthetaDt_"*exp*".data"
+    # save to file before overwritten next time step.
+    γ.write(Toutname,β)
+end
+
+# make spatial plots. Use interpolation to regular grid.
+# rectangular grid
+longrid = -179.:2.0:179.; latgrid = -89.:2.0:89.;
+f,i,j,w = prereginterp(latgrid,longrid,γ)
+nx = length(longrid); ny = length(latgrid);
+
+figure(101)
+for zz = 1:nz
+    βz = β[:,zz]
+    βzreg = reginterp(βz,nx,ny,f,i,j,w)
+    clf()
+    contourf(longrid,latgrid,βzreg)
+
+    # save it
     
 end
 
-# learn how to make spatial plots. Use interpolation to regular grid.
 

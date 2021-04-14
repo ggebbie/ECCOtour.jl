@@ -15,7 +15,7 @@ export inrectangle, isnino34, isnino3, isnino4, isnino12
 export latlon, depthlevels, readarea, patchmean
 export nino34mean, nino3mean, nino4mean, nino12mean, extract_sst34
 export remove_climatology, remove_seasonal, sigma, TSP2sigma1, all2sigma1
-export historicalNino34
+export historicalNino34, prereginterp, reginterp
 
 include("HannFilter.jl")
 include("MatrixFilter.jl")
@@ -719,4 +719,42 @@ function var2sigma1column(σ₁,θz,sig1,splorder)
     return θonσ
 end
 
+"""
+    function prereginterp(latgrid,longrid,γ)
+    prepare for regular interpolation 
+    regular = onto rectangular 2d map
+# Arguments
+- `latgrid`: 1d array of latitude
+- `longrid`: 1d array of longitude
+- `γ`: GCM grid
+# Output
+- `f,i,j,w`: interpolation factors 
+"""
+function prereginterp(latgrid,longrid,γ)
+    Γ = GridLoad(γ)
+    lon2d=[i for i=longrid, j=latgrid]
+    lat2d=[j for i=longrid, j=latgrid]
+    @time (f,i,j,w)=InterpolationFactors(Γ,vec(lon2d),vec(lat2d))
+    return f,i,j,w
+end
+
+"""
+    function reginterp(fldin,nx,ny,f,i,j,w)
+    regular interpolation with precomputed factors
+    regular = onto rectangular 2d map
+# Arguments
+- `fldin`: gcmarray field of input
+- `nx,ny`: x,y dimension of output regular field
+- `f,i,j,w`: precomputed interpolation factors
+# Output
+- `fldout`: interpolated regular 2d field
+"""
+function reginterp(fldin,nx,ny,f,i,j,w)
+    fldout = Interpolate(fldin,f,i,j,w)
+    replace!(fldout,0.0 => NaN)
+    #fldout[findall.(iszero.(fldout))] = NaN
+    fldout = transpose(reshape(fldout,nx,ny))
+    return fldout
+end
+    
 end
