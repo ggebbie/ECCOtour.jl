@@ -47,9 +47,6 @@ nt = length(tecco)
 
 # get weight matrix for finding trends
 E,F = trend_matrices(tecco)
-
-# get correct files
-Troot = "state_3d_set1" # 1: θ, 2: S
 path_out = "/home/gebbie/julia/outputs/"
 
 # pre-allocate β, linear trends
@@ -57,59 +54,15 @@ path_out = "/home/gebbie/julia/outputs/"
 
 # cycle through all chosen experiments
 for exp in exps
-    # name of file inside diagspath
-    # Look at /poseidon ... exps/run/data.diagnostics for this info.
-    filelist = searchdir(diagpath[exp],Troot) # first filter for state_3d_set1
-    datafilelist  = filter(x -> occursin("data",x),filelist) # second filter for "data"
 
+    fill!(β,0.0f0) # initialize β
+    trend_theta!(β,diagpath[exp],tecco,γ,F)
+
+    # save β for each experiment
     # make an output directory for each experiment
     pathoutexp = path_out*exp
     !isdir(pathoutexp) ? mkdir(pathoutexp) : nothing;
-    
-    nt2 = length(datafilelist)
-    if nt2 != nt
-        error("incompatible t and data files")
-    end
-
-    # initialize β
-    fill!(β,0.0f0)
-
-    global tt = 0
-    for Tname in datafilelist
-        tt += 1
-        println("year ",floor(Int(tecco[tt]))," month ",((tt-1)%12)+1)
-
-        # read θ for timestep
-        @time θ = γ.read(diagpath[exp]*Tname,MeshArray(γ,Float32,nz))
-
-        # multiply by the correct part of F matrix
-        # be sure to handle all points at once
-        # add to existing solution for β
-        # equal to matrix multiplication w/ columns (θ) times weighting F
-        β += F[2,tt] * θ
-    end
-
-    # save β for each experiment
     Toutname = path_out*"DthetaDt_"*exp*".data"
     # save to file before overwritten next time step.
     γ.write(Toutname,β)
 end
-
-# make spatial plots. Use interpolation to regular grid.
-# rectangular grid
-longrid = -179.:2.0:179.; latgrid = -89.:2.0:89.;
-f,i,j,w = prereginterp(latgrid,longrid,γ)
-nx = length(longrid); ny = length(latgrid);
-
-figure(101)
-for zz = 1:nz
-    βz = β[:,zz]
-    βzreg = reginterp(βz,nx,ny,f,i,j,w)
-    clf()
-    contourf(longrid,latgrid,βzreg)
-
-    # save it
-    
-end
-
-

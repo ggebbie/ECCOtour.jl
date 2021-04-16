@@ -2,6 +2,9 @@
 using Revise
 using MITgcmTools, MeshArrays, PyPlot, LaTeXStrings, JLD2, Reemergence
 
+# recompute or read from file?
+readfromfile = true
+
 # list of experiments on poseidon
 exppath = "/poseidon/ecco/ECCOv4r4/MITgcm/exps/"
 runpath,diagpath = listexperiments(exppath);
@@ -20,8 +23,6 @@ expcompare = "nosfcadjust"
 
 outpath = "../outputs/"
 
-# recompute or read from file?
-readfromfile = true
 if readfromfile
     outfile = outpath*"divergence_"*shortnames[expbase]*"_vs_"*shortnames[expcompare]*".jld2"
     @load outfile xbar σx xmax xmin absxbar z 
