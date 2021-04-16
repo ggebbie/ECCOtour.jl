@@ -7,14 +7,15 @@ using MeshArrays, MITgcmTools, LaTeXStrings, Dierckx, DelimitedFiles
 
 export hanncoeffs, hannsum, hannsum!, hannfilter
 export get_filtermatrix, matrixfilter, matrixspray, columnscale!
-export seasonal_matrices, position_label, searchdir, setupLLCgrid
+export seasonal_matrices, trend_matrices
+export position_label, searchdir, setupLLCgrid
 export listexperiments, expnames, expsymbols, time_label
 export faststats, allstats, std, mean
 export inrectangle, isnino34, isnino3, isnino4, isnino12
-export readlatlon, readarea, patchmean
+export latlon, depthlevels, readarea, patchmean
 export nino34mean, nino3mean, nino4mean, nino12mean, extract_sst34
 export remove_climatology, remove_seasonal, sigma, TSP2sigma1, all2sigma1
-export historicalNino34
+export historicalNino34, prereginterp, reginterp, trend_theta!
 
 include("HannFilter.jl")
 include("MatrixFilter.jl")
@@ -157,7 +158,6 @@ function inrectangle(latpt,lonpt,latrect,lonrect)
     # watch out for wraparound; didn't code a solution
     inrectangle = minimum(lonrect) <= lonpt <= maximum(lonrect) &&
         minimum(latrect) <= latpt <= maximum(latrect)
-
 end
 
 isnino34(lat,lon) = inrectangle(lat,lon,(-5,5),(-170,-90))
@@ -165,10 +165,20 @@ isnino3(lat,lon) = inrectangle(lat,lon,(-5,5),(-150,-90))
 isnino4(lat,lon) = inrectangle(lat,lon,(-5,5),(-170,-120))
 isnino12(lat,lon) = inrectangle(lat,lon,(-10,0),(-90,-80))
 
-function readlatlon(γ)
+function latlon(γ)
     ϕ=γ.read(γ.path*"YC.data",MeshArray(γ,Float64))
     λ=γ.read(γ.path*"XC.data",MeshArray(γ,Float64))
 return ϕ,λ
+end
+
+function depthlevels(γ)
+    #z=γ.read(γ.path*"RC.data",MeshArray(γ,Float64))
+    #λ=γ.read(γ.path*"XC.data",MeshArray(γ,Float64))
+    #fileZ = "RC"
+    #z = read_mdsio(path_grid,fileZ)
+    z = read_mdsio(γ.path,"RC")
+    z = vec(z)
+    return z
 end
 
 function readarea(γ)
@@ -707,6 +717,88 @@ function var2sigma1column(σ₁,θz,sig1,splorder)
     θspl = Spline1D(σ₁,θz;k=splorder)
     θonσ = θspl(sig1)
     return θonσ
+end
+
+"""
+    function prereginterp(latgrid,longrid,γ)
+    prepare for regular interpolation 
+    regular = onto rectangular 2d map
+# Arguments
+- `latgrid`: 1d array of latitude
+- `longrid`: 1d array of longitude
+- `γ`: GCM grid
+# Output
+- `f,i,j,w`: interpolation factors 
+"""
+function prereginterp(latgrid,longrid,γ)
+    Γ = GridLoad(γ)
+    lon2d=[i for i=longrid, j=latgrid]
+    lat2d=[j for i=longrid, j=latgrid]
+    @time (f,i,j,w)=InterpolationFactors(Γ,vec(lon2d),vec(lat2d))
+    return f,i,j,w
+end
+
+"""
+    function reginterp(fldin,nx,ny,f,i,j,w)
+    regular interpolation with precomputed factors
+    regular = onto rectangular 2d map
+# Arguments
+- `fldin`: gcmarray field of input
+- `nx,ny`: x,y dimension of output regular field
+- `f,i,j,w`: precomputed interpolation factors
+# Output
+- `fldout`: interpolated regular 2d field
+"""
+function reginterp(fldin,nx,ny,f,i,j,w)
+    fldout = Interpolate(fldin,f,i,j,w)
+    replace!(fldout,0.0 => NaN)
+    #fldout[findall.(iszero.(fldout))] = NaN
+    fldout = transpose(reshape(fldout,nx,ny))
+    return fldout
+end
+
+"""
+    function trend_theta!(β,diagpathexp,path_out,tecco,γ,F)
+    get linear trend of potential temperature
+    from monthly-average ECCOv4r4 gcmarray fields
+# Arguments
+- `β`: gcmarray field of trends
+- `diagpathexp`: where to find files
+- `tecco`: time stamps of monthly output
+- `γ`: GCM grid information
+- `F`: linear estimator of trend
+# Output
+- `β`: updated trends
+"""
+function trend_theta!(β,diagpathexp,tecco,γ,F)
+    # name of file inside diagspath
+    # Look at /poseidon ... exps/run/data.diagnostics for this info.
+    Troot = "state_3d_set1" # hardcoded for ECCOv4r4
+    nz = size(β,2) 
+    filelist = searchdir(diagpathexp,Troot) # first filter for state_3d_set1
+    datafilelist  = filter(x -> occursin("data",x),filelist) # second filter for "data"
+
+    nt = length(tecco)
+    nt2 = length(datafilelist)
+    if nt2 != nt
+        error("incompatible t and data files")
+    end
+
+    global tt = 0
+    for Tname in datafilelist
+        tt += 1
+        println("year ",Int(floor(tecco[tt]))," month ",((tt-1)%12)+1)
+
+        # read θ for timestep
+        @time θ = γ.read(diagpathexp*Tname,MeshArray(γ,Float32,nz))
+
+        # multiply by the correct part of F matrix
+        # be sure to handle all points at once
+        # add to existing solution for β
+        # equal to matrix multiplication w/ columns (θ) times weighting F
+        β += F[2,tt] * θ
+    end
+
 end
 
 end
