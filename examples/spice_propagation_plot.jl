@@ -1,22 +1,11 @@
-# map θ, S, p to sigma 1 surfaces.
-# This is a wrapper routine to read files on poseidon.
-# ggebbie, 1-Apr-2021
+ ggebbie, 16-Apr-2021
 
 using Revise 
-using MITgcmTools, MeshArrays, Statistics, Reemergence, JLD2, Dierckx
-
-# save output to file?
-output2file = true
+using MITgcmTools, MeshArrays, Statistics, Reemergence
 
 # get MITgcm / ECCOv4r4 LLC grid and depth information. Store in γ.
 path_grid="../inputs/GRID_LLC90/"
 γ = setupLLCgrid(path_grid)
-
-# get standard levels of MITgcm
-fileZ = "RC"
-z = read_mdsio(path_grid,fileZ)
-z = vec(z)
-nz = length(z)
 
 # list of experiments on poseidon
 exppath = "/poseidon/ECCOv4r4/MITgcm/exps/"
@@ -28,13 +17,13 @@ path_out = "/home/gebbie/julia/outputs/"
 # abbreviations for each experiment for labels, etc.
 shortnames = expnames()
 
-## SELECT EXPERIMENTS TO COMPARE #################################
+## SELECT EXPERIMENTS TO ANALYZE ##############
 # manually choose from available experiments listed above.
 exps = ("iter129_bulkformula","nointerannual")
 
 # to do all experiments:
 # exps = keys(shortnames)
-#################################################################
+###############################################
 
 nexps = length(exps) # number of experiments
 
@@ -47,21 +36,6 @@ sig1grid = sig1grid[1:3:end]
 tecco= 1992+1/24:1/12:2018 # ecco years
 
 TSroot = "state_3d_set1" # 1: θ, 2: S
-RProot = "state_3d_set2" # 1:rhoanoma, 2 phihyd
-UVWroot = "trsp_3d_set1" # 1: uvelmass, 2: vvelmass, 3:wvelmass
-
-# ECCOv4r4 uses approximation for pressure without any horizontal deviations.
-# Can precompute pressure for each depth level.
-ρ₀ = 1029 # from "data" text file in run directory
-g  = 9.81 # from "data" 
-
-# standard pressures via hydrostatic balance
-Pa2dbar = 1/10000
-#pstdz = convert(Array{Float32,1},-ρ₀ .*g .* Pa2dbar .* z) # 10000 to change Pa to dbar
-pstdz = -ρ₀ .*g .* Pa2dbar .* z # 10000 to change Pa to dbar
-#p₀ = 1000f0 # dbar
-p₀ = 1000 # dbar
-splorder = 3 # spline order
 
 # cycle through all chosen experiments
 for exp in exps
