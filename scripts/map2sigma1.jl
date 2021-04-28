@@ -44,7 +44,10 @@ sig1gridb = 31.02:0.02:33
 sig1grid = vcat(sig1grida,sig1gridb)
 sig1grid = sig1grid[1:3:end]
 
-tecco= 1992+1/24:1/12:2018 # ecco years
+tstart = 1992 + 1/24
+tend = 2018
+tecco = range(tstart,step=1/12,stop=2018)
+nt = length(tecco)
 
 TSroot = "state_3d_set1" # 1: θ, 2: S
 RProot = "state_3d_set2" # 1:rhoanoma, 2 phihyd

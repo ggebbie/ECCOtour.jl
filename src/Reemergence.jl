@@ -12,10 +12,12 @@ export position_label, searchdir, setupLLCgrid
 export listexperiments, expnames, expsymbols, time_label
 export faststats, allstats, std, mean
 export inrectangle, isnino34, isnino3, isnino4, isnino12
-export latlon, depthlevels, readarea, patchmean
+export latlon, latlonC, latlonG, depthlevels, readarea, patchmean
 export nino34mean, nino3mean, nino4mean, nino12mean, extract_sst34
 export remove_climatology, remove_seasonal, sigma, TSP2sigma1, all2sigma1
 export historicalNino34, prereginterp, reginterp, trend_theta!
+export regularlatgrid, LLCcropC, LLCcropG, croplimitsLLC
+export latgridAntarctic, latgridArctic, latgridRegular
 
 include("HannFilter.jl")
 include("MatrixFilter.jl")
@@ -168,6 +170,18 @@ isnino12(lat,lon) = inrectangle(lat,lon,(-10,0),(-90,-80))
 function latlon(γ)
     ϕ=γ.read(γ.path*"YC.data",MeshArray(γ,Float64))
     λ=γ.read(γ.path*"XC.data",MeshArray(γ,Float64))
+return ϕ,λ
+end
+
+function latlonC(γ)
+    ϕ=γ.read(γ.path*"YC.data",MeshArray(γ,Float64))
+    λ=γ.read(γ.path*"XC.data",MeshArray(γ,Float64))
+return ϕ,λ
+end
+
+function latlonG(γ)
+    ϕ=γ.read(γ.path*"YG.data",MeshArray(γ,Float64))
+    λ=γ.read(γ.path*"XG.data",MeshArray(γ,Float64))
 return ϕ,λ
 end
 
@@ -799,6 +813,165 @@ function trend_theta!(β,diagpathexp,tecco,γ,F)
         β += F[2,tt] * θ
     end
 
+end
+
+function croplimitsLLC(ϕ,λ)
+    # There is a regular grid inside the LLC grid.
+    # Find the limiting indices of that regular grid.
+
+    nx,ny = size(ϕ[1])
+    # find edge of antarctic distortion
+    jantarc = 1
+    while sum(abs.(diff(vec(ϕ[1][:,jantarc])))) > 0.01
+        jantarc += 1
+    end
+    ϕantarc= ϕ[1][1,jantarc]
+
+    # println("Southern edge of regular grid found")
+    # println("at latitude ",ϕantarc,"°N")
+
+    # find edge of arctic distortion
+    jarc = ny
+    while sum(abs.(diff(vec(ϕ[1][:,jarc])))) > 0.01
+        jarc -= 1
+    end
+    ϕarc = ϕ[1][1,jarc]
+    #println("Northern edge of regular grid found")
+    #println("at latitude ",ϕarc,"°N")
+    return jarc, jantarc, ϕarc, ϕantarc
+end
+
+function regularlatgrid(γ)
+    ϕ,λ = latlonG(γ)
+    jarc,jantarc,ϕarc,ϕantarc = croplimitsLLC(ϕ,λ)
+
+    # get grid spacing for polar regions.
+    Δϕarc= ϕ[1][1,jarc] - ϕ[1][1,jarc-1]
+    Δϕantarc= ϕ[1][1,jantarc+1] - ϕ[1][1,jantarc]
+
+    # get number of regularly-spaced polar gridcells
+    ymax = 90; ymin = -82; # trim reg grid at 80 S
+    narc = Int(ceil((ymax-ϕarc)/Δϕarc)) 
+    nantarc = Int(floor((ϕantarc-ymin)/Δϕantarc))
+    
+    ϕG = collect(reverse(range(ϕantarc,length=nantarc,step=-Δϕantarc)))
+    append!(ϕG,ϕ[1][1,jantarc+1:jarc-1])
+    append!(ϕG,range(ϕarc,length=narc,step=Δϕarc))
+
+    # Don't put ϕC halfway between ϕG points.
+    # It doesn't match the MITgcm LLC grid.
+    
+    ϕ,λ = latlonC(γ)
+    jarc -= 1 # update for C grid, subtract one here
+    ϕarc = ϕ[1][1,jarc] 
+    ϕantarc= ϕ[1][1,jantarc]
+    ϕC = collect(reverse(range(ϕantarc,length=nantarc,step=-Δϕantarc)))
+    append!(ϕC,ϕ[1][1,jantarc+1:jarc-1])
+    append!(ϕC,range(ϕarc,length=narc,step=Δϕarc))
+
+    return ϕG, ϕC
+end
+
+function latgridRegular(γ)
+    ϕ,λ = latlonG(γ)
+    jarc,jantarc,ϕarc,ϕantarc = croplimitsLLC(ϕ,λ)
+
+    ϕG = ϕ[1][1,jantarc:jarc]
+    
+    ϕ,λ = latlonC(γ)
+    jarc -= 1 # update for C grid, subtract one here
+    ϕC = ϕ[1][1,jantarc:jarc]
+
+    return ϕG, ϕC
+end
+
+function latgridArctic(γ)
+    ϕ,λ = latlonG(γ)
+    jarc,jantarc,ϕarc,ϕantarc = croplimitsLLC(ϕ,λ)
+
+    # get grid spacing for polar regions.
+    Δϕarc= ϕ[1][1,jarc] - ϕ[1][1,jarc-1]
+
+    # get number of regularly-spaced polar gridcells
+    ymax = 90 # trim reg grid at 80 S
+    narc = Int(ceil((ymax-ϕarc)/Δϕarc)) 
+    
+    ϕG=collect(range(ϕarc,length=narc,step=Δϕarc))
+    popfirst!(ϕG)
+
+    # same thing for centered (tracer) grid
+    ϕ,λ = latlonC(γ)
+    jarc -= 1 # update for C grid, subtract one here
+    ϕarc = ϕ[1][1,jarc] 
+    ϕC=collect(range(ϕarc,length=narc,step=Δϕarc))
+    popfirst!(ϕC)
+
+    return ϕG, ϕC
+end
+
+function latgridAntarctic(γ)
+    ϕ,λ = latlonG(γ)
+    jarc,jantarc,ϕarc,ϕantarc = croplimitsLLC(ϕ,λ)
+
+    # get grid spacing for polar regions.
+    Δϕantarc= ϕ[1][1,jantarc+1] - ϕ[1][1,jantarc]
+
+    # get number of regularly-spaced polar gridcells
+    ymin = -82; # trim reg grid at 80 S
+    nantarc = Int(floor((ϕantarc-ymin)/Δϕantarc))
+    
+    ϕG = collect(reverse(range(ϕantarc,length=nantarc,step=-Δϕantarc)))
+    # eliminate northernmost grid point.
+    # it's inside regular subgrid.
+    pop!(ϕG)
+    
+    ϕ,λ = latlonC(γ)
+    ϕantarc= ϕ[1][1,jantarc]
+    ϕC = collect(reverse(range(ϕantarc,length=nantarc,step=-Δϕantarc)))
+    pop!(ϕC)
+    
+    return ϕG, ϕC
+end
+
+function LLCcropC(gcmfield,γ)
+    # There is a regular grid inside the LLC grid.
+    # Subsample/crop just those points. Put them together correctly.
+    ϕ,λ = latlonG(γ)
+    jarc,jantarc,ϕarc,ϕantarc = croplimitsLLC(ϕ,λ)
+    jarc -= 1 # update for C grid, subtract one here
+
+    regfield = gcmfield[1][:,jantarc:jarc]
+    regfield = vcat(regfield,gcmfield[2][:,jantarc:jarc])
+    for i = 4:5
+        tmp = reverse(transpose(gcmfield[i]),dims=2)
+        regfield = vcat(regfield,tmp[:,jantarc:jarc])
+    end
+
+    # handle longitudinal wraparound by hand
+    wrapval = 217
+    xwrap = vcat(wrapval+1:size(regfield,1),1:wrapval)
+    regfield = regfield[xwrap,:]
+    return regfield
+end
+
+function LLCcropG(gcmfield,γ)
+    # There is a regular grid inside the LLC grid.
+    # Subsample/crop just those points. Put them together correctly.
+    ϕ,λ = latlonG(γ)
+    jarc,jantarc,ϕarc,ϕantarc = croplimitsLLC(ϕ,λ)
+
+    regfield = gcmfield[1][:,jantarc:jarc]
+    regfield = vcat(regfield,gcmfield[2][:,jantarc:jarc])
+    for i = 4:5
+        tmp = reverse(transpose(gcmfield[i]),dims=2)
+        regfield = vcat(regfield,tmp[:,jantarc:jarc])
+    end
+
+    # handle longitudinal wraparound by hand
+    wrapval = 217
+    xwrap = vcat(wrapval+1:size(regfield,1),1:wrapval)
+    regfield = regfield[xwrap,:]
+    return regfield
 end
 
 end
