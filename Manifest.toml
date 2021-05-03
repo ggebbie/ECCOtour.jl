@@ -41,9 +41,9 @@ version = "1.0.0"
 
 [[CategoricalArrays]]
 deps = ["DataAPI", "Future", "JSON", "Missings", "Printf", "Statistics", "StructTypes", "Unicode"]
-git-tree-sha1 = "f713d583d10fc036252fd826feebc6c173c522a8"
+git-tree-sha1 = "f4de3fab632544ff0a858f293755fe9aac0f47bf"
 uuid = "324d7699-5711-5eae-9e2f-1d82baa6b597"
-version = "0.9.5"
+version = "0.9.6"
 
 [[ChainRulesCore]]
 deps = ["Compat", "LinearAlgebra", "SparseArrays"]
@@ -293,7 +293,7 @@ version = "1.4.0"
 
 [[MITgcmTools]]
 deps = ["DataFrames", "Dates", "MeshArrays", "NetCDF", "Pkg", "Printf", "SparseArrays"]
-git-tree-sha1 = "7b6a8dceac17a3f85a5cec77d7364d5164dc1073"
+git-tree-sha1 = "533e431c9882fb0654f9388460d19e3aab40efbc"
 repo-rev = "master"
 repo-url = "https://github.com/ggebbie/MITgcmTools.jl"
 uuid = "62725fbc-3a66-4df3-9000-e33e85b3a198"
@@ -506,9 +506,9 @@ version = "0.9.7"
 
 [[StructTypes]]
 deps = ["Dates", "UUIDs"]
-git-tree-sha1 = "63fbaf8345b590161cd0c35b927f88d3f7b2cf75"
+git-tree-sha1 = "e36adc471280e8b346ea24c5c87ba0571204be7a"
 uuid = "856f2bd8-1eba-4b0a-8007-ebc267875bd4"
-version = "1.6.0"
+version = "1.7.2"
 
 [[SuiteSparse]]
 deps = ["Libdl", "LinearAlgebra", "Serialization", "SparseArrays"]

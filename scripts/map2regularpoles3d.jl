@@ -87,7 +87,7 @@ latatts = Dict("longname" => "Latitude", "units" => "degrees north")
 depthatts = Dict("longname" => "Depth", "units" => "m")
 
 Froot = "state_3d_set1"
-
+Froot = "state_3d_set2"
 # set this up as an initial argument to the script.
 ex = "iter129_bulkformula"
 #for ex in exps
