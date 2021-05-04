@@ -44,7 +44,10 @@ sig1gridb = 31.02:0.02:33
 sig1grid = vcat(sig1grida,sig1gridb)
 sig1grid = sig1grid[1:3:end]
 
-tecco= 1992+1/24:1/12:2018 # ecco years
+tstart = 1992 + 1/24
+tend = 2018
+tecco = range(tstart,step=1/12,stop=2018)
+nt = length(tecco)
 
 TSroot = "state_3d_set1" # 1: θ, 2: S
 RProot = "state_3d_set2" # 1:rhoanoma, 2 phihyd
@@ -107,27 +110,21 @@ for exp in exps
         @time θσ,Sσ,pσ,uσ,vσ,wσ=all2sigma1(TS[:,1:nz],TS[:,nz+1:2*nz],pstdz,UVW[:,1:nz],UVW[:,nz+1:2*nz],UVW[:,2*nz+1:3*nz],sig1grid,γ,splorder)
 
         Toutname = pathoutexp*"/theta_on_sigma1"*TSname[14:end]
-        # save to file before analysis is overwritten the next time step.
         γ.write(Toutname,θσ)
 
         Soutname = pathoutexp*"/S_on_sigma1"*TSname[14:end]
-        # save to file before analysis is overwritten the next time step.
         γ.write(Soutname,Sσ)
 
         Poutname = pathoutexp*"/p_on_sigma1"*TSname[14:end]
-        # save to file before analysis is overwritten the next time step.
         γ.write(Poutname,pσ)
 
         Uoutname = pathoutexp*"/u_on_sigma1"*TSname[14:end]
-        # save to file before analysis is overwritten the next time step.
         γ.write(Uoutname,uσ)
 
         Voutname = pathoutexp*"/v_on_sigma1"*TSname[14:end]
-        # save to file before analysis is overwritten the next time step.
         γ.write(Voutname,vσ)
 
         Woutname = pathoutexp*"/w_on_sigma1"*TSname[14:end]
-        # save to file before analysis is overwritten the next time step.
         γ.write(Woutname,wσ)
         
     end
