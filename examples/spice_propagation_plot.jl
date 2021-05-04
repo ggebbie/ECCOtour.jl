@@ -1,14 +1,14 @@
- ggebbie, 16-Apr-2021
+# ggebbie, 16-Apr-2021
 
 using Revise 
-using MITgcmTools, MeshArrays, Statistics, Reemergence
+using MITgcmTools, MeshArrays, Statistics, Reemergence, PyPlot
 
 # get MITgcm / ECCOv4r4 LLC grid and depth information. Store in γ.
 path_grid="../inputs/GRID_LLC90/"
 γ = setupLLCgrid(path_grid)
 
 # list of experiments on poseidon
-exppath = "/poseidon/ECCOv4r4/MITgcm/exps/"
+exppath = "/batou/ECCOv4r4/MITgcm/exps/"
 runpath,diagpath = listexperiments(exppath);
 
 # print output here
@@ -32,71 +32,92 @@ sig1grida = 24:0.05:31
 sig1gridb = 31.02:0.02:33
 sig1grid = vcat(sig1grida,sig1gridb)
 sig1grid = sig1grid[1:3:end]
+nσ = length(sig1grid)
+
+# get index for sigma1 value of interest.
+sig1 = 29.9 # a choice
+latsig1 = -12.0 # lat of interest
+
+junk,isig1grid = findmin(abs.(sig1grid.-sig1))        
 
 tecco= 1992+1/24:1/12:2018 # ecco years
 
-TSroot = "state_3d_set1" # 1: θ, 2: S
+ϕGreg,ϕCreg = latgridRegular(γ) 
+junk,ilat = findmin(abs.(ϕCreg.-latsig1))        
+λC = -179.5:179.5
+# center the plot on indo-pac
+cutoff = 181
+λCcutoff = cat(λC[cutoff:end],λC[1:cutoff-1],dims = 1)
+
+# make all longitudes positive
+replace!(x -> x<0 ? x+=360 : x,λCcutoff)
+
+nx = length(λC)
+TSroot = "S_on_sigma1" 
+cmap_seismic =get_cmap("seismic")
+figure(100)
+clf()
+plot(λCcutoff)
 
 # cycle through all chosen experiments
-for exp in exps
-    # name of file inside diagspath
-    # Look at /poseidon ... exps/run/data.diagnostics for this info.
-    filelist = searchdir(diagpath[exp],TSroot) # first filter for state_3d_set1
+#ex = exps[1]; for manual runs
+for ex in exps
+
+    # Get list of files for salinity on sigma1
+    filelist = searchdir(runpath[ex]*"sigma1/",TSroot) # first filter for state_3d_set1
     datafilelist  = filter(x -> occursin("data",x),filelist) # second filter for "data"
-
-    # make an output directory for each experiment
-    pathoutexp = path_out*exp
-    !isdir(pathoutexp) ? mkdir(pathoutexp) : nothing;
-    
     nt = length(datafilelist)
-    
-    # Improve code here to read meta file, make variable selection transparent.
-    #nc = 2 # do first two (θ,S) of three properties in state_3d_set1
+    Ssig1slice = Array{Float32,2}(undef,nx,nt)
 
+    # Find a latitudinal slice. i.e., 12 South. Use convert2array? Or something else? Use regular poles method.
+    
     # pre-allocate
-    TS = Array{Float32, 2}(undef, nt, nz*2)
-    UVW = Array{Float32, 2}(undef, nt, nz*3)
-    #RP = Array{Float32, 2}(undef, nt, nz*2)
-    
+    #TS = Array{Float32, 2}(undef, nt, nz*2)
+
     global tt = 0
-    for TSname in datafilelist
+    for Sname in datafilelist
         tt += 1
-        println("time index ",tecco[tt])
+        println("year ",Int(floor(tecco[tt]))," month ",((tt-1)%12)+1)
 
-        # get θ, S
-        @time TS = γ.read(diagpath[exp]*TSname,MeshArray(γ,Float32,nz*2))
+        # get S on sigma1. Way to read a slice? (Didn't figure it out yet)
+        @time S = γ.read(runpath[ex]*"sigma1/"*Sname,MeshArray(γ,Float32,nσ))
 
-        nstart = length(TSroot)+1;
-        UVWname = UVWroot*TSname[nstart:end]
-        # get velocity:
-        @time UVW = γ.read(diagpath[exp]*UVWname,MeshArray(γ,Float32,nz*3))
+        # just take one sigma1 surface
+        Ssig1 = S[:,isig1grid]
 
-        # Not needed in this program
-        # sigma works column-by-column
-        # consider doing something similar for vertical interpolation.
-        #@time σ₁=sigma(TS[:,1:nz],TS[:,nz+1:2*nz],pstdz,p₀)
-
-        # put into variable names
-        # solve for sigma1 on depth levels.
-        @time θσ,Sσ,pσ,uσ,vσ,wσ=all2sigma1(TS[:,1:nz],TS[:,nz+1:2*nz],pstdz,UVW[:,1:nz],UVW[:,nz+1:2*nz],UVW[:,2*nz+1:3*nz],sig1grid,γ,splorder)
-
-        Toutname = pathoutexp*"/theta_on_sigma1"*TSname[14:end]
-        γ.write(Toutname,θσ)
-
-        Soutname = pathoutexp*"/S_on_sigma1"*TSname[14:end]
-        γ.write(Soutname,Sσ)
-
-        Poutname = pathoutexp*"/p_on_sigma1"*TSname[14:end]
-        γ.write(Poutname,pσ)
-
-        Uoutname = pathoutexp*"/u_on_sigma1"*TSname[14:end]
-        γ.write(Uoutname,uσ)
-
-        Voutname = pathoutexp*"/v_on_sigma1"*TSname[14:end]
-        γ.write(Voutname,vσ)
-
-        Woutname = pathoutexp*"/w_on_sigma1"*TSname[14:end]
-        γ.write(Woutname,wσ)
-        
+        # next slice at 12 South.
+        Ssig1crop =  LLCcropC(Ssig1,γ) # regular grid by cropping        
+        Ssig1slice[:,tt] = Ssig1crop[:,ilat]
     end
+    #Ssig1slice = Ssig1slice[cutoff:end 1:cutoff-1,:]
+    Ssig1slice = cat(Ssig1slice[cutoff:end,:],Ssig1slice[1:cutoff-1,:],dims = 1)
+
+    figure(10)
+    clf()
+    iplot = 140:290; # plot indo-pac only
+    lims = 35.0:.05:36.0
+    contourf(λCcutoff[iplot],tecco,Ssig1slice[iplot,:]',lims,cmap=cmap_seismic)
+    colorbar(label="[PSS-78]",orientation="vertical",ticks=lims)
+    contour(λCcutoff[iplot],tecco,Ssig1slice[iplot,:]',lims,colors="k")
+
+
+    titlelbl = ex*", "*string(latsig1)*L"\degree"*"N, "*L"\sigma_1="*string(sig1)*" kg m"*L"^{-3}"
+    xlbl = "longitude "*L"[\degree E]"
+    ylbl = "years"
+
+    title(titlelbl)
+    xlabel(xlbl)
+    ylabel(ylbl)
+
+
+    # Put output (i.e., figures) locally.
+    pathoutexp = path_out*ex
+    !isdir(pathoutexp) ? mkdir(pathoutexp) : nothing;
+    if latsig1 > 0
+        outfname = pathoutexp*"/Sonsigma1_"*shortnames[ex]*"_"*string(latsig1)*"N_"*string(sig1)*".eps"
+    else
+        outfname = pathoutexp*"/Sonsigma1_"*shortnames[ex]*"_"*string(abs(latsig1))*"S_"*string(sig1)*"sig1.eps"
+    end
+    
+    savefig(outfname)
 end
