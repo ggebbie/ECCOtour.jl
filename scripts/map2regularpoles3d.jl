@@ -35,18 +35,6 @@ exps = keys(shortnames)
 ##############################################################
 nexps = length(exps) # number of experiments
 
-# can return exact value if located on grid?
-# latlat,lonlon = latlonC(γ)
-# lattest = latlat[4][50,50]
-# lontest = lonlon[4][50,50]
-# f,i,j,w = prereginterp(lattest,lontest,γ)
-# f,i,j,c = knn(Γ["XC"],Γ["YC"],lontest,lattest)
-
-# figure()
-# latlat[4][:,50]
-# plot(lonlon[4][:,51],latlat[4][:,51])
-# clf()
-
 path_grid="../inputs/GRID_LLC90/"
 γ = setupLLCgrid(path_grid)
 

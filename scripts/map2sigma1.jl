@@ -3,55 +3,45 @@
 # ggebbie, 1-Apr-2021
 
 using Revise 
-using MITgcmTools, MeshArrays, Statistics, Reemergence, JLD2, Dierckx
+using MITgcmTools, MeshArrays, Statistics
+using Reemergence, JLD2, Dierckx, Interpolations
 
-# save output to file?
-output2file = true
+##########################################
+# list of experiments on poseidon
+# THIS IS USER INPUT
+exppath = "/poseidon/ECCOv4r4/MITgcm/exps/"
+runpath,diagpath = listexperiments(exppath);
+
+## SELECT EXPERIMENTS TO COMPARE #################################
+# manually choose from available experiments listed above.
+# EVENTUALLY THIS IS A FUNCTION, DOES ONE EXPERIMENT. LOOP OF EXPS IN
+# DRIVER
+expt = "iter129_bulkformula"
+# print output here
+path_out = "/home/gebbie/julia/outputs/"
+## DEFINE THE LIST OF SIGMA1 VALUES.
+sig1grid = sigma1grid()
+
+# SHOULD ALLOW USER TO CHOOSE THIS SOMEHOW,
+# TSROOT REQUIRED, OTHERS NOT REQUIRED
+TSroot = "state_3d_set1" # 1: θ, 2: S
+RProot = "state_3d_set2" # 1:rhoanoma, 2 phihyd
+UVWroot = "trsp_3d_set1" # 1: uvelmass, 2: vvelmass, 3:wvelmass
+
+splorder = 3 # spline order
+
+################################################################
 
 # get MITgcm / ECCOv4r4 LLC grid and depth information. Store in γ.
 path_grid="../inputs/GRID_LLC90/"
 γ = setupLLCgrid(path_grid)
-
+nf = length(γ.fSize)
 # get standard levels of MITgcm
 fileZ = "RC"
 z = read_mdsio(path_grid,fileZ)
 z = vec(z)
 nz = length(z)
 
-# list of experiments on poseidon
-exppath = "/poseidon/ECCOv4r4/MITgcm/exps/"
-runpath,diagpath = listexperiments(exppath);
-
-# print output here
-path_out = "/home/gebbie/julia/outputs/"
-
-# abbreviations for each experiment for labels, etc.
-shortnames = expnames()
-
-## SELECT EXPERIMENTS TO COMPARE #################################
-# manually choose from available experiments listed above.
-exps = ("iter129_bulkformula","nointerannual")
-
-# to do all experiments:
-# exps = keys(shortnames)
-#################################################################
-
-nexps = length(exps) # number of experiments
-
-## DEFINE THE LIST OF SIGMA1 VALUES.
-sig1grida = 24:0.05:31
-sig1gridb = 31.02:0.02:33
-sig1grid = vcat(sig1grida,sig1gridb)
-sig1grid = sig1grid[1:3:end]
-
-tstart = 1992 + 1/24
-tend = 2018
-tecco = range(tstart,step=1/12,stop=2018)
-nt = length(tecco)
-
-TSroot = "state_3d_set1" # 1: θ, 2: S
-RProot = "state_3d_set2" # 1:rhoanoma, 2 phihyd
-UVWroot = "trsp_3d_set1" # 1: uvelmass, 2: vvelmass, 3:wvelmass
 
 # ECCOv4r4 uses approximation for pressure without any horizontal deviations.
 # Can precompute pressure for each depth level.
@@ -60,71 +50,82 @@ g  = 9.81 # from "data"
 
 # standard pressures via hydrostatic balance
 Pa2dbar = 1/10000
-#pstdz = convert(Array{Float32,1},-ρ₀ .*g .* Pa2dbar .* z) # 10000 to change Pa to dbar
 pstdz = -ρ₀ .*g .* Pa2dbar .* z # 10000 to change Pa to dbar
-#p₀ = 1000f0 # dbar
 p₀ = 1000 # dbar
-splorder = 3 # spline order
 
-# cycle through all chosen experiments
-for exp in exps
-    # name of file inside diagspath
-    # Look at /poseidon ... exps/run/data.diagnostics for this info.
-    filelist = searchdir(diagpath[exp],TSroot) # first filter for state_3d_set1
-    datafilelist  = filter(x -> occursin("data",x),filelist) # second filter for "data"
+# name of file inside diagspath
+# Look at /poseidon ... exps/run/data.diagnostics for this info.
+filelist = searchdir(diagpath[expt],TSroot) # first filter for state_3d_set1
+datafilelist  = filter(x -> occursin("data",x),filelist) # second filter for "data"
 
-    # make an output directory for each experiment
-    pathoutexp = path_out*exp
-    !isdir(pathoutexp) ? mkdir(pathoutexp) : nothing;
+    # make an output directory for each expteriment
+pathoutexpt = path_out*expt
+!isdir(pathoutexpt) ? mkdir(pathoutexpt) : nothing;
+nt = length(datafilelist)
     
-    nt = length(datafilelist)
-    
-    # Improve code here to read meta file, make variable selection transparent.
-    #nc = 2 # do first two (θ,S) of three properties in state_3d_set1
+# Improve code here to read meta file, make variable selection transparent.
+#nc = 2 # do first two (θ,S) of three properties in state_3d_set1
+# READ STANDARD ROOT LIST, LOOKING FOR USER SUPPLIED VARIABLE STRINGS, READ WHAT IS NECESSARY
 
-    # pre-allocate
-    TS = Array{Float32, 2}(undef, nt, nz*2)
-    UVW = Array{Float32, 2}(undef, nt, nz*3)
-    #RP = Array{Float32, 2}(undef, nt, nz*2)
-    
-    global tt = 0
-    for TSname in datafilelist
-        tt += 1
-        println("time index ",tecco[tt])
+# WORKS FOR REGULARPOLES GRID TOO?
 
-        # get θ, S
-        @time TS = γ.read(diagpath[exp]*TSname,MeshArray(γ,Float32,nz*2))
+global tt = 0
+tt =1
+TSname = datafilelist[1]
+for TSname in datafilelist
+    tt += 1
 
-        nstart = length(TSroot)+1;
-        UVWname = UVWroot*TSname[nstart:end]
+    #print timestamp
+    year,month = timestamp_monthly_v4r4(tt)
+    # get θ, S
+    @time TS = γ.read(diagpath[expt]*TSname,MeshArray(γ,Float32,nz*2))
+
+    vars = Dict("θ" => TS[:,1:nz])
+    push!(vars,"S" => TS[:,nz+1:2nz])
+
+    #nstart = length(TSroot)+1;
+    #    UVWname = UVWroot*TSname[nstart:end]
         # get velocity:
-        @time UVW = γ.read(diagpath[exp]*UVWname,MeshArray(γ,Float32,nz*3))
-
-        # Not needed in this program
-        # sigma works column-by-column
-        # consider doing something similar for vertical interpolation.
-        #@time σ₁=sigma(TS[:,1:nz],TS[:,nz+1:2*nz],pstdz,p₀)
+    #    @time UVW = γ.read(diagpath[expt]*UVWname,MeshArray(γ,Float32,nz*3))
 
         # put into variable names
         # solve for sigma1 on depth levels.
-        @time θσ,Sσ,pσ,uσ,vσ,wσ=all2sigma1(TS[:,1:nz],TS[:,nz+1:2*nz],pstdz,UVW[:,1:nz],UVW[:,nz+1:2*nz],UVW[:,2*nz+1:3*nz],sig1grid,γ,splorder)
+    @time varsσ = all2sigma1(vars,pstdz,sig1grid,γ,splorder)
 
-        Toutname = pathoutexp*"/theta_on_sigma1"*TSname[14:end]
+    xx = 168; yy = 86; ff = 5
+    figure(1)
+    clf()
+    plot([vars["S"][5,iii][168,86] for iii = 1:50],-z,"x")
+    figure(2)
+    clf()
+    plot([varsσ["S"][ff,iii][xx,yy] for iii = 1:81],sig1grid,"x")
+    tmp = varsσ["S"]
+
+    faststats(tmp[:,50])
+    dryval = NaN32
+    [println(MeshArrays.maximum(tmp[:,40],dryval)) 
+        [println(MeshArrays.maximum(tmp[:,iii],dryval)) for iii = 1:81]
+MeshArrays.maximum(tmp[:,40],dryval) 
+        [println(MeshArrays.maximum(tmp[:,iii],dryval)) for iii = 1:81]
+    typeof(tmp)
+     methods(maximum)
+    # REPLACE WITH FUNCTION WRITE VARS_ON_SIGMA
+        Toutname = pathoutexpt*"/theta_on_sigma1"*TSname[14:end]
         γ.write(Toutname,θσ)
 
-        Soutname = pathoutexp*"/S_on_sigma1"*TSname[14:end]
+        Soutname = pathoutexpt*"/S_on_sigma1"*TSname[14:end]
         γ.write(Soutname,Sσ)
 
-        Poutname = pathoutexp*"/p_on_sigma1"*TSname[14:end]
+        Poutname = pathoutexpt*"/p_on_sigma1"*TSname[14:end]
         γ.write(Poutname,pσ)
 
-        Uoutname = pathoutexp*"/u_on_sigma1"*TSname[14:end]
+        Uoutname = pathoutexpt*"/u_on_sigma1"*TSname[14:end]
         γ.write(Uoutname,uσ)
 
-        Voutname = pathoutexp*"/v_on_sigma1"*TSname[14:end]
+        Voutname = pathoutexpt*"/v_on_sigma1"*TSname[14:end]
         γ.write(Voutname,vσ)
 
-        Woutname = pathoutexp*"/w_on_sigma1"*TSname[14:end]
+        Woutname = pathoutexpt*"/w_on_sigma1"*TSname[14:end]
         γ.write(Woutname,wσ)
         
     end
