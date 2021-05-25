@@ -13,14 +13,15 @@ export position_label, searchdir, setupLLCgrid
 export listexperiments, expnames, expsymbols, time_label
 export faststats, allstats, std, mean
 export inrectangle, isnino34, isnino3, isnino4, isnino12
-export latlon, latlonC, latlonG, depthlevels, readarea, patchmean
+export latlon, latlonC, latlonG
+export depthlevels, pressurelevels, readarea, patchmean
 export nino34mean, nino3mean, nino4mean, nino12mean, extract_sst34
 export remove_climatology, remove_seasonal, sigma, vars2sigma1
 export historicalNino34, prereginterp, reginterp, trend_theta!
 export regularlatgrid, LLCcropC, LLCcropG, croplimitsLLC
 export latgridAntarctic, latgridArctic, latgridRegular
 export timestamp_monthly_v4r4, sigma1column, var2sigmacolumn
-export sigma1grid, read_state_3d, write_vars
+export sigma1grid, read_state_3d, write_vars, files2sigma1
 
 include("HannFilter.jl")
 include("MatrixFilter.jl")
@@ -171,33 +172,58 @@ isnino4(lat,lon) = inrectangle(lat,lon,(-5,5),(-170,-120))
 isnino12(lat,lon) = inrectangle(lat,lon,(-10,0),(-90,-80))
 
 function latlon(γ)
-    ϕ=γ.read(γ.path*"YC.data",MeshArray(γ,Float64))
-    λ=γ.read(γ.path*"XC.data",MeshArray(γ,Float64))
+    ϕ,λ = latlonC(γ)
 return ϕ,λ
 end
 
+"""
+    function latlonC(γ)
+    Latitude-longitude of ECCOv4r4 "C" (tracer) grid
+"""
 function latlonC(γ)
     ϕ=γ.read(γ.path*"YC.data",MeshArray(γ,Float64))
     λ=γ.read(γ.path*"XC.data",MeshArray(γ,Float64))
 return ϕ,λ
 end
 
+"""
+    function latlongG(γ)
+    Latitude-longitude of ECCOv4r4 "G" (velocity) grid
+"""
 function latlonG(γ)
     ϕ=γ.read(γ.path*"YG.data",MeshArray(γ,Float64))
     λ=γ.read(γ.path*"XG.data",MeshArray(γ,Float64))
 return ϕ,λ
 end
 
+"""
+    function depthlevels(γ)
+    Depths of ECCO v4r4 grid (positive vals)
+"""
 function depthlevels(γ)
-    #z=γ.read(γ.path*"RC.data",MeshArray(γ,Float64))
-    #λ=γ.read(γ.path*"XC.data",MeshArray(γ,Float64))
-    #fileZ = "RC"
-    #z = read_mdsio(path_grid,fileZ)
     z = read_mdsio(γ.path,"RC")
-    z = vec(z)
+    z = -vec(z)
     return z
 end
 
+"""
+    function pressurelevels(z)
+    Standard pressures of ECCO v4r4 grid
+"""
+function pressurelevels(z)
+    # ECCOv4r4 approximates pressure without any horizontal deviations in EOS.
+    # Can precompute pressure for each depth level.
+    ρ₀ = 1029 # from "data" text file in run directory
+    g  = 9.81 # from "data" 
+    Pa2dbar = 1/10000 # standard pressures via hydrostatic balance
+    pstdz = ρ₀ .*g .* Pa2dbar .* z # 10000 to change Pa to dbar
+    return pstdz
+end
+
+"""
+    function readarea(γ)
+    area of ECCO v4r4 grid 
+"""
 function readarea(γ)
     area=γ.read(γ.path*"RAC.data",MeshArray(γ,Float64))
 return area
@@ -1018,6 +1044,27 @@ function write_vars(vars,fileprefix,filesuffix)
         filename = fileprefix*fldname*filesuffix
         write(filename,fldvals)
     end
+end
+
+"""
+    function files2sigma1()
+    Take variables in a filelist, read, map to sigma1, write to file.
+"""
+function files2sigma1(pathin,pathout,fileroots,γ,pstdz,sig1grid,splorder)
+    # Read All Variables And Puts Them Into "Vars" Dictionary
+
+    vars = Dict{String,MeshArrays.gcmarray{Float32,2,Array{Float32,2}}}()    
+    for fileroot in fileroots
+        merge!(vars,read_state_3d(pathin,fileroot,γ))
+    end
+
+    # solve for sigma1 on depth levels.
+    @time varsσ = vars2sigma1(vars,pstdz,sig1grid,γ,splorder)
+
+    fileprefix = pathout
+    # use first filename to get timestamp
+    filesuffix = "_on_sigma1"*fileroots[1][14:end]*".data"
+    write_vars(varsσ,fileprefix,filesuffix)
 end
 
 end
