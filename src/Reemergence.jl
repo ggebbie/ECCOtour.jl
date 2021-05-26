@@ -4,7 +4,7 @@ module Reemergence
 
 using Statistics, PyPlot, Distributions, FFTW, LinearAlgebra, StatsBase
 using MeshArrays, MITgcmTools, LaTeXStrings, Dierckx
-using DelimitedFiles, Interpolations
+using DelimitedFiles, Interpolations, NetCDF
 
 export hanncoeffs, hannsum, hannsum!, hannfilter
 export get_filtermatrix, matrixfilter, matrixspray, columnscale!
@@ -21,7 +21,9 @@ export historicalNino34, prereginterp, reginterp, trend_theta!
 export regularlatgrid, LLCcropC, LLCcropG, croplimitsLLC
 export latgridAntarctic, latgridArctic, latgridRegular
 export timestamp_monthly_v4r4, sigma1column, var2sigmacolumn
-export sigma1grid, read_state_3d, write_vars, files2sigma1
+export sigma1grid, read_state_3d, ncread_state_3d, write_vars
+export datafiles2sigma1, ncdatafiles2sigma1, ncwritefromtemplate
+export ncfiles2sigma1
 
 include("HannFilter.jl")
 include("MatrixFilter.jl")
@@ -283,13 +285,14 @@ function listexperiments(exppath)
 
     runpath = Dict(explist .=> exppath.*explist.*"/run/")
     diagpath = Dict(explist .=> exppath.*explist.*"/run/diags/")
+    regpolespath = Dict(explist .=> exppath.*explist.*"/run/regularpoles/")
 
     # print to screen all the available
     println("Available experiments are")
     for (key,value) in runpath
         println(key)
     end
-    return runpath,diagpath
+    return runpath,diagpath,regpolespath
 end       
 
 """
@@ -563,7 +566,6 @@ function sigma(θ::MeshArrays.gcmarray{Float32,2,Array{Float32,2}},S::MeshArrays
     return σ₁
 end
 
-
 """
     function vars2sigma1(vars,p,sig1grid,γ,spline_order)
     map variables onto sigma1 surfaces for gcmarrays
@@ -639,6 +641,85 @@ function vars2sigma1(vars::Dict{String,MeshArrays.gcmarray{Float32,2,Array{Float
                         [varsσ["p"][ff,sgood[ss]][xx,yy] = convert(Float32,pσ[ss]) for ss = 1:ngood]
 
                     end
+                end
+            end
+        end
+    end
+    return varsσ
+end
+
+"""
+    function vars2sigma1(vars,p,sig1grid,γ,spline_order)
+    map variables from regularpoles grid onto sigma1 surfaces
+# Arguments
+- `vars::Dict{String,Array{Float64,3}}}`: dict of 3d arrays
+- `p::Array{Float64,1}` : vertical profile of standard pressures
+- `sig1grid`: σ₁ surface values
+- `γ`: grid description needed for preallocation
+- `splorder`: 1-5, order of spline
+# Output
+- `varsσ::Dict{String,MeshArrays.gcmarray{Float32,2,Array{Float32,2}}}`: dict of gcmarrays of variables on sigma1 surfaces
+"""
+function vars2sigma1(vars::Dict{String,Array{Float64,3}},pressure::Array{Float64,1},sig1grid::Array{Float64,1},splorder::Int64)
+
+    # check that θ and S exist. They must. 
+    (haskey(vars,"THETA") && haskey(vars,"SALT")) ? nothing : error("Need θ and S in vars") 
+    
+    # loop over faces
+    nx,ny,nz = size(vars["THETA"])
+    nσ = length(sig1grid)
+
+    # vcol = Dict with profile/column data
+    # pre-allocate each key in vars  
+    vcol = Dict{String,Array{Float64,1}}() # vars in a column
+    varsσ = Dict{String,Array{Float64,3}}()    
+
+    for (key, value) in vars
+        vcol[key] = fill(NaN32,nz)
+        varsσ[key] = fill(NaN32,(nx,ny,nσ))
+    end
+    # allocate standard pressure by hand.
+    # CONSIDER ANOTHER FUNCTION TO DO PHIHYD.
+    varsσ["p"] = fill(NaN32,(nx,ny,nσ))
+
+    for xx = 1:nx
+        for yy = 1:ny
+            for (vcolname, vcolval) in vars
+                # vcol = Dict with profile/column data
+                vcol[vcolname] = vcolval[xx,yy,:]
+            end
+                
+            # also need to filter dry values and to change zz
+            # Consider using `isdry` function and dryval in future.
+            nw = count(notnanorzero,vcol["THETA"]) # number of wet points in column
+            nwS = count(notnanorzero,vcol["SALT"])
+            if nw != nwS
+                error("T,S zeroes inconsistent")
+            end
+
+            # incurs error if splorder > number of points in column
+            if nw > splorder #need >=n+1 points to do order-n interpolation
+                #println(length(vcol["θ"][1:nw]))
+                σ₁=sigma1column(vcol["THETA"][1:nw],vcol["SALT"][1:nw],pressure[1:nw])
+
+                # 1) no inversions or homogeneity
+                # 2) range of sig1, 3) no extrapolation
+                if sum(diff(σ₁).<0)==0 && count(minimum(σ₁).<=sig1grid.<=maximum(σ₁)) > 0
+
+                    # eliminate any extrapolation
+                    sgood = findall(minimum(σ₁).<=sig1grid.<=maximum(σ₁))
+                    ngood = length(sgood)
+                        
+                    for (vckey,vcval) in vcol
+                        varσ = var2sigmacolumn(σ₁,vcval[1:nw],sig1grid[sgood],splorder)
+
+                        [varsσ[vckey][xx,yy,sgood[ss]] = convert(Float32,varσ[ss]) for ss = 1:ngood]
+                    end
+
+                        # do standard pressure by hand.
+                    pσ = var2sigmacolumn(σ₁,pressure[1:nw],sig1grid[sgood],splorder)
+                    [varsσ["p"][xx,yy,sgood[ss]] = convert(Float32,pσ[ss]) for ss = 1:ngood]
+
                 end
             end
         end
@@ -1023,13 +1104,6 @@ function read_state_3d(path,fileroot,γ)
 
     zlo = 1
     for fldname in meta[1].fldList
-
-        # convenience translation
-        # if fldname == "THETA"
-        #     fldname = "θ"
-        # elseif fldname == "SALT"
-        #     fldname = "S"
-        # end
         
         # use a dictionary
         zhi = zlo + nz -1
@@ -1039,7 +1113,11 @@ function read_state_3d(path,fileroot,γ)
     return vars
 end
 
-function write_vars(vars,fileprefix,filesuffix)
+"""
+   function write_vars
+   This version writes mdsio output on the native grid
+"""
+function write_vars(vars::Dict{String,MeshArrays.gcmarray{Float32,2,Array{Float32,2}}},fileprefix::String,filesuffix::String)
     for (fldname,fldvals) in vars
         filename = fileprefix*fldname*filesuffix
         write(filename,fldvals)
@@ -1047,10 +1125,72 @@ function write_vars(vars,fileprefix,filesuffix)
 end
 
 """
-    function files2sigma1()
+   function ncwritefromtemplate
+   This version writes NetCDF output on the regularpoles grid
+"""
+function ncwritefromtemplate(vars::Dict{String,Array{Float64,3}},fileprefix::String,filesuffixold::String,filesuffixnew::String,sig1grid)
+
+    # 2 WAYS TO GO:
+    #1. DO LIKE REGULARPOLES AND TRY TO OUTPUT.
+    #2. READ NC, SAVE ATTRIBUTES, ADD NEW SIGMA1 FIELD.
+    # choose method 2 here
+
+    for (fldname,fldval) in vars
+
+        # get a filename with _on_sigma1
+        if fldname == "p"
+            fileold = fileprefix*"THETA"*"/"*"THETA"*filesuffixold
+        else
+            fileold = fileprefix*fldname*"/"*fldname*filesuffixold
+        end
+        filenew = fileprefix*fldname*"/"*fldname*filesuffixnew
+        
+        # recover information from template/existing file
+        lon = ncread(fileold,"lon")
+        lonunits = ncgetatt(fileold, "lon", "units")
+        lonlongname = ncgetatt(fileold, "lon", "longname")
+        lonatts = Dict("longname" => lonlongname, "units" => lonunits)
+        
+        lat = ncread(fileold,"lat")
+        latunits = ncgetatt(fileold, "lat", "units")
+        latlongname = ncgetatt(fileold, "lat", "longname")
+        latatts = Dict("longname" => latlongname, "units" => latunits)
+        
+        sigmaatts = Dict("longname" => "Sigma-1", "units" => "kg/m^3 - 1000")
+
+        if fldname == "p"
+            varatts = Dict("longname" => "pressure", "units" => "dbar")
+        else
+            vunits = ncgetatt(fileold, fldname, "units")
+            vlongname = ncgetatt(fileold, fldname, "longname")
+            varatts = Dict("longname" => vlongname, "units" => vunits)
+        end
+        
+        isfile(filenew) && rm(filenew)
+        nccreate(
+            filenew,
+            fldname,
+            "lon",
+            lon,
+            lonatts,
+            "lat",
+            lat,
+            latatts,
+            "sigma1",
+            sig1grid,
+            sigmaatts,
+            atts = varatts,
+        )
+            ncwrite(fldval, filenew, fldname)
+    end
+end
+
+
+"""
+    function datafiles2sigma1()
     Take variables in a filelist, read, map to sigma1, write to file.
 """
-function files2sigma1(pathin,pathout,fileroots,γ,pstdz,sig1grid,splorder)
+function datafiles2sigma1(pathin,pathout,fileroots,γ,pstdz,sig1grid,splorder)
     # Read All Variables And Puts Them Into "Vars" Dictionary
 
     vars = Dict{String,MeshArrays.gcmarray{Float32,2,Array{Float32,2}}}()    
@@ -1065,6 +1205,36 @@ function files2sigma1(pathin,pathout,fileroots,γ,pstdz,sig1grid,splorder)
     # use first filename to get timestamp
     filesuffix = "_on_sigma1"*fileroots[1][14:end]*".data"
     write_vars(varsσ,fileprefix,filesuffix)
+end
+
+"""
+    function ncfiles2sigma1
+    Take variables in a NetCDF filelist, read, map to sigma1, write to file.
+"""
+function ncfiles2sigma1(pathin,pathout,ncfilenames,γ,pstdz,sig1grid,splorder)
+    # Read All Variables And Puts Them Into "Vars" Dictionary
+    println(ncfilenames)
+    vars = Dict{String,Array{Float64,3}}()    
+    for (ncvarname,ncfilename) in ncfilenames
+        merge!(vars,ncread_state_3d(ncfilename,ncvarname))
+    end
+
+    # solve for sigma1 on depth levels.
+    @time varsσ = vars2sigma1(vars,pstdz,sig1grid,splorder)
+
+    fileprefix = pathout
+    # use first filename to get timestamp
+    filesuffixold = ncfilenames["THETA"][end-10:end]
+    filesuffixnew = "_on_sigma1"*ncfilenames["THETA"][end-10:end]
+    ncwritefromtemplate(varsσ,fileprefix,filesuffixold,filesuffixnew,sig1grid)
+end
+
+function ncread_state_3d(ncfilename,ncvarname)
+    # 3d
+    println(ncfilename,ncvarname)
+    state = ncread(ncfilename,ncvarname);
+    vars  = Dict(ncvarname => state)
+    return vars
 end
 
 end
