@@ -21,9 +21,9 @@ export historicalNino34, prereginterp, reginterp, trend_theta!
 export regularlatgrid, LLCcropC, LLCcropG, croplimitsLLC
 export latgridAntarctic, latgridArctic, latgridRegular
 export timestamp_monthly_v4r4, sigma1column, var2sigmacolumn
-export sigma1grid, read_state_3d, ncread_state_3d, write_vars
-export datafiles2sigma1, ncdatafiles2sigma1, ncwritefromtemplate
-export ncfiles2sigma1
+export sigma1grid, read_mdsio_3d, read_netcdf_3d, write_vars
+export mdsio2sigma1, ncwritefromtemplate
+export netcdf2sigma1, replace!, mdsio2regularpoles
 
 include("HannFilter.jl")
 include("MatrixFilter.jl")
@@ -830,8 +830,9 @@ end
 """
 function reginterp(fldin,nx,ny,f,i,j,w)
     fldout = Interpolate(fldin,f,i,j,w)
-    replace!(fldout,0.0 => NaN)
-    #fldout[findall.(iszero.(fldout))] = NaN
+
+    # think about moving this before interpolation
+    # replace!(fldout,0.0 => NaN)
     fldout = transpose(reshape(fldout,nx,ny))
     return fldout
 end
@@ -1090,7 +1091,7 @@ end
 
 notnanorzero(z) = !iszero(z) && !isnan(z)
 
-function read_state_3d(path,fileroot,γ)
+function read_mdsio_3d(path,fileroot,γ)
 
     metafile = fileroot*".meta"
     datafile = fileroot*".data"
@@ -1187,15 +1188,15 @@ end
 
 
 """
-    function datafiles2sigma1()
+    function mdsio2sigma1()
     Take variables in a filelist, read, map to sigma1, write to file.
 """
-function datafiles2sigma1(pathin,pathout,fileroots,γ,pstdz,sig1grid,splorder)
+function mdsio2sigma1(pathin,pathout,fileroots,γ,pstdz,sig1grid,splorder)
     # Read All Variables And Puts Them Into "Vars" Dictionary
 
     vars = Dict{String,MeshArrays.gcmarray{Float32,2,Array{Float32,2}}}()    
     for fileroot in fileroots
-        merge!(vars,read_state_3d(pathin,fileroot,γ))
+        merge!(vars,read_mdsio_3d(pathin,fileroot,γ))
     end
 
     # solve for sigma1 on depth levels.
@@ -1208,15 +1209,15 @@ function datafiles2sigma1(pathin,pathout,fileroots,γ,pstdz,sig1grid,splorder)
 end
 
 """
-    function ncfiles2sigma1
+    function netcdf2sigma1
     Take variables in a NetCDF filelist, read, map to sigma1, write to file.
 """
-function ncfiles2sigma1(pathin,pathout,ncfilenames,γ,pstdz,sig1grid,splorder)
+function netcdf2sigma1(pathin,pathout,ncfilenames,γ,pstdz,sig1grid,splorder)
     # Read All Variables And Puts Them Into "Vars" Dictionary
     println(ncfilenames)
     vars = Dict{String,Array{Float64,3}}()    
     for (ncvarname,ncfilename) in ncfilenames
-        merge!(vars,ncread_state_3d(ncfilename,ncvarname))
+        merge!(vars,read_netcdf_3d(ncfilename,ncvarname))
     end
 
     # solve for sigma1 on depth levels.
@@ -1229,12 +1230,105 @@ function ncfiles2sigma1(pathin,pathout,ncfilenames,γ,pstdz,sig1grid,splorder)
     ncwritefromtemplate(varsσ,fileprefix,filesuffixold,filesuffixnew,sig1grid)
 end
 
-function ncread_state_3d(ncfilename,ncvarname)
+function read_netcdf_3d(ncfilename,ncvarname)
     # 3d
     println(ncfilename,ncvarname)
     state = ncread(ncfilename,ncvarname);
     vars  = Dict(ncvarname => state)
     return vars
 end
+
+"""
+function replace!(a::MeshArrays.gcmarray{Float32,1,Array{Float32,2}}},b::Pair)
+"""
+function replace!(a::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},b::Pair)
+
+    nf = size(a,1)
+    println(nf)
+    for ff = 1:nf
+        Base.replace!(a[ff],b)
+    end
+    return a
+end
+
+"""
+function replace!(a::MeshArrays.gcmarray{Float32,2,Array{Float32,2}}},b::Pair)
+"""
+function replace!(a::MeshArrays.gcmarray{Float32,2,Array{Float32,2}},b::Pair)
+
+    # tried to recursively call replace! but failed.
+    # instead do double nested case.
+    nf = size(a,1)
+    nrec = size(a,2)
+    for ff = 1:nf
+        for rr = 1:nrec
+            Base.replace!(a[ff,rr],b)
+        end
+    end
+    return a
+end
+
+function mdsio2regularpoles(pathin,filein,γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
+
+    vars = read_mdsio_3d(pathin,filein,γ)
+
+    varsregpoles = Dict{String,Array{Float32,3}}()    
+
+    for (varname, varvals) in vars
+
+        # remove contamination from land
+        replace!(varvals, 0.0f0 => NaN32)
+        
+        nz = size(varvals,2)
+
+        #pre-allocate dict
+        varsregpoles[varname] = fill(NaN32,(nx,ny,nz))
+    
+        for zz = 1:nz
+            println(zz)
+
+            # get regular grid by cropping
+            θcrop =  LLCcropC(varvals[:,zz],γ)
+            
+            # interpolate to "LLCregular"
+            θarc = reginterp(varvals[:,zz],nx,nyarc,farc,iarc,jarc,warc) 
+            θantarc = reginterp(varvals[:,zz],nx,nyantarc,fantarc,iantarc,jantarc,wantarc)
+            varsregpoles[varname][:,:,zz]=hcat(θantarc',θcrop,θarc')
+            
+        end
+    end
+    return varsregpoles
+end
+
+# function writeregularpoles(filelog)
+#     # make a directory for this output
+#     pathoutexpvar = pathout*fieldDict["fldname"]*"/" 
+#     !isdir(pathoutexpvar) ? mkdir(pathoutexpvar) : nothing;
+
+#fieldDict = read_available_diagnostics(field,filename=filediag)
+
+#         # get filename for this month.
+#     fileout = pathoutexpvar*fieldDict["fldname"]*fieldsuffix
+        
+#     # save in a NetCDF file with info from fieldDict
+#     varatts = Dict("longname" => fieldDict["title"], "units" => fieldDict["units"])
+         
+#     isfile(fileout) && rm(fileout)
+#         nccreate(
+#             fileout,
+#             fieldDict["fldname"],
+#             "lon",
+#             λC,
+#             lonatts,
+#             "lat",
+#             ϕC,
+#             latatts,
+#             "depth",
+#             -z,
+#             depthatts,
+#             atts = varatts,
+#         )
+#     ncwrite(θinterp, fileout, fieldDict["fldname"])
+# end
 
 end

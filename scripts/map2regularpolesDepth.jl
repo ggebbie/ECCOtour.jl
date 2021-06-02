@@ -62,6 +62,10 @@ pathoutexp = pathout*ex*"/run/regularpoles/"
 
 D=γ.read(γ.path*"Depth.data",MeshArray(γ,Float64))
 
+# choice: replace zeros with NaN32?
+replace!(D,0.0 => NaN)
+
+
 θcrop =  LLCcropC(D,γ) # get regular grid by cropping
 θarc = reginterp(D,nx,nyarc,farc,iarc,jarc,warc) # interpolate to "LLCregular"
 θantarc = reginterp(D,nx,nyantarc,fantarc,iantarc,jantarc,wantarc)

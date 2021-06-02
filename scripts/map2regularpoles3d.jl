@@ -1,15 +1,12 @@
-#  First steps: 1. go into Reemergence project directory. 2. go into julia REPL package mode with `]`. 3. `activate .` 4. Backspace to return to command mode in REPL.
-
-# 1. read monthly-average surface (2d) fields
+# transfer output from native to regularpoles grid
+# 1. read monthly-average fields
 # 2. interpolate to Cartesian grid
 # 3. save to self-describing file.
-# 4. repeat with all surface fields.
+# 4. repeat with all fields.
 
 using Revise
 using Reemergence
 using MeshArrays, MITgcmTools
-#using Statistics, PyPlot, Distributions
-#using LinearAlgebra, StatsBase
 using NetCDF
 
 # get names of exps. 
@@ -19,21 +16,23 @@ cd(workdir)
 
 # get experiments on poseidon/batou
 exppath = "/batou/ECCOv4r4/MITgcm/exps/"
-runpath,diagpath = listexperiments(exppath);
+runpath,diagpath,regpolespath = listexperiments(exppath);
+
 # abbreviations for each experiment for labels, etc.
 shortnames = expnames()
 
-# print output here
-pathout = "/batou/ECCOv4r4/MITgcm/exps/"
-
-## SELECT EXPERIMENTS TO ANALYZE #################################
-# manually choose from available experiments listed above.
-#exps = ("iter129_bulkformula")
+## SELECT EXPERIMENTS TO ANALYZE ##
+#  manually choose from available experiments listed above.
+expt = "iter129_bulkformula"
 
 # to do all experiments:
 exps = keys(shortnames)
-##############################################################
 nexps = length(exps) # number of experiments
+
+# print output here
+# pathout = "/batou/ECCOv4r4/MITgcm/exps/"
+path_out = regpolespath[expt]
+!isdir(path_out) ? mkdir(path_out) : nothing;
 
 path_grid="../inputs/GRID_LLC90/"
 γ = setupLLCgrid(path_grid)
@@ -53,16 +52,14 @@ lat,lon = latlon(γ)
 farc,iarc,jarc,warc = prereginterp(ϕCarc,λC,γ)
 fantarc,iantarc,jantarc,wantarc = prereginterp(ϕCantarc,λC,γ)
 
-# Fix this
+# Fix this (?)
 nx = length(λC)
 ny = length(ϕC)
 nyarc = length(ϕCarc)
 nyantarc = length(ϕCantarc)
 
 # get standard levels of MITgcm
-fileZ = "RC"
-z = read_mdsio(path_grid,fileZ)
-z = vec(z)
+z = depthlevels(γ)
 nz = length(z)
 
 tstart = 1992 + 1/24
@@ -76,15 +73,10 @@ depthatts = Dict("longname" => "Depth", "units" => "m")
 
 Froot = "state_3d_set1"
 Froot = "state_3d_set2"
-# set this up as an initial argument to the script.
-ex = "iter129_bulkformula"
-#for ex in exps
-filelist = searchdir(diagpath[ex],Froot) 
-datafilelist  = filter(x -> occursin("data",x),filelist)
 
-# make an output directory for each experiment
-pathoutexp = pathout*ex*"/run/regularpoles/"
-!isdir(pathoutexp) ? mkdir(pathoutexp) : nothing;
+#for expt in exps
+filelist = searchdir(diagpath[expt],Froot) 
+datafilelist  = filter(x -> occursin("data",x),filelist)
 
 global tt = 0
 
@@ -92,37 +84,28 @@ for Fname in datafilelist
     tt += 1
     println("filename ",Fname)
 
-    year = Int(floor(tecco[tt]))
-    month = ((tt-1)%12)+1
-    println("year ",year," month ",month)
+    tt = 1
+    Fname = datafilelist[1]
 
-    θmeta = read_meta(diagpath[ex]*Fname)
-    # hard coded Float32
-    # should use θmeta.dataprec but type is wrong
-    θ = γ.read(diagpath[ex]*Fname,MeshArray(γ,Float32,θmeta.nrecords*nz))
+    year,month = timestamp_monthly_v4r4(tt)
 
-    global reclo = 0
-    global rechi = 0
-    #loop over all the records in the file    
-    for field in θmeta.fldList
+    fileoutput = diagpath[expt]*Fname
+    filelog = runpath[expt]*"available_diagnostics.log"
 
-        fieldDict = read_available_diagnostics(field,filename=runpath[ex]*"available_diagnostics.log")
-        levs = fieldDict["levs"]
-        reclo = rechi + 1
-        rechi = reclo + levs - 1
-        global θinterp = Array{Float64, 3}(undef, nx, ny, levs)
+    if month < 10
+        filesuffix = "_"*string(year)*"_0"*string(month)*".nc"
+    else 
+        filesuffix = "_"*string(year)*"_"*string(month)*".nc"
+    end
 
-        global levno = 0
-        for rec = reclo:rechi
-            levno += 1 
-            θcrop =  LLCcropC(θ[:,rec],γ) # get regular grid by cropping
-            θarc = reginterp(θ[:,rec],nx,nyarc,farc,iarc,jarc,warc) # interpolate to "LLCregular"
-            θantarc = reginterp(θ[:,rec],nx,nyantarc,fantarc,iantarc,jantarc,wantarc)
-            θinterp[:,:,levno]=hcat(θantarc',θcrop,θarc')
+    filein = Fname[1:end-5]
+    pathin = diagpath[expt]
+    
 
-        end
-        replace!(θinterp,0.0 => NaN)
-        
+    varsregpoles =  mdsio2regularpoles(pathin,filein,γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
+
+    ## end of good work.
+    
         # make a directory for this output
         pathoutexpvar = pathoutexp*fieldDict["fldname"]*"/" 
         !isdir(pathoutexpvar) ? mkdir(pathoutexpvar) : nothing;

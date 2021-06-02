@@ -65,7 +65,7 @@ for tt = 1:312 # must be a better way
     end
         
     # Read from filelist, map to sigma-1, write to file
-    ncfiles2sigma1(regpolesroot,regpolesroot,ncfilenames,γ,pstdz,sig1grid,splorder)
+    netcdf2sigma1(regpolesroot,regpolesroot,ncfilenames,γ,pstdz,sig1grid,splorder)
 
     # # remove the timestamp
     # for (kk,vv) in ncfilenames
