@@ -63,13 +63,8 @@ for tt = 1:312 # must be a better way
     for (kk,vv) in ncfilenames
         ncfilenames[kk] = vv.*tstamp
     end
-        
+    ncfilenames        
     # Read from filelist, map to sigma-1, write to file
     netcdf2sigma1(regpolesroot,regpolesroot,ncfilenames,γ,pstdz,sig1grid,splorder)
-
-    # # remove the timestamp
-    # for (kk,vv) in ncfilenames
-    #     ncfilenames[kk] = vv[1:end-11]
-    # end
 
 end
