@@ -45,7 +45,7 @@ regpolesroot = regpolespath[expt]
 # get specific file names, one for each variable
 fileroots = Dict{String,String}()
 
-for tt = 1:312 # must be a better way
+for tt = 253:312 # must be a better way
     for fldname in varroot
         push!(fileroots,fldname => regpolesroot*fldname*"/"*fldname)
     end

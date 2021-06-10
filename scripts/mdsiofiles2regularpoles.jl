@@ -40,6 +40,9 @@ nexps = length(exps) # number of experiments
 pathout = regpolespath[expt]
 !isdir(path_out) ? mkdir(path_out) : nothing;
 
+# reading NetCDF attributes
+filelog = runpath[expt]*"available_diagnostics.log"
+
 pathgrid="../inputs/GRID_LLC90/"
 γ = setupLLCgrid(pathgrid)
 
@@ -91,7 +94,6 @@ for Froot in Frootlist
         year,month = timestamp_monthly_v4r4(tt)
 
         fileoutput = diagpath[expt]*Fname
-        filelog = runpath[expt]*"available_diagnostics.log"
 
         if month < 10
             filesuffix = "_"*string(year)*"_0"*string(month)*".nc"

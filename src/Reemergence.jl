@@ -688,7 +688,6 @@ function vars2sigma1(vars::Dict{String,Array{Float64,3}},pressure::Array{Float64
 
     for xx = 1:nx
         for yy = 1:ny
-xx = 113; yy = 179; pressure = pstdz
             for (vcolname, vcolval) in vars
                 # vcol = Dict with profile/column data
                 vcol[vcolname] = vcolval[xx,yy,:]
@@ -702,29 +701,23 @@ xx = 113; yy = 179; pressure = pstdz
                 error("T,S zeroes inconsistent")
             end
 
-            # incurs error if splorder > number of points in column
-            if nw > splorder #need >=n+1 points to do order-n interpolation
-                #println(length(vcol["θ"][1:nw]))
+            if nw > 3
+                # incurs error if splorder > number of points in column
+                # if nw > splorder #need >=n+1 points to do order-n interpolation
                 σ₁=sigma1column(vcol["THETA"][1:nw],vcol["SALT"][1:nw],pressure[1:nw])
 
-                # 1) no inversions or homogeneity (this constraint relaxed now because too many profiles thrown out)
-                # 2) range of sig1, 3) no extrapolation
-                # if sum(diff(σ₁).<0)==0 && count(minimum(σ₁).<=sig1grid.<=maximum(σ₁)) > 0
-                if count(minimum(σ₁).<=sig1grid.<=maximum(σ₁)) > 0
-
-                    # eliminate any extrapolation
-                    sgood = findall(minimum(σ₁).<=sig1grid.<=maximum(σ₁))
-                    ngood = length(sgood)
-
-                    for (vckey,vcval) in vcol
-                        varσ = var2sigmacolumn(σ₁,vcval[1:nw],sig1grid[sgood],splorder)
-                        [varsσ[vckey][xx,yy,sgood[ss]] = convert(Float32,varσ[ss]) for ss = 1:ngood]
-                    end
-
-                        # do standard pressure by hand.
-                    pσ = var2sigmacolumn(σ₁,pressure[1:nw],sig1grid[sgood],splorder)
-                    [varsσ["p"][xx,yy,sgood[ss]] = convert(Float32,pσ[ss]) for ss = 1:ngood]
+                for (vckey,vcval) in vcol
+                    varσ = var2sigmacolumn(σ₁,vcval[1:nw],sig1grid,splorder)
+                    # eliminate sgood here.
+                    [varsσ[vckey][xx,yy,ss] = convert(Float32,varσ[ss]) for ss = 1:nσ]
                 end
+
+                    # do standard pressure by hand.
+                pσ = var2sigmacolumn(σ₁,pressure[1:nw],sig1grid,splorder)
+
+                # again eliminate sgood
+                [varsσ["p"][xx,yy,ss] = convert(Float32,pσ[ss]) for ss = 1:nσ]
+
             end
         end
     end
@@ -778,7 +771,10 @@ function var2sigmacolumn(σorig,v,σgrid,splorder)
     # choose a univariate spline with s = magic number
     #θspl = Spline1D(σ₁,θz;k=splorder,s=length(σ₁))
 
-    σ = copy(σorig) # make sure sigma-1 doesn't get mutated and passed back
+    σ = copy(σorig) # make sure sigma-1 doesn't mutate and pass back
+
+    nσout = length(σgrid)
+    θonσ = fill(NaN,nσout)
 
     # eliminate homogeneities
     dedup!(σ,v)
@@ -786,26 +782,36 @@ function var2sigmacolumn(σorig,v,σgrid,splorder)
     # mix inversions
     mixinversions!(σ,v)
 
-    θspl = Spline1D(σ,v;k=splorder)
-    θonσ = θspl(σgrid)
+    nσin = length(σ)
 
-    # check for spline instability
-    if maximum(θonσ) - minimum(θonσ) > 1.2 * (maximum(v) - minimum(v))
-        # drop to linear interpolation
+    # 1) no inversions or homogeneity (this constraint relaxed now because too many profiles thrown out)
+    # 2) range of sig1, 3) no extrapolation
+    # if sum(diff(σ₁).<0)==0 && count(minimum(σ₁).<=sig1grid.<=maximum(σ₁)) > 0
+    if count(minimum(σ).<=σgrid.<=maximum(σ)) > 0
 
-        # resolve any repeated values
-        #nn = 1
-        #while nn < length(σ)-1
-        #    while σ[nn] >= σ[nn+1]
-        #        deleteat!(σ,nn)
-        #        deleteat!(v,nn)
-        #    end
-        #    nn+=1
-        #end
-        interp_linear = LinearInterpolation(σ, v)
-        θonσ = interp_linear(σgrid) # exactly log(3)
-    end # linear interpolation
-                                              
+        # eliminate any extrapolation
+        sgood = findall(minimum(σ).<=σgrid.<=maximum(σ))
+        ngood = length(sgood)
+
+        if nσin > splorder
+            θspl = Spline1D(σ,v;k=splorder)
+            #println(size(θonσ))
+#            println(ngood)
+ #           println(size(σgrid))
+            for ss in sgood
+                θonσ[ss] = θspl(σgrid[ss])
+            end
+
+            # check for spline instability
+            if maximum(θonσ[sgood]) - minimum(θonσ[sgood]) > 1.05 * (maximum(v) - minimum(v))
+                interp_linear = LinearInterpolation(σ, v)
+                for ss in sgood
+                    θonσ[ss] = interp_linear(σgrid[ss])
+                end
+            end
+        end # linear interpolation
+    end
+                                                  
     return θonσ
 end
 
@@ -871,13 +877,13 @@ function dedupfirst!(a,b)
     counter = 1
     da = diff(a) # requires length of 2 or more
     ii = findfirst(iszero,da)
-    while iszero(da[ii])
+    while iszero(da[ii]) 
         b[ii+1] += b[ii]
         deleteat!(a,ii)
         deleteat!(b,ii)
         deleteat!(da,ii)
         counter += 1
-        isempty(da) ? break : nothing
+        (length(da) < ii) ? break : nothing
     end
     b[ii] /= counter
 end
