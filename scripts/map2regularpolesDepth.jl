@@ -49,11 +49,9 @@ z = read_mdsio(path_grid,fileZ)
 z = vec(z)
 nz = length(z)
 
-
 lonatts = Dict("longname" => "Longitude", "units" => "degrees east")
 latatts = Dict("longname" => "Latitude", "units" => "degrees north")
 depthatts = Dict("longname" => "Depth", "units" => "m")
-
 
 # make an output directory for each experiment
 pathoutexp = pathout*ex*"/run/regularpoles/"

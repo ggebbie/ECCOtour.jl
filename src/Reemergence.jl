@@ -25,7 +25,7 @@ export sigma1grid, mdsio2dict, netcdf2dict, write_vars
 export mdsio2sigma1, ncwritefromtemplate
 export netcdf2sigma1, replace!, mdsio2regularpoles
 export writeregularpoles, vars2regularpoles
-export netcdf2regularpoles
+export netcdf2regularpoles, mixinversions!, dedup!
 
 include("HannFilter.jl")
 include("MatrixFilter.jl")
@@ -271,6 +271,8 @@ nino34mean(x,area,ϕ,λ,iswet) = patchmean(x,area,ϕ,λ,isnino34,iswet)
 nino3mean(x,area,ϕ,λ,iswet) = patchmean(x,area,ϕ,λ,isnino3,iswet)
 nino4mean(x,area,ϕ,λ,iswet) = patchmean(x,area,ϕ,λ,isnino4,iswet)
 nino12mean(x,area,ϕ,λ,iswet) = patchmean(x,area,ϕ,λ,isnino12,iswet)
+
+isnotpositive(x) = (abs(x) == -x)
 
 """
     function listexperiments(exppath)
@@ -677,12 +679,12 @@ function vars2sigma1(vars::Dict{String,Array{Float64,3}},pressure::Array{Float64
     varsσ = Dict{String,Array{Float64,3}}()    
 
     for (key, value) in vars
-        vcol[key] = fill(NaN32,nz)
-        varsσ[key] = fill(NaN32,(nx,ny,nσ))
+        vcol[key] = fill(NaN,nz)
+        varsσ[key] = fill(NaN,(nx,ny,nσ))
     end
+
     # allocate standard pressure by hand.
-    # CONSIDER ANOTHER FUNCTION TO DO PHIHYD.
-    varsσ["p"] = fill(NaN32,(nx,ny,nσ))
+    varsσ["p"] = fill(NaN,(nx,ny,nσ))
 
     for xx = 1:nx
         for yy = 1:ny
@@ -690,7 +692,7 @@ function vars2sigma1(vars::Dict{String,Array{Float64,3}},pressure::Array{Float64
                 # vcol = Dict with profile/column data
                 vcol[vcolname] = vcolval[xx,yy,:]
             end
-                
+
             # also need to filter dry values and to change zz
             # Consider using `isdry` function and dryval in future.
             nw = count(notnanorzero,vcol["THETA"]) # number of wet points in column
@@ -699,30 +701,23 @@ function vars2sigma1(vars::Dict{String,Array{Float64,3}},pressure::Array{Float64
                 error("T,S zeroes inconsistent")
             end
 
-            # incurs error if splorder > number of points in column
-            if nw > splorder #need >=n+1 points to do order-n interpolation
-                #println(length(vcol["θ"][1:nw]))
+            if nw > 3
+                # incurs error if splorder > number of points in column
+                # if nw > splorder #need >=n+1 points to do order-n interpolation
                 σ₁=sigma1column(vcol["THETA"][1:nw],vcol["SALT"][1:nw],pressure[1:nw])
 
-                # 1) no inversions or homogeneity
-                # 2) range of sig1, 3) no extrapolation
-                if sum(diff(σ₁).<0)==0 && count(minimum(σ₁).<=sig1grid.<=maximum(σ₁)) > 0
-
-                    # eliminate any extrapolation
-                    sgood = findall(minimum(σ₁).<=sig1grid.<=maximum(σ₁))
-                    ngood = length(sgood)
-                        
-                    for (vckey,vcval) in vcol
-                        varσ = var2sigmacolumn(σ₁,vcval[1:nw],sig1grid[sgood],splorder)
-
-                        [varsσ[vckey][xx,yy,sgood[ss]] = convert(Float32,varσ[ss]) for ss = 1:ngood]
-                    end
-
-                        # do standard pressure by hand.
-                    pσ = var2sigmacolumn(σ₁,pressure[1:nw],sig1grid[sgood],splorder)
-                    [varsσ["p"][xx,yy,sgood[ss]] = convert(Float32,pσ[ss]) for ss = 1:ngood]
-
+                for (vckey,vcval) in vcol
+                    varσ = var2sigmacolumn(σ₁,vcval[1:nw],sig1grid,splorder)
+                    # eliminate sgood here.
+                    [varsσ[vckey][xx,yy,ss] = convert(Float32,varσ[ss]) for ss = 1:nσ]
                 end
+
+                    # do standard pressure by hand.
+                pσ = var2sigmacolumn(σ₁,pressure[1:nw],sig1grid,splorder)
+
+                # again eliminate sgood
+                [varsσ["p"][xx,yy,ss] = convert(Float32,pσ[ss]) for ss = 1:nσ]
+
             end
         end
     end
@@ -776,27 +771,47 @@ function var2sigmacolumn(σorig,v,σgrid,splorder)
     # choose a univariate spline with s = magic number
     #θspl = Spline1D(σ₁,θz;k=splorder,s=length(σ₁))
 
-    σ = copy(σorig) # make sure sigma-1 doesn't get mutated and passed back
-    θspl = Spline1D(σ,v;k=splorder)
-    θonσ = θspl(σgrid)
-    
+    σ = copy(σorig) # make sure sigma-1 doesn't mutate and pass back
 
-    # check for spline instability
-    if maximum(θonσ) - minimum(θonσ) > 1.2 * (maximum(v) - minimum(v))
-        # drop to linear interpolation
-        # resolve any repeated values
-        nn = 1
-        while nn < length(σ)-1
-            while σ[nn] >= σ[nn+1]
-                deleteat!(σ,nn)
-                deleteat!(v,nn)
+    nσout = length(σgrid)
+    θonσ = fill(NaN,nσout)
+
+    # eliminate homogeneities
+    dedup!(σ,v)
+
+    # mix inversions
+    mixinversions!(σ,v)
+
+    nσin = length(σ)
+
+    # 1) no inversions or homogeneity (this constraint relaxed now because too many profiles thrown out)
+    # 2) range of sig1, 3) no extrapolation
+    # if sum(diff(σ₁).<0)==0 && count(minimum(σ₁).<=sig1grid.<=maximum(σ₁)) > 0
+    if count(minimum(σ).<=σgrid.<=maximum(σ)) > 0
+
+        # eliminate any extrapolation
+        sgood = findall(minimum(σ).<=σgrid.<=maximum(σ))
+        ngood = length(sgood)
+
+        if nσin > splorder
+            θspl = Spline1D(σ,v;k=splorder)
+            #println(size(θonσ))
+#            println(ngood)
+ #           println(size(σgrid))
+            for ss in sgood
+                θonσ[ss] = θspl(σgrid[ss])
             end
-            nn+=1
-        end
-        interp_linear = LinearInterpolation(σ, v)
-        θonσ = interp_linear(σgrid) # exactly log(3)
-    end # linear interpolation
-                                              
+
+            # check for spline instability
+            if maximum(θonσ[sgood]) - minimum(θonσ[sgood]) > 1.05 * (maximum(v) - minimum(v))
+                interp_linear = LinearInterpolation(σ, v)
+                for ss in sgood
+                    θonσ[ss] = interp_linear(σgrid[ss])
+                end
+            end
+        end # linear interpolation
+    end
+                                                  
     return θonσ
 end
 
@@ -839,6 +854,17 @@ function reginterp(fldin,nx,ny,f,i,j,w)
     return fldout
 end
 
+function mixinversions!(a,b)
+    while sum(diff(a).<=0) > 0
+        length(a) == 1 ? da = 1. : da = diff(a)
+        ii = findfirst(isnotpositive,da)
+        a[ii] = (a[ii] + a[ii+1])/2
+        b[ii] = (b[ii] + b[ii+1])/2
+        deleteat!(a,ii+1)
+        deleteat!(b,ii+1)
+    end
+end
+
 function dedup!(a,b)
     length(a) == 1 ? da = 1. : da = diff(a)
     while count(iszero,da) > 0
@@ -851,13 +877,13 @@ function dedupfirst!(a,b)
     counter = 1
     da = diff(a) # requires length of 2 or more
     ii = findfirst(iszero,da)
-    while iszero(da[ii])
+    while iszero(da[ii]) 
         b[ii+1] += b[ii]
         deleteat!(a,ii)
         deleteat!(b,ii)
         deleteat!(da,ii)
         counter += 1
-        isempty(da) ? break : nothing
+        (length(da) < ii) ? break : nothing
     end
     b[ii] /= counter
 end
@@ -1039,7 +1065,7 @@ function LLCcropC(gcmfield,γ)
     end
 
     # handle longitudinal wraparound by hand
-    wrapval = 217
+    wrapval = 218 
     xwrap = vcat(wrapval+1:size(regfield,1),1:wrapval)
     regfield = regfield[xwrap,:]
     return regfield
@@ -1059,7 +1085,7 @@ function LLCcropG(gcmfield,γ)
     end
 
     # handle longitudinal wraparound by hand
-    wrapval = 217
+    wrapval = 218
     xwrap = vcat(wrapval+1:size(regfield,1),1:wrapval)
     regfield = regfield[xwrap,:]
     return regfield
@@ -1396,29 +1422,6 @@ function vars2regularpoles(vars::Dict{String,MeshArrays.gcmarray{Float64,2,Array
     end
     return varsregpoles
 end
-
-function vars2regularpoles(vars::Dict{String,MeshArrays.gcmarray{Float32,1,Array{Float32,2}}},γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
-    
-    varsregpoles = Dict{String,Array{Float32,2}}()    
-    for (varname, varvals) in vars
-
-        # remove contamination from land
-        replace!(varvals, 0.0 => NaN)
-        
-        #pre-allocate dict
-        varsregpoles[varname] = fill(NaN,(nx,ny))
-    
-        # get regular grid by cropping
-        θcrop =  LLCcropC(varvals,γ)
-            
-        # interpolate to "LLCregular"
-        θarc = reginterp(varvals,nx,nyarc,farc,iarc,jarc,warc)
-        θantarc = reginterp(varvals,nx,nyantarc,fantarc,iantarc,jantarc,wantarc)
-        varsregpoles[varname]=hcat(θantarc',θcrop,θarc')
-    end
-    return varsregpoles
-end
-
 
 function vars2regularpoles(vars::Dict{String,MeshArrays.gcmarray{Float64,1,Array{Float64,2}}},γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
     

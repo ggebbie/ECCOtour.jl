@@ -17,10 +17,10 @@ cd(workdir)
 ## SELECT EXPERIMENTS TO ANALYZE ##
 #  manually choose from available experiments listed above.
 expt = "iter129_bulkformula"
-Froot = "state_3d_set1"
-Froot = "state_3d_set2"
-Froot = "state_2d_set1"
-Froot = "state_2d_set2"
+Frootlist = ("state_3d_set1","state_3d_set2","state_2d_set1","state_2d_set2")
+#Froot = "state_3d_set2"
+#Froot = "state_2d_set1"
+#Froot = "state_2d_set2"
 
 ###################################
 
@@ -39,6 +39,9 @@ nexps = length(exps) # number of experiments
 # pathout = "/batou/ECCOv4r4/MITgcm/exps/"
 pathout = regpolespath[expt]
 !isdir(path_out) ? mkdir(path_out) : nothing;
+
+# reading NetCDF attributes
+filelog = runpath[expt]*"available_diagnostics.log"
 
 pathgrid="../inputs/GRID_LLC90/"
 γ = setupLLCgrid(pathgrid)
@@ -78,32 +81,32 @@ latatts = Dict("longname" => "Latitude", "units" => "degrees north")
 depthatts = Dict("longname" => "Depth", "units" => "m")
 
 #for expt in exps
-filelist = searchdir(diagpath[expt],Froot) 
-datafilelist  = filter(x -> occursin("data",x),filelist)
+for Froot in Frootlist
+    filelist = searchdir(diagpath[expt],Froot) 
+    datafilelist  = filter(x -> occursin("data",x),filelist)
 
-global tt = 0
+    global tt = 0
 
-for Fname in datafilelist
-    tt += 1
-    println("filename ",Fname)
+    for Fname in datafilelist
+        tt += 1
+        println("filename ",Fname)
 
-    year,month = timestamp_monthly_v4r4(tt)
+        year,month = timestamp_monthly_v4r4(tt)
 
-    fileoutput = diagpath[expt]*Fname
-    filelog = runpath[expt]*"available_diagnostics.log"
+        fileoutput = diagpath[expt]*Fname
 
-    if month < 10
-        filesuffix = "_"*string(year)*"_0"*string(month)*".nc"
-    else 
-        filesuffix = "_"*string(year)*"_"*string(month)*".nc"
+        if month < 10
+            filesuffix = "_"*string(year)*"_0"*string(month)*".nc"
+        else 
+            filesuffix = "_"*string(year)*"_"*string(month)*".nc"
+        end
+
+        filein = Fname[1:end-5]
+        pathin = diagpath[expt]
+
+        @time varsregpoles =  mdsio2regularpoles(pathin,filein,γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
+
+        @time writeregularpoles(varsregpoles,γ,pathout,filesuffix,filelog,λC,lonatts,ϕC,latatts,z,depthatts)
+
     end
-
-    filein = Fname[1:end-5]
-    pathin = diagpath[expt]
-
-    @time varsregpoles =  mdsio2regularpoles(pathin,filein,γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
-
-    @time writeregularpoles(varsregpoles,γ,pathout,filesuffix,filelog,λC,lonatts,ϕC,latatts,z,depthatts)
-
 end
-

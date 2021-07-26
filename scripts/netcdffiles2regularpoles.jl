@@ -12,7 +12,7 @@ using NetCDF
 
 
 exppath = "/batou/ECCOv4r4/MITgcm/exps/"
-runpath,diagpath = listexperiments(exppath);
+runpath,diagpath,regpolespath = listexperiments(exppath);
 varnames = ("EVEL","EVELMASS","EVELSTAR","NVEL","NVELMASS","NVELSTAR","WVELMASS","WVELSTAR","oceTAUN","oceTAUE")
 
 # get names of exps. 
@@ -24,6 +24,9 @@ cd(workdir)
 exppath = "/batou/eccodrive/nctiles_monthly/"
 # print output here
 pathout = "/batou/ECCOv4r4/MITgcm/exps/iter129_bulkformula/run/regularpoles/"
+
+expt = "iter129_bulkformula"
+filelog = runpath[expt]*"available_diagnostics.log"
 
 path_grid="../inputs/GRID_LLC90/"
 γ = setupLLCgrid(path_grid)
@@ -50,9 +53,7 @@ nyarc = length(ϕCarc)
 nyantarc = length(ϕCantarc)
 
 # get standard levels of MITgcm
-fileZ = "RC"
-z = read_mdsio(path_grid,fileZ)
-z = vec(z)
+z = depthlevels(γ)
 nz = length(z)
 
 tstart = 1992 + 1/24
