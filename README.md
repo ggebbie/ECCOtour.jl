@@ -8,7 +8,23 @@
 Tracking seawater property anomalies through the oceanic tunnel until possible reemergence
 
 # Getting started
-from the Julia REPL\
+
+* from Emacs editor (one possible method)\
+
+Install julia-mode, julia-repl, and magit \
+Skip the next 5 steps if you have already cloned the repository \
+`M-x magit-clone` \
+Select `u` to clone from url\
+Enter ` https://github.com/ggebbie/Reemergence.jl` as url to clone \
+Select `y` in response to `remote.pushDefault' to "origin"?` \
+Clone to your favorite location and rename project if necessary \
+Go to any directory in the project \
+i.e., `C-x C-f Reemergence.jl`\
+Then activate the project and initialize a julia session \
+i.e., `C-c C-a`\
+
+* from the Julia REPL\
+
 `;`\
 `git clone https://github.com/ggebbie/Reemergence.jl # only do this the first time on each machine`\
 `cd Reemergence.jl`\
@@ -16,9 +32,9 @@ from the Julia REPL\
 `activate .`\
 `instantiate # only do this the first time on each machine`\
 To verify you are in the project environment, `]` should return `(Reemergence) pkg>`\
-Type backspace to return to command mode.
+Type backspace to return to command mode.\
 
-Using an editor like Atom/Juno of Visual Studio Code, activate the environment on one of the frame panels. The default environment is @v1.x. 
+* Using an editor like Atom/Juno or Visual Studio Code, activate the environment on one of the frame panels. The default environment is @v1.x and should be changed.\
 
 # Running a script (not interactively)
 
