@@ -11,9 +11,11 @@ workdir = pwd()
 push!(LOAD_PATH, workdir)
 cd(workdir)
 
+# get MIT GCM native grid
 path_grid="../inputs/GRID_LLC90/"
 γ = setupLLCgrid(path_grid)
 
+# depth [meters]
 D=γ.read(γ.path*"Depth.data",MeshArray(γ,Float64))
 tmp1=write(D); tmp2=read(tmp1,D)
 show(D)
@@ -21,8 +23,8 @@ show(D)
 lat,lon = readlatlon(γ)
 
 ###################################################
-# Determine tiepoints where fluxes are adjusted.
-# Use standard forcing to determine these points.
+# Determine tiepoints (in time) where fluxes are adjusted by ECCO.
+# Use ECCO-adjusted forcing to back out where the points exist. 
 
 # read directly from poseidon
 inputdir = "/poseidon/ecco/ecco.jpl.nasa.gov/drive/files/Version4/Release4/other/flux-forced/forcing/"
@@ -71,7 +73,8 @@ fcycle = 1/(daysperyear) # units: day^{-1}
 # for removing seasonal cycle from 14-day averaged timeseries
 Ecycle,Fcycle = seasonal_matrices(fcycle,t14day)
 
-Lhann = 100.0 # days
+# interannual filter is a Hann(ing) filter
+Thann = 100.0 # days
 
 for vname ∈ varnames
     filein = inputdir*vname*midname
@@ -79,31 +82,33 @@ for vname ∈ varnames
     println(filein)
 
     # use this F to decompose controllable/uncontrollable parts
+    # i.e., 6 hourly to 14 day
     flux_14day = matrixfilter(F6to14,filein,years,γ)
 
     # remove seasonal cycle from 14-day averaged timeseries
     # solve for seasonal cycle parameters
+    # use 14-day because it's computationally efficient
     βcycle = matmul(Fcycle,flux_14day,γ)
 
     # reconstruct the full seasonal cycle.
     flux_14day_seasonal = matmul(Ecycle,βcycle,γ)
 
-    # remove it from total signal
+    # remove seasonal signal from total signal
     flux_14day_noseasonal = flux_14day - flux_14day_seasonal
 
-    # take the noseasonal timeseries and run a high-pass filter (9-month cutoff)
+    # take the noseasonal timeseries and run a filter (Thann [days] cutoff)
     # hanning filter for all locations.
-    flux_14day_lopass = hannfilter(flux_14day_noseasonal,t14day,t14day,Lhann,γ)
+    # output is interannual signal.
+    flux_14day_lopass = hannfilter(flux_14day_noseasonal,t14day,t14day,Thann,γ)
 
     # put tflux_14day_lopass on to 6hr
-    ## MOVE THIS TO THE STEP BEFORE WRITING TO FILE.
-    ##  check for NaN's in output   ###################
+    # check for NaN's in output
     nancount_lopass = sum(nancount_gcmarray(flux_14day_lopass))
     nancount_14day = sum(nancount_gcmarray(flux_14day))
     nancount_14day_seasonal = sum(nancount_gcmarray(flux_14day_seasonal))
     nancount_14day_noseasonal = sum(nancount_gcmarray(flux_14day_noseasonal))
 
-    if nancount_lopass + nancount_14day + nancount_14day_seasonal + nancount_14day_noseasonal > 0.5
+    if nancount_lopass + nancount_14day + nancount_14day_seasonal + nancount_14day_noseasonal > 0
         error("NaNs in the filtered output")
     end
     
@@ -113,7 +118,3 @@ for vname ∈ varnames
     matrixspray(E14to6,-flux_14day_lopass,filein,fileout,years,γ)
 
 end
-
-
-
-
