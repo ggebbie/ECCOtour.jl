@@ -779,6 +779,8 @@ function var2sigmacolumn(σorig,v,σgrid,splorder)
     # choose a univariate spline with s = magic number
     #θspl = Spline1D(σ₁,θz;k=splorder,s=length(σ₁))
 
+    linearinterp = false
+    
     σ = copy(σorig) # make sure sigma-1 doesn't mutate and pass back
 
     nσout = length(σgrid)
@@ -803,6 +805,7 @@ function var2sigmacolumn(σorig,v,σgrid,splorder)
 
         if nσin > splorder
             θspl = Spline1D(σ,v;k=splorder)
+            prinln("doing spline")
             #println(size(θonσ))
 #            println(ngood)
  #           println(size(σgrid))
@@ -812,13 +815,20 @@ function var2sigmacolumn(σorig,v,σgrid,splorder)
 
             # check for spline instability
             if maximum(θonσ[sgood]) - minimum(θonσ[sgood]) > 1.05 * (maximum(v) - minimum(v))
-                interp_linear = LinearInterpolation(σ, v)
-                for ss in sgood
-                    θonσ[ss] = interp_linear(σgrid[ss])
-                end
+                linearinterp = true
+                println("unstable spline")
             end
-        end # linear interpolation
-    end
+        else
+            linearinterp = true    
+        end # spline interp
+
+        if linearinterp
+            interp_linear = LinearInterpolation(σ, v)
+            for ss in sgood
+                θonσ[ss] = interp_linear(σgrid[ss])
+            end
+        end # linearinterp
+    end # any good points?
                                                   
     return θonσ
 end
