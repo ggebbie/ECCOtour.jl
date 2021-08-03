@@ -192,14 +192,6 @@ function matrixspray(F,rmfield,frootin,frootout,years,γ)
     println("initialize θout")
     field = read_bin(fnamein,Float32,γ)
 
-    # θout = MeshArray(γ,Float32,nout) # some nans here
-    # tmp1=zeros(Float32,Tuple(γ.ioSize))
-    # for tt= 1:nout
-    #     # initialize a sub-optimal way
-    #     θout[:,tt]=γ.read(tmp1,MeshArray(γ,Float32))
-    # end
-    # println("sub-optimal initialization finished")
-
     istart = 1
     nseries = []
     for tt = 1:nyr

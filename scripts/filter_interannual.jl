@@ -101,6 +101,16 @@ for vname ∈ varnames
     # output is interannual signal.
     flux_14day_lopass = hannfilter(flux_14day_noseasonal,t14day,t14day,Thann,γ)
 
+    # do this at every spatial location
+    # if issouthpac then flux_14day_lopass = 0 (do not remove it at matrixspray)
+    # check the tile and time index order
+    Nf = size(flux_14day_lopass,2)
+    for tt = 1:nt14day
+        for i = 1:Nf
+            flux_14day_lopass[tt,i] = flux_14day_lopass[tt,i].*issouthpac[i]
+         end
+    end
+    
     # put tflux_14day_lopass on to 6hr
     # check for NaN's in output
     nancount_lopass = sum(nancount_gcmarray(flux_14day_lopass))

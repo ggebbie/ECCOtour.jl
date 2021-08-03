@@ -166,10 +166,18 @@ function inrectangle(latpt,lonpt,latrect,lonrect)
 
     # load latitude and longitude on this grid.
     # watch out for wraparound; didn't code a solution
-    inrectangle = minimum(lonrect) <= lonpt <= maximum(lonrect) &&
-        minimum(latrect) <= latpt <= maximum(latrect)
+    if lonrect[1] < lonrect[2]
+        inrectangle = minimum(lonrect) <= lonpt <= maximum(lonrect) &&
+            minimum(latrect) <= latpt <= maximum(latrect)
+    else # wraps around the date line
+        inrectangle = lonpt <= minimum(lonpt) &&
+            lonpt >= maximum(lonrect) &&
+            minimum(latrect) <= latpt <= maximum(latrect)
+    end
+    # watch out if lonrect[1] == lonrect[2]
 end
 
+issouthpac(lat,lon) = inrectangle(lat,lon,(-60,-10),(150,-67))
 isnino34(lat,lon) = inrectangle(lat,lon,(-5,5),(-170,-90))
 isnino3(lat,lon) = inrectangle(lat,lon,(-5,5),(-150,-90))
 isnino4(lat,lon) = inrectangle(lat,lon,(-5,5),(-170,-120))
