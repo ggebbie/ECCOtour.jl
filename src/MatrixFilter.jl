@@ -15,7 +15,7 @@ function get_filtermatrix(tin,tout)
 
     # assume evenly spaced in time
     Δtout = tout[2]-tout[1]
-    
+
     # find all hi-res values bounded by tiepoint 1 and 2
     inrange = x -> ( tout[1] < x <  tout[2]) # found on plot
     iblock = findall(inrange,collect(tin))
@@ -33,13 +33,13 @@ function get_filtermatrix(tin,tout)
     # for a real function, would want to fix this.
     ival = 3 # first two 6-hourly values off range
     jval = 1
-    
+
     for ii = 1:ntout-1
         Eout2in[ival:ival+nblock-1,jval:jval+1] = Eblock
         ival += nblock
         jval += 1
     end
-    
+
     # some trimming must be done.
     Eout2in = Eout2in[1:ntin,:]
     ETE = Eout2in'*Eout2in
@@ -47,7 +47,7 @@ function get_filtermatrix(tin,tout)
 
     Eout2in = convert(Array{Float32,2},Eout2in)
     Fin2out = convert(Array{Float32,2},Fin2out)
-    
+
     return Eout2in, Fin2out
 end
 
@@ -124,13 +124,13 @@ end
     function columnscale!(product,M,flux)
 - `product::MeshArrays.gcmarray{Float32,2,Array{Float32,2}}`
 - `M::Array{Float32,1}`
-- `flux::MeshArrays.gcmarray{Float32,1,Array{Float32,2}}` 
+- `flux::MeshArrays.gcmarray{Float32,1,Array{Float32,2}}`
 """
-function columnscale!(product::MeshArrays.gcmarray{Float32,2,Array{Float32,2}},M::Array{Float32,1},flux::MeshArrays.gcmarray{Float32,1,Array{Float32,2}}) 
+function columnscale!(product::MeshArrays.gcmarray{Float32,2,Array{Float32,2}},M::Array{Float32,1},flux::MeshArrays.gcmarray{Float32,1,Array{Float32,2}})
 
     nM = size(M,1)  # matrix size M
     nQ  = size(flux,1) # repeat matmul Q times
-    
+
      for qq = 1:nQ # inner product over faces
          for mm = 1:nM
              if abs(M[mm]) > 1e-8
@@ -148,14 +148,14 @@ end
     function columnscale!(product,M,flux)
 - `product::MeshArrays.gcmarray{Float32,2,Array{Float32,2}}`
 - `M::Array{Float32,1}`
-- `flux::MeshArrays.gcmarray{Float32,2,Array{Float32,2}}` 
+- `flux::MeshArrays.gcmarray{Float32,2,Array{Float32,2}}`
 """
-function columnscale!(product::MeshArrays.gcmarray{Float32,2,Array{Float32,2}},M::Array{Float32,2},flux::MeshArrays.gcmarray{Float32,2,Array{Float32,2}}) 
+function columnscale!(product::MeshArrays.gcmarray{Float32,2,Array{Float32,2}},M::Array{Float32,2},flux::MeshArrays.gcmarray{Float32,2,Array{Float32,2}})
 
     nM = size(M,1)  # matrix size M
     nQ  = size(flux,1) # repeat matmul Q times
     nN  = size(M,2) # repeat matmul Q times
-    
+
     for mm = 1:nM
         for qq = 1:nQ # inner product over faces
             for nn = 1:nN # inner product over faces
@@ -167,7 +167,7 @@ end
 
 """
     matrixspray(F,rmfield,frootin,frootout,years,γ)
-    
+
     writing it in a funny way to save computation
     issue with timeseries being read in different files
 # Arguments
@@ -192,21 +192,13 @@ function matrixspray(F,rmfield,frootin,frootout,years,γ)
     println("initialize θout")
     field = read_bin(fnamein,Float32,γ)
 
-    # θout = MeshArray(γ,Float32,nout) # some nans here
-    # tmp1=zeros(Float32,Tuple(γ.ioSize))
-    # for tt= 1:nout
-    #     # initialize a sub-optimal way
-    #     θout[:,tt]=γ.read(tmp1,MeshArray(γ,Float32))
-    # end
-    # println("sub-optimal initialization finished")
-
     istart = 1
     nseries = []
     for tt = 1:nyr
         fnamein = frootin*string(years[tt])
         println("reading file "*fnamein)
         field = read_bin(fnamein,Float32,γ)
-        
+
         # may need to keep track of indices
         push!(nseries,size(field,2))
         iend = istart+nseries[end]-1

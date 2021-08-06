@@ -96,7 +96,7 @@ function Nino34file()
     else
         inputdir = "../inputs"
         !isdir(inputdir) ? mkdir(inputdir) : nothing
-        
+
         # download from google drive and save location
         run(`wget "https://drive.google.com/file/d/1kOtOnD6B3Y9SAI5W6ezP-o_tgNkonn5n/view?usp=sharing" -O ../inputs/nino34.hadisst1.1870-2020.txt`)
         fileloc = inputdir*"nino34.hadisst1.1870-2020.txt"
@@ -166,10 +166,154 @@ function inrectangle(latpt,lonpt,latrect,lonrect)
 
     # load latitude and longitude on this grid.
     # watch out for wraparound; didn't code a solution
-    inrectangle = minimum(lonrect) <= lonpt <= maximum(lonrect) &&
-        minimum(latrect) <= latpt <= maximum(latrect)
+    if lonrect[1] < lonrect[2]
+        inrectangle = minimum(lonrect) <= lonpt <= maximum(lonrect) &&
+            minimum(latrect) <= latpt <= maximum(latrect)
+    else # wraps around the date line
+        inrectangle = lonpt <= minimum(lonpt) &&
+            lonpt >= maximum(lonrect) &&
+            minimum(latrect) <= latpt <= maximum(latrect)
+    end
+    # watch out if lonrect[1] == lonrect[2]
 end
 
+"""
+    function infadezoneE(lonin,latin,lons,lats,dlon)
+    find all gridcells within East 'wing of box' around Cartesian rectangle
+# Arguments
+- `latpt`: latitude grid
+- `lonpt`: longitude grid
+- `latrect`: tuple of latitude range
+- `lonrect`: tuple of longitude range
+- `dlon`: width in degrees longitude of East fade zone
+# Output
+- `fadezone`: boolean of type gcmarray
+"""
+function infadezoneE(latpt,lonpt,latrect,lonrect,dlon)
+    # load latitude and longitude on this grid.
+    if lonrect[1] < lonrect[2] # if center rectangle doesn't wrap around dateline
+        if lonrect[1] - dlon >= -180 && lonrect[2] + dlon <= 180 # if neither East nor West fade zones wrap around dateline
+            infadezoneE = (((minimum(lonrect) - dlon) <= lonpt <= minimum(lonrect))
+            || maximum(lonrect) <= lonpt <= (maximum(lonrect) + dlon))
+            && minimum(latrect) <= latpt <= maximum(latrect)
+        elseif lonrect[1] - dlon < -180 # if West fade zone crosses over dateline
+            infadezoneE = (((minimum(lonrect) - dlon) <= lonpt <= minimum(lonrect))
+            || maximum(lonrect) <= lonpt <= (maximum(lonrect) + dlon))
+            && minimum(latrect) <= latpt <= maximum(latrect)
+        elseif lonrect[2] + dlon > 180 # if East fade zone crosses over dateline
+            infadezoneE = (((minimum(lonrect) - dlon) <= lonpt <= minimum(lonrect))
+            || maximum(lonrect) <= lonpt <= (maximum(lonrect) + dlon))
+            && minimum(latrect) <= latpt <= maximum(latrect)
+        end
+    else # wraps around the date line
+        infadezoneE = lonpt <= minimum(lonpt) &&
+            lonpt >= maximum(lonrect) &&
+            minimum(latrect) <= latpt <= maximum(latrect)
+    end
+    # watch out if lonrect[1] == lonrect[2]
+end
+
+"""
+    function infadezoneW(lonin,latin,lons,lats,dlon)
+    find all gridcells within West 'wing of box' around Cartesian rectangle
+# Arguments
+- `latpt`: latitude grid
+- `lonpt`: longitude grid
+- `latrect`: tuple of latitude range
+- `lonrect`: tuple of longitude range
+- `dlon`: width in degrees longitude of West fade zone
+# Output
+- `fadezone`: boolean of type gcmarray
+"""
+function infadezoneW(latpt,lonpt,latrect,lonrect,dlon)
+    # load latitude and longitude on this grid.
+    if lonrect[1] < lonrect[2] # if center rectangle doesn't wrap around dateline
+        if lonrect[1] - dlon >= -180 && lonrect[2] + dlon <= 180 # if neither East nor West fade zones wrap around dateline
+            infadezone = (((minimum(lonrect) - dlon) <= lonpt <= minimum(lonrect))
+            || maximum(lonrect) <= lonpt <= (maximum(lonrect) + dlon))
+            && minimum(latrect) <= latpt <= maximum(latrect)
+        elseif lonrect[1] - dlon < -180 # if West fade zone crosses over dateline
+            infadezone = (((minimum(lonrect) - dlon) <= lonpt <= minimum(lonrect))
+            || maximum(lonrect) <= lonpt <= (maximum(lonrect) + dlon))
+            && minimum(latrect) <= latpt <= maximum(latrect)
+        elseif lonrect[2] + dlon > 180 # if East fade zone crosses over dateline
+            infadezone = (((minimum(lonrect) - dlon) <= lonpt <= minimum(lonrect))
+            || maximum(lonrect) <= lonpt <= (maximum(lonrect) + dlon))
+            && minimum(latrect) <= latpt <= maximum(latrect)
+        end
+    else # wraps around the date line
+        inrectangle = lonpt <= minimum(lonpt) &&
+            lonpt >= maximum(lonrect) &&
+            minimum(latrect) <= latpt <= maximum(latrect)
+    end
+    # watch out if lonrect[1] == lonrect[2]
+end
+
+"""
+    function infadezoneN(lonin,latin,lons,lats)
+    find all gridcells within North 'wing of box' around Cartesian rectangle
+# Arguments
+- `latpt`: latitude grid
+- `lonpt`: longitude grid
+- `latrect`: tuple of latitude range
+- `lonrect`: tuple of longitude range
+- `dlat`: width in degrees latitude of North fade zones
+# Output
+- `rectangle`: boolean of type gcmarray
+"""
+function infadezoneN(latpt,lonpt,latrect,lonrect,dlat)
+    # load latitude and longitude on this grid.
+    if lonrect[1] < lonrect[2] # if center rectangle doesn't wrap around dateline
+        if lonrect[1] - dlon >= -180 && lonrect[2] + dlon <= 180 # if neither East nor West fade zones wrap around dateline
+            infadezone = (((minimum(lonrect) - dlon) <= lonpt <= minimum(lonrect))
+            || maximum(lonrect) <= lonpt <= (maximum(lonrect) + dlon))
+            && minimum(latrect) <= latpt <= maximum(latrect)
+        elseif lonrect[1] - dlon < -180 # if West fade zone crosses over dateline
+            infadezone = && minimum(latrect)
+        elseif lonrect[2] + dlon > 180 # if East fade zone crosses over dateline
+            infadezone =
+        end
+    else # wraps around the date line
+        inrectangle = lonpt <= minimum(lonpt) &&
+            lonpt >= maximum(lonrect) &&
+            minimum(latrect) <= latpt <= maximum(latrect)
+    end
+    # watch out if lonrect[1] == lonrect[2]
+end
+
+"""
+    function infadezoneN(lonin,latin,lons,lats)
+    find all gridcells within South 'wing of box' around Cartesian rectangle
+# Arguments
+- `latpt`: latitude grid
+- `lonpt`: longitude grid
+- `latrect`: tuple of latitude range
+- `lonrect`: tuple of longitude range
+- `dlat`: width in degrees latitude of South fade zones
+# Output
+- `rectangle`: boolean of type gcmarray
+"""
+function infadezoneS(latpt,lonpt,latrect,lonrect,dlat)
+    # load latitude and longitude on this grid.
+    if lonrect[1] < lonrect[2] # if center rectangle doesn't wrap around dateline
+        if lonrect[1] - dlon >= -180 && lonrect[2] + dlon <= 180 # if neither East nor West fade zones wrap around dateline
+            infadezone = (((minimum(lonrect) - dlon) <= lonpt <= minimum(lonrect))
+            || maximum(lonrect) <= lonpt <= (maximum(lonrect) + dlon))
+            && minimum(latrect) <= latpt <= maximum(latrect)
+        elseif lonrect[1] - dlon < -180 # if West fade zone crosses over dateline
+            infadezone = && minimum(latrect)
+        elseif lonrect[2] + dlon > 180 # if East fade zone crosses over dateline
+            infadezome =
+        end
+    else # wraps around the date line
+        inrectangle = lonpt <= minimum(lonpt) &&
+            lonpt >= maximum(lonrect) &&
+            minimum(latrect) <= latpt <= maximum(latrect)
+    end
+    # watch out if lonrect[1] == lonrect[2]
+end
+
+issouthpac(lat,lon) = inrectangle(lat,lon,(-90,-15),(150,-67))
 isnino34(lat,lon) = inrectangle(lat,lon,(-5,5),(-170,-90))
 isnino3(lat,lon) = inrectangle(lat,lon,(-5,5),(-150,-90))
 isnino4(lat,lon) = inrectangle(lat,lon,(-5,5),(-170,-120))
@@ -218,7 +362,7 @@ function pressurelevels(z)
     # ECCOv4r4 approximates pressure without any horizontal deviations in EOS.
     # Can precompute pressure for each depth level.
     ρ₀ = 1029 # from "data" text file in run directory
-    g  = 9.81 # from "data" 
+    g  = 9.81 # from "data"
     Pa2dbar = 1/10000 # standard pressures via hydrostatic balance
     pstdz = ρ₀ .*g .* Pa2dbar .* z # 10000 to change Pa to dbar
     return pstdz
@@ -226,7 +370,7 @@ end
 
 """
     function readarea(γ)
-    area of ECCO v4r4 grid 
+    area of ECCO v4r4 grid
 """
 function readarea(γ)
     area=γ.read(γ.path*"RAC.data",MeshArray(γ,Float64))
@@ -253,7 +397,7 @@ function patchmean(x,area,ϕ,λ,ispatch,iswet)
     for i in eachindex(x)
         mask = ispatch.(ϕ[i],λ[i]) .* iswet.(x[i])
         for j in eachindex(ϕ[i])
-            if mask[j] 
+            if mask[j]
                 xsum += x[i][j]
                 asum += area[i][j]
             end
@@ -297,7 +441,7 @@ function listexperiments(exppath)
         println(key)
     end
     return runpath,diagpath,regpolespath
-end       
+end
 
 """
     function expnames()
@@ -367,7 +511,7 @@ end
 function allstats(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}})
 
     dryval = 0.f0 # land points are zeroes, use NaN32 for NaN's
-    
+
     xmax = maximum(x,dryval)
     xmin = minimum(x,dryval)
     xbar = mean(x,dryval)
@@ -375,7 +519,7 @@ function allstats(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}})
     # why does it require an explicit call to MeshArrays?
     absxbar = MeshArrays.mean(abs.(x),dryval)
     σx   = std(x,xbar,dryval)
-    
+
     return xbar, xmax, xmin, σx, absxbar
 end
 
@@ -393,10 +537,10 @@ end
 """
 function faststats(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}})
 
-    #dryval = 0.f0 # land points are zeroes, use NaN32 for NaN's  
+    #dryval = 0.f0 # land points are zeroes, use NaN32 for NaN's
     #dryval = NaN32
     #isdry(z) = (z == dryval)
-    
+
     xcount = [sum(count(notnanorzero,x[i])) for i in eachindex(x)]
     println(xcount)
     if sum(xcount)>0
@@ -409,7 +553,7 @@ function faststats(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}})
 
         xbar = xsum/sum(xcount)
         println(xbar)
-        
+
         # compute standard deviation
         x′ = x.-xbar
         x²sum = sum([sum(filter(notnanorzero,x′[i]).^2) for i ∈ eachindex(x′) if xcount[i]>0])
@@ -584,17 +728,17 @@ end
 """
 function vars2sigma1(vars::Dict{String,MeshArrays.gcmarray{Float32,2,Array{Float32,2}}},pressure::Array{Float64,1},sig1grid::Array{Float64,1},γ::gcmgrid,splorder::Integer)
 
-    # check that θ and S exist. They must. 
-    (haskey(vars,"THETA") && haskey(vars,"SALT")) ? nothing : error("Need θ and S in vars") 
-    
+    # check that θ and S exist. They must.
+    (haskey(vars,"THETA") && haskey(vars,"SALT")) ? nothing : error("Need θ and S in vars")
+
     # loop over faces
     nf,nz = size(vars["THETA"])
     nσ = length(sig1grid)
 
     # vcol = Dict with profile/column data
-    # pre-allocate each key in vars  
+    # pre-allocate each key in vars
     vcol = Dict{String,Array{Float64,1}}() # vars in a column
-    varsσ = Dict{String,MeshArrays.gcmarray{Float32,2,Array{Float32,2}}}()    
+    varsσ = Dict{String,MeshArrays.gcmarray{Float32,2,Array{Float32,2}}}()
 
     for (key, value) in vars
         vcol[key] = fill(NaN32,nz)
@@ -603,7 +747,7 @@ function vars2sigma1(vars::Dict{String,MeshArrays.gcmarray{Float32,2,Array{Float
     # allocate standard pressure by hand.
     # CONSIDER ANOTHER FUNCTION TO DO PHIHYD.
     varsσ["p"] = MeshArray(γ,Float32,nσ); fill!(varsσ["p"],NaN32)
-    
+
     for ff = 1:nf
         nx,ny = size(vars["THETA"][ff,1])
         for xx = 1:nx
@@ -612,7 +756,7 @@ function vars2sigma1(vars::Dict{String,MeshArrays.gcmarray{Float32,2,Array{Float
                     # vcol = Dict with profile/column data
                     vcol[vcolname] = [vcolval[ff,zz][xx,yy] for zz = 1:nz]
                 end
-                
+
                 # also need to filter dry values and to change zz
                 # Consider using `isdry` function and dryval in future.
                 nw = count(notnanorzero,vcol["THETA"]) # number of wet points in column
@@ -633,7 +777,7 @@ function vars2sigma1(vars::Dict{String,MeshArrays.gcmarray{Float32,2,Array{Float
                         # eliminate any extrapolation
                         sgood = findall(minimum(σ₁).<=sig1grid.<=maximum(σ₁))
                         ngood = length(sgood)
-                        
+
                         for (vckey,vcval) in vcol
                             varσ = var2sigmacolumn(σ₁,vcval[1:nw],sig1grid[sgood],splorder)
 
@@ -666,17 +810,17 @@ end
 """
 function vars2sigma1(vars::Dict{String,Array{Float64,3}},pressure::Array{Float64,1},sig1grid::Array{Float64,1},splorder::Int64)
 
-    # check that θ and S exist. They must. 
-    (haskey(vars,"THETA") && haskey(vars,"SALT")) ? nothing : error("Need θ and S in vars") 
-    
+    # check that θ and S exist. They must.
+    (haskey(vars,"THETA") && haskey(vars,"SALT")) ? nothing : error("Need θ and S in vars")
+
     # loop over faces
     nx,ny,nz = size(vars["THETA"])
     nσ = length(sig1grid)
 
     # vcol = Dict with profile/column data
-    # pre-allocate each key in vars  
+    # pre-allocate each key in vars
     vcol = Dict{String,Array{Float64,1}}() # vars in a column
-    varsσ = Dict{String,Array{Float64,3}}()    
+    varsσ = Dict{String,Array{Float64,3}}()
 
     for (key, value) in vars
         vcol[key] = fill(NaN,nz)
@@ -772,7 +916,7 @@ function var2sigmacolumn(σorig,v,σgrid,splorder)
     #θspl = Spline1D(σ₁,θz;k=splorder,s=length(σ₁))
 
     linearinterp = false
-    
+
     σ = copy(σorig) # make sure sigma-1 doesn't mutate and pass back
 
     nσout = length(σgrid)
@@ -811,7 +955,7 @@ function var2sigmacolumn(σorig,v,σgrid,splorder)
                 println("unstable spline")
             end
         else
-            linearinterp = true    
+            linearinterp = true
         end # spline interp
 
         if linearinterp
@@ -821,20 +965,20 @@ function var2sigmacolumn(σorig,v,σgrid,splorder)
             end
         end # linearinterp
     end # any good points?
-                                                  
+
     return θonσ
 end
 
 """
     function prereginterp(latgrid,longrid,γ)
-    prepare for regular interpolation 
+    prepare for regular interpolation
     regular = onto rectangular 2d map
 # Arguments
 - `latgrid`: 1d array of latitude
 - `longrid`: 1d array of longitude
 - `γ`: GCM grid
 # Output
-- `f,i,j,w`: interpolation factors 
+- `f,i,j,w`: interpolation factors
 """
 function prereginterp(latgrid,longrid,γ)
     Γ = GridLoad(γ)
@@ -887,7 +1031,7 @@ function dedupfirst!(a,b)
     counter = 1
     da = diff(a) # requires length of 2 or more
     ii = findfirst(iszero,da)
-    while iszero(da[ii]) 
+    while iszero(da[ii])
         b[ii+1] += b[ii]
         deleteat!(a,ii)
         deleteat!(b,ii)
@@ -915,7 +1059,7 @@ function trend_theta!(β,diagpathexp,tecco,γ,F)
     # name of file inside diagspath
     # Look at /poseidon ... exps/run/data.diagnostics for this info.
     Troot = "state_3d_set1" # hardcoded for ECCOv4r4
-    nz = size(β,2) 
+    nz = size(β,2)
     filelist = searchdir(diagpathexp,Troot) # first filter for state_3d_set1
     datafilelist  = filter(x -> occursin("data",x),filelist) # second filter for "data"
 
@@ -978,19 +1122,19 @@ function regularlatgrid(γ)
 
     # get number of regularly-spaced polar gridcells
     ymax = 90; ymin = -82; # trim reg grid at 80 S
-    narc = Int(ceil((ymax-ϕarc)/Δϕarc)) 
+    narc = Int(ceil((ymax-ϕarc)/Δϕarc))
     nantarc = Int(floor((ϕantarc-ymin)/Δϕantarc))
-    
+
     ϕG = collect(reverse(range(ϕantarc,length=nantarc,step=-Δϕantarc)))
     append!(ϕG,ϕ[1][1,jantarc+1:jarc-1])
     append!(ϕG,range(ϕarc,length=narc,step=Δϕarc))
 
     # Don't put ϕC halfway between ϕG points.
     # It doesn't match the MITgcm LLC grid.
-    
+
     ϕ,λ = latlonC(γ)
     jarc -= 1 # update for C grid, subtract one here
-    ϕarc = ϕ[1][1,jarc] 
+    ϕarc = ϕ[1][1,jarc]
     ϕantarc= ϕ[1][1,jantarc]
     ϕC = collect(reverse(range(ϕantarc,length=nantarc,step=-Δϕantarc)))
     append!(ϕC,ϕ[1][1,jantarc+1:jarc-1])
@@ -1004,7 +1148,7 @@ function latgridRegular(γ)
     jarc,jantarc,ϕarc,ϕantarc = croplimitsLLC(ϕ,λ)
 
     ϕG = ϕ[1][1,jantarc:jarc]
-    
+
     ϕ,λ = latlonC(γ)
     jarc -= 1 # update for C grid, subtract one here
     ϕC = ϕ[1][1,jantarc:jarc]
@@ -1021,15 +1165,15 @@ function latgridArctic(γ)
 
     # get number of regularly-spaced polar gridcells
     ymax = 90 # trim reg grid at 80 S
-    narc = Int(ceil((ymax-ϕarc)/Δϕarc)) 
-    
+    narc = Int(ceil((ymax-ϕarc)/Δϕarc))
+
     ϕG=collect(range(ϕarc,length=narc,step=Δϕarc))
     popfirst!(ϕG)
 
     # same thing for centered (tracer) grid
     ϕ,λ = latlonC(γ)
     jarc -= 1 # update for C grid, subtract one here
-    ϕarc = ϕ[1][1,jarc] 
+    ϕarc = ϕ[1][1,jarc]
     ϕC=collect(range(ϕarc,length=narc,step=Δϕarc))
     popfirst!(ϕC)
 
@@ -1046,17 +1190,17 @@ function latgridAntarctic(γ)
     # get number of regularly-spaced polar gridcells
     ymin = -82; # trim reg grid at 80 S
     nantarc = Int(floor((ϕantarc-ymin)/Δϕantarc))
-    
+
     ϕG = collect(reverse(range(ϕantarc,length=nantarc,step=-Δϕantarc)))
     # eliminate northernmost grid point.
     # it's inside regular subgrid.
     pop!(ϕG)
-    
+
     ϕ,λ = latlonC(γ)
     ϕantarc= ϕ[1][1,jantarc]
     ϕC = collect(reverse(range(ϕantarc,length=nantarc,step=-Δϕantarc)))
     pop!(ϕC)
-    
+
     return ϕG, ϕC
 end
 
@@ -1075,7 +1219,7 @@ function LLCcropC(gcmfield,γ)
     end
 
     # handle longitudinal wraparound by hand
-    wrapval = 218 
+    wrapval = 218
     xwrap = vcat(wrapval+1:size(regfield,1),1:wrapval)
     regfield = regfield[xwrap,:]
     return regfield
@@ -1137,18 +1281,18 @@ function mdsio2dict(pathin,filein,γ)
 
     state =  read_bin(pathin*datafile,missing,missing,Float32,γ)
     ndimz = meta[1].nDims
-    
+
     if ndimz == 3         # 3d
         nz = meta[1].dimList[ndimz,1]
-        vars = Dict{String,MeshArrays.gcmarray{Float32,2,Array{Float32,2}}}()    
+        vars = Dict{String,MeshArrays.gcmarray{Float32,2,Array{Float32,2}}}()
     elseif ndimz == 2
         nz = 1
-        vars = Dict{String,MeshArrays.gcmarray{Float32,1,Array{Float32,2}}}()    
+        vars = Dict{String,MeshArrays.gcmarray{Float32,1,Array{Float32,2}}}()
     end
-        
+
     zlo = 1
     for fldname in meta[1].fldList
-        
+
         # use a dictionary
         zhi = zlo + nz -1
         push!(vars,fldname => state[:,zlo:zhi])
@@ -1188,18 +1332,18 @@ function ncwritefromtemplate(vars::Dict{String,Array{Float64,3}},fileprefix::Str
             fileold = fileprefix*fldname*"/"*fldname*filesuffixold
         end
         filenew = fileprefix*fldname*"/"*fldname*filesuffixnew
-        
+
         # recover information from template/existing file
         lon = ncread(fileold,"lon")
         lonunits = ncgetatt(fileold, "lon", "units")
         lonlongname = ncgetatt(fileold, "lon", "longname")
         lonatts = Dict("longname" => lonlongname, "units" => lonunits)
-        
+
         lat = ncread(fileold,"lat")
         latunits = ncgetatt(fileold, "lat", "units")
         latlongname = ncgetatt(fileold, "lat", "longname")
         latatts = Dict("longname" => latlongname, "units" => latunits)
-        
+
         sigmaatts = Dict("longname" => "Sigma-1", "units" => "kg/m^3 - 1000")
 
         if fldname == "p"
@@ -1209,7 +1353,7 @@ function ncwritefromtemplate(vars::Dict{String,Array{Float64,3}},fileprefix::Str
             vlongname = ncgetatt(fileold, fldname, "longname")
             varatts = Dict("longname" => vlongname, "units" => vunits)
         end
-        
+
         isfile(filenew) && rm(filenew)
         nccreate(
             filenew,
@@ -1237,7 +1381,7 @@ end
 function mdsio2sigma1(pathin,pathout,fileroots,γ,pstdz,sig1grid,splorder)
     # Read All Variables And Puts Them Into "Vars" Dictionary
 
-    vars = Dict{String,MeshArrays.gcmarray{Float32,2,Array{Float32,2}}}()    
+    vars = Dict{String,MeshArrays.gcmarray{Float32,2,Array{Float32,2}}}()
     for fileroot in fileroots
         merge!(vars,mdsio2dict(pathin,fileroot,γ))
     end
@@ -1258,7 +1402,7 @@ end
 function netcdf2sigma1(pathin,pathout,ncfilenames,γ,pstdz,sig1grid,splorder)
     # Read All Variables And Puts Them Into "Vars" Dictionary
     println(ncfilenames)
-    vars = Dict{String,Array{Float64,3}}()    
+    vars = Dict{String,Array{Float64,3}}()
     for (ncvarname,ncfilename) in ncfilenames
         merge!(vars,netcdf2dict(ncfilename,ncvarname))
     end
@@ -1282,7 +1426,7 @@ function netcdf2dict(ncfilename,ncvarname)
     state = ncread(ncfilename,ncvarname);
     if size(state,3) == 1
         vars  = Dict(ncvarname => state[:,:,1])
-    else                
+    else
         vars  = Dict(ncvarname => state)
     end
     return vars
@@ -1300,7 +1444,7 @@ function netcdf2dict(ncfilename::String,ncvarname::String,γ::gcmgrid)
     else
         vars  = Dict(ncvarname => state)
     end
-    
+
     return vars
 end
 
@@ -1378,75 +1522,75 @@ function mdsio2regularpoles(pathin,filein,γ,nx,ny,nyarc,farc,iarc,jarc,warc,nya
 end
 
 function vars2regularpoles(vars::Dict{String,MeshArrays.gcmarray{Float32,2,Array{Float32,2}}},γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
-    
-    varsregpoles = Dict{String,Array{Float32,3}}()    
+
+    varsregpoles = Dict{String,Array{Float32,3}}()
 
     for (varname, varvals) in vars
 
         # remove contamination from land
         replace!(varvals, 0.0 => NaN)
-        
+
         nz = size(varvals,2)
 
         #pre-allocate dict
         varsregpoles[varname] = fill(NaN,(nx,ny,nz))
-    
+
         for zz = 1:nz
             # get regular grid by cropping
             θcrop =  LLCcropC(varvals[:,zz],γ)
-            
+
             # interpolate to "LLCregular"
-            θarc = reginterp(varvals[:,zz],nx,nyarc,farc,iarc,jarc,warc) 
+            θarc = reginterp(varvals[:,zz],nx,nyarc,farc,iarc,jarc,warc)
             θantarc = reginterp(varvals[:,zz],nx,nyantarc,fantarc,iantarc,jantarc,wantarc)
             varsregpoles[varname][:,:,zz]=hcat(θantarc',θcrop,θarc')
-            
+
         end
     end
     return varsregpoles
 end
 
 function vars2regularpoles(vars::Dict{String,MeshArrays.gcmarray{Float64,2,Array{Float64,2}}},γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
-    
-    varsregpoles = Dict{String,Array{Float32,3}}()    
+
+    varsregpoles = Dict{String,Array{Float32,3}}()
 
     for (varname, varvals) in vars
 
         # remove contamination from land
         replace!(varvals, 0.0 => NaN)
-        
+
         nz = size(varvals,2)
 
         #pre-allocate dict
         varsregpoles[varname] = fill(NaN,(nx,ny,nz))
-    
+
         for zz = 1:nz
             # get regular grid by cropping
             θcrop =  LLCcropC(varvals[:,zz],γ)
-            
+
             # interpolate to "LLCregular"
-            θarc = reginterp(varvals[:,zz],nx,nyarc,farc,iarc,jarc,warc) 
+            θarc = reginterp(varvals[:,zz],nx,nyarc,farc,iarc,jarc,warc)
             θantarc = reginterp(varvals[:,zz],nx,nyantarc,fantarc,iantarc,jantarc,wantarc)
             varsregpoles[varname][:,:,zz]=hcat(θantarc',θcrop,θarc')
-            
+
         end
     end
     return varsregpoles
 end
 
 function vars2regularpoles(vars::Dict{String,MeshArrays.gcmarray{Float64,1,Array{Float64,2}}},γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
-    
-    varsregpoles = Dict{String,Array{Float32,2}}()    
+
+    varsregpoles = Dict{String,Array{Float32,2}}()
     for (varname, varvals) in vars
 
         # remove contamination from land
         replace!(varvals, 0.0 => NaN)
-        
+
         #pre-allocate dict
         varsregpoles[varname] = fill(NaN,(nx,ny))
-    
+
         # get regular grid by cropping
         θcrop =  LLCcropC(varvals,γ)
-            
+
         # interpolate to "LLCregular"
         θarc = reginterp(varvals,nx,nyarc,farc,iarc,jarc,warc)
         θantarc = reginterp(varvals,nx,nyantarc,fantarc,iantarc,jantarc,wantarc)
@@ -1459,19 +1603,19 @@ end
 vars 2 regularpoles for netcdf input
 """
 function vars2regularpoles(vars::Dict{String,MeshArrays.gcmarray{Float32,1,Array{Float32,2}}},γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
-    
-    varsregpoles = Dict{String,Array{Float32,2}}()    
+
+    varsregpoles = Dict{String,Array{Float32,2}}()
     for (varname, varvals) in vars
 
         # remove contamination from land
         replace!(varvals, 0.0f0 => NaN32)
-        
+
         #pre-allocate dict
         varsregpoles[varname] = fill(NaN32,(nx,ny))
-    
+
         # get regular grid by cropping
         θcrop =  LLCcropC(varvals,γ)
-            
+
         # interpolate to "LLCregular"
         θarc = reginterp(varvals,nx,nyarc,farc,iarc,jarc,warc)
         θantarc = reginterp(varvals,nx,nyantarc,fantarc,iantarc,jantarc,wantarc)
@@ -1501,18 +1645,18 @@ function writeregularpoles(vars::Dict{String,Array{Float32,3}},γ,pathout,filesu
         end
 
         fieldDict = read_available_diagnostics(field,filename=filelog)
-        
+
         # make a directory for this output
-        pathoutdir = pathout*varname*"/" 
+        pathoutdir = pathout*varname*"/"
         !isdir(pathoutdir) ? mkdir(pathoutdir) : nothing;
 
         # get filename for this month.
         fileout = pathoutdir*varname*filesuffix
         println(fileout)
-        
+
         # save in a NetCDF file with info from fieldDict
         varatts = Dict("longname" => fieldDict["title"], "units" => fieldDict["units"])
-         
+
         isfile(fileout) && rm(fileout)
         nccreate(
             fileout,
@@ -1552,18 +1696,18 @@ function writeregularpoles(vars::Dict{String,Array{Float32,2}},γ,pathout,filesu
             field = varname
         end
         fieldDict = read_available_diagnostics(field,filename=filelog)
-        
+
         # make a directory for this output
-        pathoutdir = pathout*varname*"/" 
+        pathoutdir = pathout*varname*"/"
         !isdir(pathoutdir) ? mkdir(pathoutdir) : nothing;
 
         # get filename for this month.
         fileout = pathoutdir*varname*filesuffix
         println(fileout)
-        
+
         # save in a NetCDF file with info from fieldDict
         varatts = Dict("longname" => fieldDict["title"], "units" => fieldDict["units"])
-         
+
         isfile(fileout) && rm(fileout)
         nccreate(
             fileout,
@@ -1588,18 +1732,18 @@ function writeregularpoles(vars::Dict{String,Array{Float64,3}},γ,pathout,filesu
     for (fldname,varvals) in vars
         println(fldname)
         fieldDict = read_available_diagnostics(fldname,filename=filelog)
-        
+
         # make a directory for this output
-        pathoutdir = pathout*fieldDict["fldname"]*"/" 
+        pathoutdir = pathout*fieldDict["fldname"]*"/"
         !isdir(pathoutdir) ? mkdir(pathoutdir) : nothing;
 
         # get filename for this month.
         fileout = pathoutdir*fieldDict["fldname"]*filesuffix
         println(fileout)
-        
+
         # save in a NetCDF file with info from fieldDict
         varatts = Dict("longname" => fieldDict["title"], "units" => fieldDict["units"])
-         
+
         isfile(fileout) && rm(fileout)
         nccreate(
             fileout,
@@ -1626,18 +1770,18 @@ function writeregularpoles(vars::Dict{String,Array{Float64,2}},γ,pathout,filesu
 
     for (fldname,varvals) in vars
         fieldDict = read_available_diagnostics(fldname,filename=filelog)
-        
+
         # make a directory for this output
-        pathoutdir = pathout*fieldDict["fldname"]*"/" 
+        pathoutdir = pathout*fieldDict["fldname"]*"/"
         !isdir(pathoutdir) ? mkdir(pathoutdir) : nothing;
 
         # get filename for this month.
         fileout = pathoutdir*fieldDict["fldname"]*filesuffix
         println(fileout)
-        
+
         # save in a NetCDF file with info from fieldDict
         varatts = Dict("longname" => fieldDict["title"], "units" => fieldDict["units"])
-         
+
         isfile(fileout) && rm(fileout)
         nccreate(
             fileout,
