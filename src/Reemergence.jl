@@ -178,7 +178,7 @@ function inrectangle(latpt,lonpt,latrect,lonrect)
 end
 
 """
-    function infadezoneE(lonin,latin,lons,lats,dlon)
+    function infadezoneE(latpt,lonpt,latrect,lonrect,dlon)
     find all gridcells within East 'wing of box' around Cartesian rectangle
 # Arguments
 - `latpt`: latitude grid
@@ -207,7 +207,7 @@ function infadezoneE(latpt,lonpt,latrect,lonrect,dlon)
 end
 
 """
-    function infadezoneW(lonin,latin,lons,lats,dlon)
+    function infadezoneW(latpt,lonpt,latrect,lonrect,dlon)
     find all gridcells within West 'wing of box' around Cartesian rectangle
 # Arguments
 - `latpt`: latitude grid
@@ -236,7 +236,7 @@ function infadezoneW(latpt,lonpt,latrect,lonrect,dlon)
 end
 
 """
-    function infadezoneN(lonin,latin,lons,lats,dlat)
+    function infadezoneN(latpt,lonpt,latrect,lonrect,dlat)
     find all gridcells within North 'wing of box' around Cartesian rectangle
 # Arguments
 - `latpt`: latitude grid
@@ -1769,5 +1769,51 @@ function writeregularpoles(vars::Dict{String,Array{Float64,2}},γ,pathout,filesu
         ncwrite(varvals, fileout, fieldDict["fldname"])
     end
 end
+
+end
+
+"""
+    function apply_regional_forcing(forcingfield,latpt,lonpt,latrect,lonrect,dlat,dlon)
+# Arguments
+- `forcingfield`: space and time field of surface forcing
+- `latpt`: latitude grid
+- `lonpt`: longitude grid
+- `latrect`: tuple of latitude range of central rectangle
+- `lonrect`: tuple of longitude range of central rectangle
+- `dlon`: width in degrees longitude of East/West fade zones
+- 'dlat': width in degrees latitude of North/South fade zones
+# Output
+- 'regionalforcingfield': space and time field of surface forcing, value of zero inside
+designated lat/lon rectangle and fading to 1 outside sponge zone on each edge. This is
+because this field ends up being SUBTRACTED from the total forcing
+"""
+function apply_regional_forcing(forcingfield,latpt,lonpt,latrect,lonrect,dlat,dlon)
+    maskmultiplier = ones(size(forcingfield)) #set all to one for starters
+    maskmultiplier[inrectangle(latpt,lonpt,latrect,lonrect)] = 0 #set mask to zero inside central rectangle
+    zonalslope = 1/dlon
+    meridionalslope = 1/dlat
+    for xx = #run through longitude
+        #one approach: for loop through longitude grid, calculate distance in degrees longitude
+        #from both lonrect[1] and lonrect[2]. Will have to deal with date line
+        #if distance is <= dlon from East edge of center rectangle (lonrect[2]), set value of
+        #maskmultiplier at that longitude for all points infadezoneE to zonalslope*distance (distance in degrees lon)
+        #same for West: if distance is <=dlon from West edge of rectangle (lonrect[1]), set value of
+        #maskmultiplier at that longitude for all points infadezoneW to zonalslope*distance (distance in degrees lon)
+
+        #this way maybe defeats the purpose of making all those infadezone functions?
+
+    end
+
+    for yy = #run through latitude grid
+        #one approach: for loop through latitude grid, calculate distance in degrees latitude
+        #from both latrect[1] and latrect[2]
+        #if distance is <= dlat from North edge of center rectangle (latrect[2]), set value of
+        #maskmultiplier at that latitude for all points infadezoneN to meridionalslope*distance (distance in degrees lat)
+        #same for South: if distance is <=dlon from South edge of rectangle (latrect[1]), set value of
+        #maskmultiplier at that longitude for all points infadezoneS to meridionalslope*distance (distance in degrees lat)
+    end
+
+    #once you have the mask, apply it to the input forcing field
+    regionalforcingfield = maskmultiplier.*forcingield
 
 end

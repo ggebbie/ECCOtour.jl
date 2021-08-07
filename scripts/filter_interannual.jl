@@ -24,7 +24,7 @@ lat,lon = readlatlon(γ)
 
 ###################################################
 # Determine tiepoints (in time) where fluxes are adjusted by ECCO.
-# Use ECCO-adjusted forcing to back out where the points exist. 
+# Use ECCO-adjusted forcing to back out where the points exist.
 
 # read directly from poseidon
 inputdir = "/poseidon/ecco/ecco.jpl.nasa.gov/drive/files/Version4/Release4/other/flux-forced/forcing/"
@@ -49,7 +49,7 @@ years = 1992:2017
 fluxsample_point,nseries = extract_timeseries(frootsample,years,γ,xv,yv,fv)
 
 # take biweekly mean. Use triangular filter with break points at:
-Δi14day = 4*14 # grid index range 
+Δi14day = 4*14 # grid index range
 nt6hr = length(fluxsample_point)
 i14day = 2.5:Δi14day:nt6hr+56 # goes past end of time by 14 days to be sure
 
@@ -100,6 +100,9 @@ for vname ∈ varnames
     # hanning filter for all locations.
     # output is interannual signal.
     flux_14day_lopass = hannfilter(flux_14day_noseasonal,t14day,t14day,Thann,γ)
+    #use function that takes forcing field and multiplies each entry by a number
+    #from 0 to 1 (1 being removed entirely) based on a provided lat/lon box and sponge layer widths
+    flux_14day_lopass_regional = apply_regional_forcing(flux_14day_noseasonal,)
 
     # put tflux_14day_lopass on to 6hr
     # check for NaN's in output
@@ -111,10 +114,10 @@ for vname ∈ varnames
     if nancount_lopass + nancount_14day + nancount_14day_seasonal + nancount_14day_noseasonal > 0
         error("NaNs in the filtered output")
     end
-    
+
     # write the hi-pass filtered tflux
     # need to get it on the 6hr timesteps
     # need to write it for every year
-    matrixspray(E14to6,-flux_14day_lopass,filein,fileout,years,γ)
+    matrixspray(E14to6,-flux_14day_lopass_regional,filein,fileout,years,γ) #changed rmfield to _regional
 
 end
