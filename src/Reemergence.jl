@@ -26,6 +26,7 @@ export mdsio2sigma1, ncwritefromtemplate
 export netcdf2sigma1, replace!, mdsio2regularpoles
 export writeregularpoles, vars2regularpoles
 export netcdf2regularpoles, mixinversions!, dedup!
+export infadezoneE, infadezoneW, infadezoneN, infadezoneS
 
 include("HannFilter.jl")
 include("MatrixFilter.jl")
@@ -165,13 +166,12 @@ end
 function inrectangle(latpt,lonpt,latrect,lonrect)
 
     # load latitude and longitude on this grid.
-    # watch out for wraparound; didn't code a solution
     if lonrect[1] < lonrect[2]
         inrectangle = minimum(lonrect) <= lonpt <= maximum(lonrect) &&
             minimum(latrect) <= latpt <= maximum(latrect)
     else # wraps around the date line
-        inrectangle = lonpt <= minimum(lonpt) &&
-            lonpt >= maximum(lonrect) &&
+        inrectangle = (lonpt <= minimum(lonrect) || #this OR was an AND before -- think it should be an OR?
+            lonpt >= maximum(lonrect)) &&
             minimum(latrect) <= latpt <= maximum(latrect)
     end
     # watch out if lonrect[1] == lonrect[2]
@@ -183,8 +183,8 @@ end
 # Arguments
 - `latpt`: latitude grid
 - `lonpt`: longitude grid
-- `latrect`: tuple of latitude range
-- `lonrect`: tuple of longitude range
+- `latrect`: tuple of latitude range of central rectangle
+- `lonrect`: tuple of longitude range of central rectangle
 - `dlon`: width in degrees longitude of East fade zone
 # Output
 - `fadezone`: boolean of type gcmarray
@@ -192,23 +192,16 @@ end
 function infadezoneE(latpt,lonpt,latrect,lonrect,dlon)
     # load latitude and longitude on this grid.
     if lonrect[1] < lonrect[2] # if center rectangle doesn't wrap around dateline
-        if lonrect[1] - dlon >= -180 && lonrect[2] + dlon <= 180 # if neither East nor West fade zones wrap around dateline
-            infadezoneE = (((minimum(lonrect) - dlon) <= lonpt <= minimum(lonrect))
-            || maximum(lonrect) <= lonpt <= (maximum(lonrect) + dlon))
-            && minimum(latrect) <= latpt <= maximum(latrect)
-        elseif lonrect[1] - dlon < -180 # if West fade zone crosses over dateline
-            infadezoneE = (((minimum(lonrect) - dlon) <= lonpt <= minimum(lonrect))
-            || maximum(lonrect) <= lonpt <= (maximum(lonrect) + dlon))
+        if lonrect[1] - dlon >= -180 && lonrect[2] + dlon <= 180 # if East fade zone does NOT wrap around date line
+            infadezoneE = (maximum(lonrect) <= lonpt <= (maximum(lonrect) + dlon))
             && minimum(latrect) <= latpt <= maximum(latrect)
         elseif lonrect[2] + dlon > 180 # if East fade zone crosses over dateline
-            infadezoneE = (((minimum(lonrect) - dlon) <= lonpt <= minimum(lonrect))
-            || maximum(lonrect) <= lonpt <= (maximum(lonrect) + dlon))
+            infadezoneE = ((maximum(lonrect) <= lonpt || lonpt <= -360 + maximum(lonrect) + dlon)
             && minimum(latrect) <= latpt <= maximum(latrect)
         end
-    else # wraps around the date line
-        infadezoneE = lonpt <= minimum(lonpt) &&
-            lonpt >= maximum(lonrect) &&
-            minimum(latrect) <= latpt <= maximum(latrect)
+    else # central rectangle wraps around the date line (therefore east fade zone will not)
+        infadezoneE =  minimum(lonrect) <= lonpt <= (minimum(lonrect) + dlon)
+            && minimum(latrect) <= latpt <= maximum(latrect)
     end
     # watch out if lonrect[1] == lonrect[2]
 end
@@ -228,87 +221,66 @@ end
 function infadezoneW(latpt,lonpt,latrect,lonrect,dlon)
     # load latitude and longitude on this grid.
     if lonrect[1] < lonrect[2] # if center rectangle doesn't wrap around dateline
-        if lonrect[1] - dlon >= -180 && lonrect[2] + dlon <= 180 # if neither East nor West fade zones wrap around dateline
-            infadezone = (((minimum(lonrect) - dlon) <= lonpt <= minimum(lonrect))
-            || maximum(lonrect) <= lonpt <= (maximum(lonrect) + dlon))
+        if lonrect[1] - dlon >= -180 && lonrect[2] + dlon <= 180 # if West fade zone does NOT wrap around date line
+            infadezoneW = ((minimum(lonrect)-dlon) <= lonpt <= minimum(lonrect))
             && minimum(latrect) <= latpt <= maximum(latrect)
-        elseif lonrect[1] - dlon < -180 # if West fade zone crosses over dateline
-            infadezone = (((minimum(lonrect) - dlon) <= lonpt <= minimum(lonrect))
-            || maximum(lonrect) <= lonpt <= (maximum(lonrect) + dlon))
-            && minimum(latrect) <= latpt <= maximum(latrect)
-        elseif lonrect[2] + dlon > 180 # if East fade zone crosses over dateline
-            infadezone = (((minimum(lonrect) - dlon) <= lonpt <= minimum(lonrect))
-            || maximum(lonrect) <= lonpt <= (maximum(lonrect) + dlon))
+        elseif lonrect[2] + dlon > 180 # if West fade zone crosses over dateline
+            infadezoneW = ((minimum(lonrect) >= lonpt || lonpt >= 360 - minimum(lonrect) - dlon)
             && minimum(latrect) <= latpt <= maximum(latrect)
         end
-    else # wraps around the date line
-        inrectangle = lonpt <= minimum(lonpt) &&
-            lonpt >= maximum(lonrect) &&
-            minimum(latrect) <= latpt <= maximum(latrect)
+    else # central rectangle wraps around the date line (therefore west fade zone will not)
+        infadezoneW = (maximum(lonrect)-dlon) <= lonpt <= (maximum(lonrect))
+            && minimum(latrect) <= latpt <= maximum(latrect)
     end
     # watch out if lonrect[1] == lonrect[2]
 end
 
 """
-    function infadezoneN(lonin,latin,lons,lats)
+    function infadezoneN(lonin,latin,lons,lats,dlat)
     find all gridcells within North 'wing of box' around Cartesian rectangle
 # Arguments
 - `latpt`: latitude grid
 - `lonpt`: longitude grid
 - `latrect`: tuple of latitude range
 - `lonrect`: tuple of longitude range
-- `dlat`: width in degrees latitude of North fade zones
+- `dlat`: width in degrees latitude of North fade zone
 # Output
-- `rectangle`: boolean of type gcmarray
+- `fadezone`: boolean of type gcmarray
 """
 function infadezoneN(latpt,lonpt,latrect,lonrect,dlat)
     # load latitude and longitude on this grid.
-    if lonrect[1] < lonrect[2] # if center rectangle doesn't wrap around dateline
-        if lonrect[1] - dlon >= -180 && lonrect[2] + dlon <= 180 # if neither East nor West fade zones wrap around dateline
-            infadezone = (((minimum(lonrect) - dlon) <= lonpt <= minimum(lonrect))
-            || maximum(lonrect) <= lonpt <= (maximum(lonrect) + dlon))
-            && minimum(latrect) <= latpt <= maximum(latrect)
-        elseif lonrect[1] - dlon < -180 # if West fade zone crosses over dateline
-            infadezone = && minimum(latrect)
-        elseif lonrect[2] + dlon > 180 # if East fade zone crosses over dateline
-            infadezone =
-        end
-    else # wraps around the date line
-        inrectangle = lonpt <= minimum(lonpt) &&
-            lonpt >= maximum(lonrect) &&
-            minimum(latrect) <= latpt <= maximum(latrect)
+    if lonrect[1] < lonrect[2] #if center rectangle crosses dateline
+        infadezoneN = minimum(lonrect) <= lonpt <= maximum(lonrect) &&
+            maximum(latrect) <= latpt <= (maximum(latrect) + dlat)
+    else # center rectangle wraps around the date line
+        infadezoneN = (lonpt <= minimum(lonrect) ||
+            lonpt >= maximum(lonrect)) &&
+            maximum(latrect) <= latpt <= (maximum(latrect) + dlat)
     end
     # watch out if lonrect[1] == lonrect[2]
 end
 
 """
-    function infadezoneN(lonin,latin,lons,lats)
+    function infadezoneS(latpt,lonpt,latrect,lonrect,dlat)
     find all gridcells within South 'wing of box' around Cartesian rectangle
 # Arguments
 - `latpt`: latitude grid
 - `lonpt`: longitude grid
 - `latrect`: tuple of latitude range
 - `lonrect`: tuple of longitude range
-- `dlat`: width in degrees latitude of South fade zones
+- `dlat`: width in degrees latitude of South fade zone
 # Output
 - `rectangle`: boolean of type gcmarray
 """
 function infadezoneS(latpt,lonpt,latrect,lonrect,dlat)
     # load latitude and longitude on this grid.
-    if lonrect[1] < lonrect[2] # if center rectangle doesn't wrap around dateline
-        if lonrect[1] - dlon >= -180 && lonrect[2] + dlon <= 180 # if neither East nor West fade zones wrap around dateline
-            infadezone = (((minimum(lonrect) - dlon) <= lonpt <= minimum(lonrect))
-            || maximum(lonrect) <= lonpt <= (maximum(lonrect) + dlon))
-            && minimum(latrect) <= latpt <= maximum(latrect)
-        elseif lonrect[1] - dlon < -180 # if West fade zone crosses over dateline
-            infadezone = && minimum(latrect)
-        elseif lonrect[2] + dlon > 180 # if East fade zone crosses over dateline
-            infadezome =
-        end
-    else # wraps around the date line
-        inrectangle = lonpt <= minimum(lonpt) &&
-            lonpt >= maximum(lonrect) &&
-            minimum(latrect) <= latpt <= maximum(latrect)
+    if lonrect[1] < lonrect[2] #if center rectangle crosses dateline
+        infadezoneS = minimum(lonrect) <= lonpt <= maximum(lonrect) &&
+            minimum(latrect) >= latpt >= (minimum(latrect) - dlat)
+    else # center rectangle wraps around the date line
+        infadezoneS = (lonpt <= minimum(lonrect) ||
+            lonpt >= maximum(lonrect)) &&
+            minimum(latrect) >= latpt >= (minimum(latrect) - dlat)
     end
     # watch out if lonrect[1] == lonrect[2]
 end
