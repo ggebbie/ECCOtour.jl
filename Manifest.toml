@@ -65,9 +65,9 @@ version = "0.9.7"
 
 [[ChainRulesCore]]
 deps = ["Compat", "LinearAlgebra", "SparseArrays"]
-git-tree-sha1 = "dfbf58e0e470c2fd70020ae2c34e2f17b9fd1e4c"
+git-tree-sha1 = "f53ca8d41e4753c41cdafa6ec5f7ce914b34be54"
 uuid = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
-version = "1.2.0"
+version = "0.10.13"
 
 [[CodeTracking]]
 deps = ["InteractiveUtils", "UUIDs"]
@@ -185,9 +185,9 @@ uuid = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 
 [[Distributions]]
 deps = ["FillArrays", "LinearAlgebra", "PDMats", "Printf", "QuadGK", "Random", "SparseArrays", "SpecialFunctions", "Statistics", "StatsBase", "StatsFuns"]
-git-tree-sha1 = "36aa8125c8caa6a449b54d5d45ac97afd392549d"
+git-tree-sha1 = "3889f646423ce91dd1055a76317e9a1d3a23fff1"
 uuid = "31c24e10-a181-5473-b8eb-7969acd0382f"
-version = "0.25.0"
+version = "0.25.11"
 
 [[DocStringExtensions]]
 deps = ["LibGit2"]
@@ -221,10 +221,10 @@ version = "1.10.1"
 uuid = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
 
 [[FillArrays]]
-deps = ["LinearAlgebra", "Random", "SparseArrays"]
-git-tree-sha1 = "693210145367e7685d8604aee33d9bfb85db8b31"
+deps = ["LinearAlgebra", "Random", "SparseArrays", "Statistics"]
+git-tree-sha1 = "8c8eac2af06ce35973c3eadb4ab3243076a408e7"
 uuid = "1a297f60-69ca-5386-bcde-b61e274b549b"
-version = "0.11.9"
+version = "0.12.1"
 
 [[FixedPointNumbers]]
 deps = ["Statistics"]
@@ -265,10 +265,10 @@ deps = ["Markdown"]
 uuid = "b77e0a4c-d291-57a0-90e8-8db25a27a240"
 
 [[Interpolations]]
-deps = ["AxisAlgorithms", "LinearAlgebra", "OffsetArrays", "Random", "Ratios", "SharedArrays", "SparseArrays", "StaticArrays", "WoodburyMatrices"]
-git-tree-sha1 = "1e0e51692a3a77f1eeb51bf741bdd0439ed210e7"
+deps = ["AxisAlgorithms", "ChainRulesCore", "LinearAlgebra", "OffsetArrays", "Random", "Ratios", "Requires", "SharedArrays", "SparseArrays", "StaticArrays", "WoodburyMatrices"]
+git-tree-sha1 = "1470c80592cf1f0a35566ee5e93c5f8221ebc33a"
 uuid = "a98d9a8b-a2ab-59e6-89dd-64a1c18fca59"
-version = "0.13.2"
+version = "0.13.3"
 
 [[InvertedIndices]]
 deps = ["Test"]
@@ -282,10 +282,10 @@ uuid = "82899510-4779-5014-852e-03e436cf321d"
 version = "1.0.0"
 
 [[JLD2]]
-deps = ["DataStructures", "FileIO", "MacroTools", "Mmap", "Pkg", "Printf", "Reexport", "Requires", "TranscodingStreams", "UUIDs"]
-git-tree-sha1 = "c50e77bb661b0e5aea126404246b07c7937691c5"
+deps = ["DataStructures", "FileIO", "MacroTools", "Mmap", "Pkg", "Printf", "Reexport", "TranscodingStreams", "UUIDs"]
+git-tree-sha1 = "59ee430ac5dc87bc3eec833cc2a37853425750b4"
 uuid = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
-version = "0.4.5"
+version = "0.4.13"
 
 [[JLLWrappers]]
 deps = ["Preferences"]
@@ -458,9 +458,9 @@ version = "0.11.1"
 
 [[Parsers]]
 deps = ["Dates"]
-git-tree-sha1 = "94bf17e83a0e4b20c8d77f6af8ffe8cc3b386c0a"
+git-tree-sha1 = "bfd7d8c7fd87f04543810d9cbd3995972236ba1b"
 uuid = "69de0a69-1ddd-5017-9359-2bf0b02dc9f0"
-version = "1.1.1"
+version = "1.1.2"
 
 [[Pkg]]
 deps = ["Artifacts", "Dates", "Downloads", "LibGit2", "Libdl", "Logging", "Markdown", "Printf", "REPL", "Random", "SHA", "Serialization", "TOML", "Tar", "UUIDs", "p7zip_jll"]
@@ -532,9 +532,9 @@ version = "1.1.3"
 
 [[Revise]]
 deps = ["CodeTracking", "Distributed", "FileWatching", "JuliaInterpreter", "LibGit2", "LoweredCodeUtils", "OrderedCollections", "Pkg", "REPL", "Requires", "UUIDs", "Unicode"]
-git-tree-sha1 = "2b95c41e53c8f429ef56de5c3718f01831141751"
+git-tree-sha1 = "410bbe13d9a7816e862ed72ac119bda7fb988c08"
 uuid = "295af30f-e4ad-537b-8983-00126c2a3abe"
-version = "3.1.16"
+version = "3.1.17"
 
 [[Rmath]]
 deps = ["Random", "Rmath_jll"]
@@ -594,9 +594,9 @@ version = "1.0.0"
 
 [[StatsBase]]
 deps = ["DataAPI", "DataStructures", "LinearAlgebra", "Missings", "Printf", "Random", "SortingAlgorithms", "SparseArrays", "Statistics", "StatsAPI"]
-git-tree-sha1 = "2f6792d523d7448bbe2fec99eca9218f06cc746d"
+git-tree-sha1 = "fed1ec1e65749c4d96fc20dd13bea72b55457e62"
 uuid = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
-version = "0.33.8"
+version = "0.33.9"
 
 [[StatsFuns]]
 deps = ["LogExpFunctions", "Rmath", "SpecialFunctions"]
