@@ -1,5 +1,6 @@
 #  Instead use this to remove the interannual frequency energy in surface forcing fields.
 #  Diagnostic plots have been removed from this version.
+#  This code extends filter_interannual.jl to allow for regional masks. 
 #  First steps: 1. go into Reemergence project directory. 2. go into julia REPL package mode with `]`. 3. `activate .` 4. Backspace to return to command mode in REPL.
 
 using Revise
@@ -19,12 +20,22 @@ path_grid="../inputs/GRID_LLC90/"
 D=γ.read(γ.path*"Depth.data",MeshArray(γ,Float64))
 
 # read lat, lon at center of grid cell
-lat,lon = latlonC(γ)
+(ϕ,λ) = latlonC(γ)
 
 # Read one flux at one point to get information about number of time points.
 # read directly from poseidon
 inputdir = "/poseidon/ecco.jpl.nasa.gov/drive/files/Version4/Release4/other/flux-forced/forcing/"
 outputdir="../outputs/"
+
+## Define region of interest.
+#  I don't remember the right choices here.
+#  This can be included in src/Reemergence.jl
+latrect = (-90, -15)
+lonrect = (120,-70) 
+dlat = 5
+dlon = 5
+regionname = "interannual_southpac"
+
 #outputdir = pwd()*"/flux-forced-nointerannual-test/"
 
 if !isdir(outputdir)
@@ -74,9 +85,13 @@ Ecycle,Fcycle = seasonal_matrices(fcycle,t14day)
 Thann = 100.0 # days
 
 # Is it possible to solve for regional mask before the variable loop? Yes, if the variables are on the same grid. (Double check that they all apply to the center of a grid cell.)
+
+mask = regional_mask(ϕ,λ,latrect,lonrect,dlat,dlon)
+
+#vname = varnames[1] # for interactive use
 for vname ∈ varnames
     filein = inputdir*vname*midname
-    fileout = outputdir*vname*midname*"nointerannual_"
+    fileout = outputdir*vname*midname*regionname
     println(filein)
 
     # use this F to decompose controllable/uncontrollable parts
@@ -98,7 +113,22 @@ for vname ∈ varnames
     # hanning filter for all locations.
     # output is interannual signal.
     flux_14day_lopass = hannfilter(flux_14day_noseasonal,t14day,t14day,Thann,γ)
-    
+
+    #use function that takes forcing field and multiplies each entry by a number
+    #from 0 to 1 (1 being removed entirely) based on a provided lat/lon box and sponge layer widths
+    # pre-compute mask before looping over all variables.
+    apply_regional_mask!(flux_14day_lopass,mask)
+
+    # do this at every spatial location
+    # if issouthpac then flux_14day_lopass = 0 (do not remove it at matrixspray)
+    # check the tile and time index order
+    #    Nf = size(flux_14day_lopass,2)
+    #for tt = 1:nt14day
+     #   for i = 1:Nf
+      #      flux_14day_lopass[tt,i] = flux_14day_lopass[tt,i].*issouthpac[i]
+       #  end
+    #end
+
     # put tflux_14day_lopass on to 6hr
     # check for NaN's in output
     nancount_lopass = sum(nancount_gcmarray(flux_14day_lopass))
@@ -113,6 +143,6 @@ for vname ∈ varnames
     # write the hi-pass filtered tflux
     # need to get it on the 6hr timesteps
     # need to write it for every year
-    matrixspray(E14to6,-flux_14day_lopass_regional,filein,fileout,years,γ) #changed rmfield to _regional
+    matrixspray(E14to6,-flux_14day_lopass,filein,fileout,years,γ) #changed rmfield to _regional
 
 end

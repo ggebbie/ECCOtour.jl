@@ -12,7 +12,7 @@ export seasonal_matrices, trend_matrices
 export position_label, searchdir, setupLLCgrid
 export listexperiments, expnames, expsymbols, time_label
 export faststats, allstats, std, mean
-export inrectangle, isnino34, isnino3, isnino4, isnino12
+export inrectangle, isnino34, issouthpac, isnino3, isnino4, isnino12
 export latlon, latlonC, latlonG
 export depthlevels, pressurelevels, readarea, patchmean
 export nino34mean, nino3mean, nino4mean, nino12mean, extract_sst34
@@ -27,6 +27,7 @@ export netcdf2sigma1, replace!, mdsio2regularpoles
 export writeregularpoles, vars2regularpoles
 export netcdf2regularpoles, mixinversions!, dedup!
 export infadezoneE, infadezoneW, infadezoneN, infadezoneS
+export regional_mask, apply_regional_mask!
 
 include("HannFilter.jl")
 include("MatrixFilter.jl")
@@ -193,15 +194,12 @@ function infadezoneE(latpt,lonpt,latrect,lonrect,dlon)
     # load latitude and longitude on this grid.
     if lonrect[1] < lonrect[2] # if center rectangle doesn't wrap around dateline
         if lonrect[1] - dlon >= -180 && lonrect[2] + dlon <= 180 # if East fade zone does NOT wrap around date line
-            infadezoneE = (maximum(lonrect) <= lonpt <= (maximum(lonrect) + dlon))
-            && minimum(latrect) <= latpt <= maximum(latrect)
+            infadezoneE = (maximum(lonrect) <= lonpt <= (maximum(lonrect) + dlon)) && minimum(latrect) <= latpt <= maximum(latrect)
         elseif lonrect[2] + dlon > 180 # if East fade zone crosses over dateline
-            infadezoneE = ((maximum(lonrect) <= lonpt || lonpt <= -360 + maximum(lonrect) + dlon)
-            && minimum(latrect) <= latpt <= maximum(latrect)
+            infadezoneE = ((maximum(lonrect) <= lonpt || lonpt <= -360 + maximum(lonrect) + dlon)) && minimum(latrect) <= latpt <= maximum(latrect)
         end
     else # central rectangle wraps around the date line (therefore east fade zone will not)
-        infadezoneE =  minimum(lonrect) <= lonpt <= (minimum(lonrect) + dlon)
-            && minimum(latrect) <= latpt <= maximum(latrect)
+        infadezoneE =  minimum(lonrect) <= lonpt <= (minimum(lonrect) + dlon) && minimum(latrect) <= latpt <= maximum(latrect)
     end
     # watch out if lonrect[1] == lonrect[2]
 end
@@ -221,16 +219,13 @@ end
 function infadezoneW(latpt,lonpt,latrect,lonrect,dlon)
     # load latitude and longitude on this grid.
     if lonrect[1] < lonrect[2] # if center rectangle doesn't wrap around dateline
-        if lonrect[1] - dlon >= -180 && lonrect[2] + dlon <= 180 # if West fade zone does NOT wrap around date line
-            infadezoneW = ((minimum(lonrect)-dlon) <= lonpt <= minimum(lonrect))
-            && minimum(latrect) <= latpt <= maximum(latrect)
+        if (lonrect[1] - dlon >= -180) && (lonrect[2] + dlon <= 180) # if West fade zone does NOT wrap around date line
+            infadezoneW = ((minimum(lonrect)-dlon) <= lonpt <= minimum(lonrect)) && minimum(latrect) <= latpt <= maximum(latrect)
         elseif lonrect[2] + dlon > 180 # if West fade zone crosses over dateline
-            infadezoneW = ((minimum(lonrect) >= lonpt || lonpt >= 360 - minimum(lonrect) - dlon)
-            && minimum(latrect) <= latpt <= maximum(latrect)
+            infadezoneW = ((minimum(lonrect) >= lonpt || lonpt >= 360 - minimum(lonrect) - dlon)) && minimum(latrect) <= latpt <= maximum(latrect)
         end
     else # central rectangle wraps around the date line (therefore west fade zone will not)
-        infadezoneW = (maximum(lonrect)-dlon) <= lonpt <= (maximum(lonrect))
-            && minimum(latrect) <= latpt <= maximum(latrect)
+        infadezoneW = (maximum(lonrect)-dlon) <= lonpt <= (maximum(lonrect)) && minimum(latrect) <= latpt <= maximum(latrect)
     end
     # watch out if lonrect[1] == lonrect[2]
 end
@@ -1770,12 +1765,9 @@ function writeregularpoles(vars::Dict{String,Array{Float64,2}},γ,pathout,filesu
     end
 end
 
-end
-
 """
-    function apply_regional_forcing(forcingfield,latpt,lonpt,latrect,lonrect,dlat,dlon)
+    function regional_mask(latpt,lonpt,latrect,lonrect,dlat,dlon)
 # Arguments
-- `forcingfield`: space and time field of surface forcing
 - `latpt`: latitude grid
 - `lonpt`: longitude grid
 - `latrect`: tuple of latitude range of central rectangle
@@ -1783,16 +1775,18 @@ end
 - `dlon`: width in degrees longitude of East/West fade zones
 - 'dlat': width in degrees latitude of North/South fade zones
 # Output
-- 'regionalforcingfield': space and time field of surface forcing, value of zero inside
+- 'mask': space and time field of surface forcing, value of zero inside
 designated lat/lon rectangle and fading to 1 outside sponge zone on each edge. This is
 because this field ends up being SUBTRACTED from the total forcing
 """
-function apply_regional_forcing(forcingfield,latpt,lonpt,latrect,lonrect,dlat,dlon)
-    maskmultiplier = ones(size(forcingfield)) #set all to one for starters
-    maskmultiplier[inrectangle(latpt,lonpt,latrect,lonrect)] = 0 #set mask to zero inside central rectangle
-    zonalslope = 1/dlon
-    meridionalslope = 1/dlat
-    for xx = #run through longitude
+function regional_mask(latpt,lonpt,latrect,lonrect,dlat,dlon)
+
+    mask = issouthpac.(latpt,lonpt)
+
+    mask = 1 .- mask
+    # zonalslope = 1/dlon
+    # meridionalslope = 1/dlat
+    #for xx = #run through longitude
         #one approach: for loop through longitude grid, calculate distance in degrees longitude
         #from both lonrect[1] and lonrect[2]. Will have to deal with date line
         #if distance is <= dlon from East edge of center rectangle (lonrect[2]), set value of
@@ -1802,18 +1796,35 @@ function apply_regional_forcing(forcingfield,latpt,lonpt,latrect,lonrect,dlat,dl
 
         #this way maybe defeats the purpose of making all those infadezone functions?
 
-    end
+    #end
 
-    for yy = #run through latitude grid
+    #for yy = #run through latitude grid
         #one approach: for loop through latitude grid, calculate distance in degrees latitude
         #from both latrect[1] and latrect[2]
         #if distance is <= dlat from North edge of center rectangle (latrect[2]), set value of
         #maskmultiplier at that latitude for all points infadezoneN to meridionalslope*distance (distance in degrees lat)
         #same for South: if distance is <=dlon from South edge of rectangle (latrect[1]), set value of
         #maskmultiplier at that longitude for all points infadezoneS to meridionalslope*distance (distance in degrees lat)
-    end
+    #end
+end
+
+"""
+    function regional_mask(field,mask
+# Arguments
+- `field`: input field that is mutated/modified
+- `mask`: multiplicative factor, same spatial grid as field
+"""
+function apply_regional_mask!(field,mask)
 
     #once you have the mask, apply it to the input forcing field
-    regionalforcingfield = maskmultiplier.*forcingield
+    #regionalforcingfield = maskmultiplier.*forcingield
+    # Do this in a separate function that can be called every timestep.
+
+    for i = 1:size(field,2)
+        println(i)
+        field[:,i] = field[:,i].*mask
+    end
+    
+end
 
 end
