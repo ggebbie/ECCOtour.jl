@@ -1,6 +1,6 @@
 #  Instead use this to remove the interannual frequency energy in surface forcing fields.
 #  Diagnostic plots have been removed from this version.
-#  This code extends filter_interannual.jl to allow for regional masks. 
+#  This code extends filter_interannual.jl to allow for regional masks.
 #  First steps: 1. go into Reemergence project directory. 2. go into julia REPL package mode with `]`. 3. `activate .` 4. Backspace to return to command mode in REPL.
 
 using Revise
@@ -31,7 +31,7 @@ outputdir="../outputs/"
 #  I don't remember the right choices here.
 #  This can be included in src/Reemergence.jl
 latrect = (-90, -15)
-lonrect = (120,-70) 
+lonrect = (120,-70)
 dlat = 5
 dlon = 5
 regionname = "interannual_southpac"
@@ -119,15 +119,6 @@ for vname ∈ varnames
     # pre-compute mask before looping over all variables.
     apply_regional_mask!(flux_14day_lopass,mask)
 
-    # do this at every spatial location
-    # if issouthpac then flux_14day_lopass = 0 (do not remove it at matrixspray)
-    # check the tile and time index order
-    #    Nf = size(flux_14day_lopass,2)
-    #for tt = 1:nt14day
-     #   for i = 1:Nf
-      #      flux_14day_lopass[tt,i] = flux_14day_lopass[tt,i].*issouthpac[i]
-       #  end
-    #end
 
     # put tflux_14day_lopass on to 6hr
     # check for NaN's in output

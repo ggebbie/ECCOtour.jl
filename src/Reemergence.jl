@@ -1781,31 +1781,33 @@ because this field ends up being SUBTRACTED from the total forcing
 """
 function regional_mask(latpt,lonpt,latrect,lonrect,dlat,dlon)
 
-    mask = issouthpac.(latpt,lonpt)
+    zonalslope = 1/dlon
+    meridionalslope = 1/dlat
 
-    mask = 1 .- mask
-    # zonalslope = 1/dlon
-    # meridionalslope = 1/dlat
-    #for xx = #run through longitude
-        #one approach: for loop through longitude grid, calculate distance in degrees longitude
-        #from both lonrect[1] and lonrect[2]. Will have to deal with date line
-        #if distance is <= dlon from East edge of center rectangle (lonrect[2]), set value of
-        #maskmultiplier at that longitude for all points infadezoneE to zonalslope*distance (distance in degrees lon)
-        #same for West: if distance is <=dlon from West edge of rectangle (lonrect[1]), set value of
-        #maskmultiplier at that longitude for all points infadezoneW to zonalslope*distance (distance in degrees lon)
+    mask = issouthpac.(latpt,lonpt) #set mask = 1 inside center rectangle
 
-        #this way maybe defeats the purpose of making all those infadezone functions?
+    distE = lonpt.-lonrect[2] #distance increases going eastward
+    distE[distE .< 0] += 360 #deal with wraparound --findall, or any
+    lineE = 1 - distE*zonalslope #have mask = 1 at east edge of center rectangle, decrease linearly to 0 at east edge of fade region
+    maskE = lineE.*infadezoneE(latpt,lonpt,latrect,lonrect,dlon) #could make a 'infadezoneEsouthpac' specifically for region
 
-    #end
+    distW = lonrect[1].-lonpt #distance increases going westward
+    distW[distW < 0] += 360 #deal with wraparound
+    lineW = 1 - distW*zonalslope #b/c distW = 1 when at west edge of sponge zone, and want mask to = 0 there (until reverse later)
+    maskW = lineW.*infadezoneW(latpt,lonpt,latrect,lonrect,dlon)
 
-    #for yy = #run through latitude grid
-        #one approach: for loop through latitude grid, calculate distance in degrees latitude
-        #from both latrect[1] and latrect[2]
-        #if distance is <= dlat from North edge of center rectangle (latrect[2]), set value of
-        #maskmultiplier at that latitude for all points infadezoneN to meridionalslope*distance (distance in degrees lat)
-        #same for South: if distance is <=dlon from South edge of rectangle (latrect[1]), set value of
-        #maskmultiplier at that longitude for all points infadezoneS to meridionalslope*distance (distance in degrees lat)
-    #end
+    distN = latpt.-latrect[2] #distance increases going northward
+    lineN = 1 - distN*meridionalslope
+    maskN = lineN.*infadezoneN(latpt,lonpt,latrect,lonrect,dlat)
+
+    distS = latrect[1].-latpt #distance increases going southward
+    lineS = 1 - distS*meridionalslope
+    maskS = lineS.*infadezoneN(latpt,lonpt,latrect,lonrect,dlat)
+
+    mask += maskE + maskW + maskN + maskS
+    mask = 1 .- mask #instead of mask = 1 inside rectangle and fading to 0 outside, have mask = 0 inside rectangle and fade up to 1 outside
+
+    #plot the mask to make sure it's doing what we expect
 end
 
 """
@@ -1820,11 +1822,21 @@ function apply_regional_mask!(field,mask)
     #regionalforcingfield = maskmultiplier.*forcingield
     # Do this in a separate function that can be called every timestep.
 
+        # do this at every spatial location
+        # if issouthpac then flux_14day_lopass = 0 (do not remove it at matrixspray)
+        # check the tile and time index order
+        #    Nf = size(flux_14day_lopass,2)
+        #for tt = 1:nt14day
+         #   for i = 1:Nf
+          #      flux_14day_lopass[tt,i] = flux_14day_lopass[tt,i].*issouthpac[i]
+           #  end
+        #end
+
     for i = 1:size(field,2)
-        println(i)
+        #println(i)
         field[:,i] = field[:,i].*mask
     end
-    
+
 end
 
 end
