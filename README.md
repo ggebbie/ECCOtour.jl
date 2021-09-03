@@ -5,7 +5,7 @@
 [![Build Status](https://github.com/ggebbie/Reemergence.jl/workflows/CI/badge.svg)](https://github.com/ggebbie/Reemergence.jl/actions)
 [![Coverage](https://codecov.io/gh/ggebbie/Reemergence.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/ggebbie/Reemergence.jl)
 
-Tracking seawater property anomalies through the oceanic tunnel until possible reemergence
+Analysis of ECCO version 4 release 4 using output from Poseidon @ WHOI
 
 # Getting started
 
