@@ -15,7 +15,7 @@ Install julia-mode, julia-repl, and magit \
 Skip the next 5 steps if you have already cloned the repository \
 `M-x magit-clone` \
 Select `u` to clone from url\
-Enter ` https://github.com/ggebbie/Reemergence.jl` as url to clone \
+Enter ` https://github.com/ggebbie/ECCOonPoseidon.jl` as url to clone \
 Select `y` in response to `remote.pushDefault' to "origin"?` \
 Clone to your favorite location and rename project if necessary \
 Go to any directory in the project: `C-x C-f Reemergence.jl`\
