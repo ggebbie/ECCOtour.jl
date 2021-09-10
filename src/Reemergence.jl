@@ -27,7 +27,8 @@ export netcdf2sigma1, replace!, mdsio2regularpoles
 export writeregularpoles, vars2regularpoles
 export netcdf2regularpoles, mixinversions!, dedup!
 export infadezoneE, infadezoneW, infadezoneN, infadezoneS
-export regional_mask, apply_regional_mask!
+export regional_mask, apply_regional_mask!, zero2one!, wrapdist
+export centerlon!, factors4regularpoles, var2regularpoles
 
 include("HannFilter.jl")
 include("MatrixFilter.jl")
@@ -937,6 +938,28 @@ function var2sigmacolumn(σorig,v,σgrid,splorder)
 end
 
 """
+    function factors4regularpoles(γ)
+    Get interpolation factors for regularpoles grid in one place
+"""
+function factors4regularpoles(γ)
+    ϕGarc,ϕCarc = latgridArctic(γ)
+    ϕGantarc,ϕCantarc = latgridAntarctic(γ) 
+    ϕGreg,ϕCreg = latgridRegular(γ) 
+    λG = -180.0:179.0
+    λC = -179.5:179.5
+    ϕG = vcat(ϕGantarc,ϕGreg,ϕGarc)
+    ϕC = vcat(ϕCantarc,ϕCreg,ϕCarc)
+    farc,iarc,jarc,warc = prereginterp(ϕCarc,λC,γ)
+    fantarc,iantarc,jantarc,wantarc = prereginterp(ϕCantarc,λC,γ)
+    nx = length(λC)
+    ny = length(ϕC)
+    nyarc = length(ϕCarc)
+    nyantarc = length(ϕCantarc)
+
+    return λC,λG,ϕC,ϕG,nx,ny,nyarc,nyantarc,farc,iarc,jarc,warc,fantarc,iantarc,jantarc,wantarc
+end
+
+"""
     function prereginterp(latgrid,longrid,γ)
     prepare for regular interpolation
     regular = onto rectangular 2d map
@@ -1416,6 +1439,18 @@ function netcdf2dict(ncfilename::String,ncvarname::String,γ::gcmgrid)
 end
 
 """
+function replace!(f,a::MeshArrays.gcmarray{Float64,1,Array{Float64,2}}}
+"""
+function replace!(f,a::MeshArrays.gcmarray{Float64,1,Array{Float64,2}})
+
+    nf = size(a,1)
+    for ff = 1:nf
+        Base.replace!(f,a[ff])
+    end
+    return a
+end
+
+"""
 function replace!(a::MeshArrays.gcmarray{Float32,1,Array{Float32,2}}},b::Pair)
 """
 function replace!(a::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},b::Pair)
@@ -1428,7 +1463,7 @@ function replace!(a::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},b::Pair)
 end
 
 """
-function replace!(a::MeshArrays.gcmarray{Float32,1,Array{Float32,2}}},b::Pair)
+function replace!(a::MeshArrays.gcmarray{Float64,1,Array{Float64,2}}},b::Pair)
 """
 function replace!(a::MeshArrays.gcmarray{Float64,1,Array{Float64,2}},b::Pair)
 
@@ -1567,7 +1602,8 @@ function vars2regularpoles(vars::Dict{String,MeshArrays.gcmarray{Float64,1,Array
 end
 
 """
-vars 2 regularpoles for netcdf input
+function vars2regularpoles(vars::Dict{String,MeshArrays.gcmarray{Float32,1,Array{Float32,2}}},γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
+     variables interpolated onto regularpoles grid
 """
 function vars2regularpoles(vars::Dict{String,MeshArrays.gcmarray{Float32,1,Array{Float32,2}}},γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
 
@@ -1781,35 +1817,74 @@ because this field ends up being SUBTRACTED from the total forcing
 """
 function regional_mask(latpt,lonpt,latrect,lonrect,dlat,dlon)
 
-    mask = issouthpac.(latpt,lonpt)
+    # gradient determined by sponge layers
 
-    mask = 1 .- mask
-    # zonalslope = 1/dlon
-    # meridionalslope = 1/dlat
-    #for xx = #run through longitude
-        #one approach: for loop through longitude grid, calculate distance in degrees longitude
-        #from both lonrect[1] and lonrect[2]. Will have to deal with date line
-        #if distance is <= dlon from East edge of center rectangle (lonrect[2]), set value of
-        #maskmultiplier at that longitude for all points infadezoneE to zonalslope*distance (distance in degrees lon)
-        #same for West: if distance is <=dlon from West edge of rectangle (lonrect[1]), set value of
-        #maskmultiplier at that longitude for all points infadezoneW to zonalslope*distance (distance in degrees lon)
+    # North
+    mask = 1 .+ (latrect[2] .- latpt) / dlat
+    # only keep values between 0 and 1
+    zero2one!(mask)
 
-        #this way maybe defeats the purpose of making all those infadezone functions?
+    # south
+    mask2 = 1 .+ (latpt .- latrect[1]) / dlat
+    zero2one!(mask2)
+    mask *= mask2
 
-    #end
+    # west
+    mask2 = 1 .+ (lonrect[2] .- lonpt) / dlon
+    zero2one!(mask2)
+    mask *= mask2
 
-    #for yy = #run through latitude grid
-        #one approach: for loop through latitude grid, calculate distance in degrees latitude
-        #from both latrect[1] and latrect[2]
-        #if distance is <= dlat from North edge of center rectangle (latrect[2]), set value of
-        #maskmultiplier at that latitude for all points infadezoneN to meridionalslope*distance (distance in degrees lat)
-        #same for South: if distance is <=dlon from South edge of rectangle (latrect[1]), set value of
-        #maskmultiplier at that longitude for all points infadezoneS to meridionalslope*distance (distance in degrees lat)
-    #end
+    # east
+    mask2 = 1 .+ (lonpt .- lonrect[1]) / dlon
+    zero2one!(mask2)
+    mask *= mask2
+
+    return mask
+    
 end
 
 """
-    function regional_mask(field,mask
+    function wrapdist
+    Longitudinal distance in degrees
+    Passing the date line may be the shortest distance.
+"""
+function wrapdist(lonpt,lonmid)
+
+    dist = lonpt .- lonmid
+
+    # greater than 180, then subtract 360
+    # less than -180, then add 360
+    wraphi = (x -> x > 180 ? x -= 360 : x)
+    Reemergence.replace!(wraphi,dist)
+    wraplo = (x -> x < -180 ? x += 360 : x)
+    Reemergence.replace!(wraplo,dist)
+    return dist
+end
+
+"""
+    function centerlon!
+    Make a longitudinal coordinate system
+    centered at lonmid.
+    Makes handling wraparound easy later on.
+"""
+function centerlon!(lonpt,lonmid)
+
+    # greater than 180, then subtract 360
+    # less than -180, then add 360
+    wraphi = (x -> x > lonmid+180 ? x -= 360 : x)
+    Reemergence.replace!(wraphi,lonpt)
+    wraplo = (x -> x < lonmid-180 ? x += 360 : x)
+    Reemergence.replace!(wraplo,lonpt)
+    
+end
+
+function zero2one!(v)
+    Reemergence.replace!(x -> x > 1.0 ? 1.0 : x, v)
+    Reemergence.replace!(x -> x < 0.0 ? 0.0 : x, v)
+end
+
+"""
+    function regional_mask(field,mask)
 # Arguments
 - `field`: input field that is mutated/modified
 - `mask`: multiplicative factor, same spatial grid as field
@@ -1817,7 +1892,7 @@ end
 function apply_regional_mask!(field,mask)
 
     #once you have the mask, apply it to the input forcing field
-    #regionalforcingfield = maskmultiplier.*forcingield
+    #regionalforcingfield = maskmultiplier.*forcingfield
     # Do this in a separate function that can be called every timestep.
 
     for i = 1:size(field,2)
@@ -1825,6 +1900,27 @@ function apply_regional_mask!(field,mask)
         field[:,i] = field[:,i].*mask
     end
     
+end
+
+"""
+   var2regularpoles
+   Take one gcmarray in memory, put on regularpoles grid
+"""
+function var2regularpoles(var::MeshArrays.gcmarray{Float64,1,Array{Float64,2}},γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
+    # remove contamination from land
+    replace!(var, 0.0 => NaN)
+
+    #pre-allocate output
+    varregpoles = fill(NaN,(nx,ny))
+
+    # get regular grid by cropping
+    θcrop =  LLCcropC(var,γ)
+
+    # interpolate to "LLCregular"
+    θarc = reginterp(var,nx,nyarc,farc,iarc,jarc,warc)
+    θantarc = reginterp(var,nx,nyantarc,fantarc,iantarc,jantarc,wantarc)
+    varregpoles=hcat(θantarc',θcrop,θarc')
+    return varregpoles
 end
 
 end
