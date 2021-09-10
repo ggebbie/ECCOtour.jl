@@ -121,7 +121,7 @@ xlabel(xlbl)
 ylabel(ylbl)
 savefig(outfname)
 
-vname = varnames[1] # for interactive use
+#vname = varnames[1] # for interactive use
 for vname ∈ varnames
     filein = inputdir*vname*midname
     fileout = outputdir*vname*midname
@@ -160,7 +160,7 @@ for vname ∈ varnames
     #use function that takes forcing field and multiplies each entry by a number
     #from 0 to 1 (1 being removed entirely) based on a provided lat/lon box and sponge layer widths
     # pre-compute mask before looping over all variables.
-    apply_regional_mask!(flux_14day_lopass,1 .- mask)
+    apply_regional_mask!(flux_14day_lopass,1.0 .- msk)
 
     # put tflux_14day_lopass on to 6hr
     # check for NaN's in output

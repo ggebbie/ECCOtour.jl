@@ -19,13 +19,15 @@ path_grid="../inputs/GRID_LLC90/"
 D=γ.read(γ.path*"Depth.data",MeshArray(γ,Float64))
 
 # read lat, lon at center of grid cell
-lat,lon = latlonC(γ)
+(ϕC,λC) = latlonC(γ)
+# on the vector (Staggered) grid
+#(ϕG,λG) = latlonG(γ)
 
 # Read one flux at one point to get information about number of time points.
 # read directly from poseidon
 inputdir = "/poseidon/ecco.jpl.nasa.gov/drive/files/Version4/Release4/other/flux-forced/forcing/"
-outputdir="../outputs/"
-#outputdir = pwd()*"/flux-forced-nointerannual-test/"
+regionname = "nointerannual"
+outputdir="../output_"* regionname *"/"
 
 if !isdir(outputdir)
     mkdir(outputdir)
@@ -38,8 +40,8 @@ varnames = ("atmPload","oceFWflx","oceQsw","oceSflux","oceSPflx","oceTAUE","oceT
 yv = 40
 xv = 180
 fv = 5
-tmplat  = lat[fv]; lat_point = tmplat[xv,yv]
-tmplon  = lon[fv]; lon_point = tmplon[xv,yv]
+tmplat  = ϕC[fv]; lat_point = tmplat[xv,yv]
+tmplon  = λC[fv]; lon_point = tmplon[xv,yv]
 frootsample = inputdir*varnames[end]*midname
 years = 1992:2017
 fluxsample_point,nseries = extract_timeseries(frootsample,years,γ,xv,yv,fv)
@@ -76,7 +78,7 @@ Thann = 100.0 # days
 # Is it possible to solve for regional mask before the variable loop? Yes, if the variables are on the same grid. (Double check that they all apply to the center of a grid cell.)
 for vname ∈ varnames
     filein = inputdir*vname*midname
-    fileout = outputdir*vname*midname*"nointerannual_"
+    fileout = outputdir*vname*midname
     println(filein)
 
     # use this F to decompose controllable/uncontrollable parts

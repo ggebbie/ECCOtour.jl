@@ -26,7 +26,6 @@ export mdsio2sigma1, ncwritefromtemplate
 export netcdf2sigma1, replace!, mdsio2regularpoles
 export writeregularpoles, vars2regularpoles
 export netcdf2regularpoles, mixinversions!, dedup!
-export infadezoneE, infadezoneW, infadezoneN, infadezoneS
 export regional_mask, apply_regional_mask!, zero2one!, wrapdist
 export centerlon!, factors4regularpoles, var2regularpoles
 
@@ -175,108 +174,6 @@ function inrectangle(latpt,lonpt,latrect,lonrect)
         inrectangle = (lonpt <= minimum(lonrect) || #this OR was an AND before -- think it should be an OR?
             lonpt >= maximum(lonrect)) &&
             minimum(latrect) <= latpt <= maximum(latrect)
-    end
-    # watch out if lonrect[1] == lonrect[2]
-end
-
-"""
-    function infadezoneE(latpt,lonpt,latrect,lonrect,dlon)
-    find all gridcells within East 'wing of box' around Cartesian rectangle
-# Arguments
-- `latpt`: latitude grid
-- `lonpt`: longitude grid
-- `latrect`: tuple of latitude range of central rectangle
-- `lonrect`: tuple of longitude range of central rectangle
-- `dlon`: width in degrees longitude of East fade zone
-# Output
-- `fadezone`: boolean of type gcmarray
-"""
-function infadezoneE(latpt,lonpt,latrect,lonrect,dlon)
-    # load latitude and longitude on this grid.
-    if lonrect[1] < lonrect[2] # if center rectangle doesn't wrap around dateline
-        if lonrect[1] - dlon >= -180 && lonrect[2] + dlon <= 180 # if East fade zone does NOT wrap around date line
-            infadezoneE = (maximum(lonrect) <= lonpt <= (maximum(lonrect) + dlon)) && minimum(latrect) <= latpt <= maximum(latrect)
-        elseif lonrect[2] + dlon > 180 # if East fade zone crosses over dateline
-            infadezoneE = ((maximum(lonrect) <= lonpt || lonpt <= -360 + maximum(lonrect) + dlon)) && minimum(latrect) <= latpt <= maximum(latrect)
-        end
-    else # central rectangle wraps around the date line (therefore east fade zone will not)
-        infadezoneE =  minimum(lonrect) <= lonpt <= (minimum(lonrect) + dlon) && minimum(latrect) <= latpt <= maximum(latrect)
-    end
-    # watch out if lonrect[1] == lonrect[2]
-end
-
-"""
-    function infadezoneW(latpt,lonpt,latrect,lonrect,dlon)
-    find all gridcells within West 'wing of box' around Cartesian rectangle
-# Arguments
-- `latpt`: latitude grid
-- `lonpt`: longitude grid
-- `latrect`: tuple of latitude range
-- `lonrect`: tuple of longitude range
-- `dlon`: width in degrees longitude of West fade zone
-# Output
-- `fadezone`: boolean of type gcmarray
-"""
-function infadezoneW(latpt,lonpt,latrect,lonrect,dlon)
-    # load latitude and longitude on this grid.
-    if lonrect[1] < lonrect[2] # if center rectangle doesn't wrap around dateline
-        if (lonrect[1] - dlon >= -180) && (lonrect[2] + dlon <= 180) # if West fade zone does NOT wrap around date line
-            infadezoneW = ((minimum(lonrect)-dlon) <= lonpt <= minimum(lonrect)) && minimum(latrect) <= latpt <= maximum(latrect)
-        elseif lonrect[2] + dlon > 180 # if West fade zone crosses over dateline
-            infadezoneW = ((minimum(lonrect) >= lonpt || lonpt >= 360 - minimum(lonrect) - dlon)) && minimum(latrect) <= latpt <= maximum(latrect)
-        end
-    else # central rectangle wraps around the date line (therefore west fade zone will not)
-        infadezoneW = (maximum(lonrect)-dlon) <= lonpt <= (maximum(lonrect)) && minimum(latrect) <= latpt <= maximum(latrect)
-    end
-    # watch out if lonrect[1] == lonrect[2]
-end
-
-"""
-    function infadezoneN(latpt,lonpt,latrect,lonrect,dlat)
-    find all gridcells within North 'wing of box' around Cartesian rectangle
-# Arguments
-- `latpt`: latitude grid
-- `lonpt`: longitude grid
-- `latrect`: tuple of latitude range
-- `lonrect`: tuple of longitude range
-- `dlat`: width in degrees latitude of North fade zone
-# Output
-- `fadezone`: boolean of type gcmarray
-"""
-function infadezoneN(latpt,lonpt,latrect,lonrect,dlat)
-    # load latitude and longitude on this grid.
-    if lonrect[1] < lonrect[2] #if center rectangle crosses dateline
-        infadezoneN = minimum(lonrect) <= lonpt <= maximum(lonrect) &&
-            maximum(latrect) <= latpt <= (maximum(latrect) + dlat)
-    else # center rectangle wraps around the date line
-        infadezoneN = (lonpt <= minimum(lonrect) ||
-            lonpt >= maximum(lonrect)) &&
-            maximum(latrect) <= latpt <= (maximum(latrect) + dlat)
-    end
-    # watch out if lonrect[1] == lonrect[2]
-end
-
-"""
-    function infadezoneS(latpt,lonpt,latrect,lonrect,dlat)
-    find all gridcells within South 'wing of box' around Cartesian rectangle
-# Arguments
-- `latpt`: latitude grid
-- `lonpt`: longitude grid
-- `latrect`: tuple of latitude range
-- `lonrect`: tuple of longitude range
-- `dlat`: width in degrees latitude of South fade zone
-# Output
-- `rectangle`: boolean of type gcmarray
-"""
-function infadezoneS(latpt,lonpt,latrect,lonrect,dlat)
-    # load latitude and longitude on this grid.
-    if lonrect[1] < lonrect[2] #if center rectangle crosses dateline
-        infadezoneS = minimum(lonrect) <= lonpt <= maximum(lonrect) &&
-            minimum(latrect) >= latpt >= (minimum(latrect) - dlat)
-    else # center rectangle wraps around the date line
-        infadezoneS = (lonpt <= minimum(lonrect) ||
-            lonpt >= maximum(lonrect)) &&
-            minimum(latrect) >= latpt >= (minimum(latrect) - dlat)
     end
     # watch out if lonrect[1] == lonrect[2]
 end
@@ -1610,19 +1507,8 @@ function vars2regularpoles(vars::Dict{String,MeshArrays.gcmarray{Float32,1,Array
     varsregpoles = Dict{String,Array{Float32,2}}()
     for (varname, varvals) in vars
 
-        # remove contamination from land
-        replace!(varvals, 0.0f0 => NaN32)
+        varsregpoles[varname] = var2regularpoles(varvals,γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
 
-        #pre-allocate dict
-        varsregpoles[varname] = fill(NaN32,(nx,ny))
-
-        # get regular grid by cropping
-        θcrop =  LLCcropC(varvals,γ)
-
-        # interpolate to "LLCregular"
-        θarc = reginterp(varvals,nx,nyarc,farc,iarc,jarc,warc)
-        θantarc = reginterp(varvals,nx,nyantarc,fantarc,iantarc,jantarc,wantarc)
-        varsregpoles[varname]=hcat(θantarc',θcrop,θarc')
     end
     return varsregpoles
 end
