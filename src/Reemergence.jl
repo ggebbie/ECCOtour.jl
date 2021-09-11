@@ -24,10 +24,11 @@ export timestamp_monthly_v4r4, sigma1column, var2sigmacolumn
 export sigma1grid, mdsio2dict, netcdf2dict, write_vars
 export mdsio2sigma1, ncwritefromtemplate
 export netcdf2sigma1, replace!, mdsio2regularpoles
-export writeregularpoles, vars2regularpoles
-export netcdf2regularpoles, mixinversions!, dedup!
+export writeregularpoles, vars2regularpoles, var2regularpoles
+export netcdf2regularpoles, factors4regularpoles
+export mixinversions!, dedup!
 export regional_mask, apply_regional_mask!, zero2one!, wrapdist
-export centerlon!, factors4regularpoles, var2regularpoles
+export centerlon!
 
 include("HannFilter.jl")
 include("MatrixFilter.jl")
@@ -87,6 +88,7 @@ end
     function Nino34file()
     Get location of the historical Nino34 Google Drive file
     Download if necessary
+    FUTURE UPDATES: use GoogleDrive package
 # Output
 - `fileloc`: local location of gdrive file
 """
@@ -1436,13 +1438,7 @@ function vars2regularpoles(vars::Dict{String,MeshArrays.gcmarray{Float32,2,Array
 
         for zz = 1:nz
             # get regular grid by cropping
-            θcrop =  LLCcropC(varvals[:,zz],γ)
-
-            # interpolate to "LLCregular"
-            θarc = reginterp(varvals[:,zz],nx,nyarc,farc,iarc,jarc,warc)
-            θantarc = reginterp(varvals[:,zz],nx,nyantarc,fantarc,iantarc,jantarc,wantarc)
-            varsregpoles[varname][:,:,zz]=hcat(θantarc',θcrop,θarc')
-
+            varsregpoles[varname][:,:,zz]=var2regularpoles(varvals[:,zz],γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
         end
     end
     return varsregpoles
@@ -1456,21 +1452,13 @@ function vars2regularpoles(vars::Dict{String,MeshArrays.gcmarray{Float64,2,Array
 
         # remove contamination from land
         replace!(varvals, 0.0 => NaN)
-
         nz = size(varvals,2)
 
         #pre-allocate dict
         varsregpoles[varname] = fill(NaN,(nx,ny,nz))
 
         for zz = 1:nz
-            # get regular grid by cropping
-            θcrop =  LLCcropC(varvals[:,zz],γ)
-
-            # interpolate to "LLCregular"
-            θarc = reginterp(varvals[:,zz],nx,nyarc,farc,iarc,jarc,warc)
-            θantarc = reginterp(varvals[:,zz],nx,nyantarc,fantarc,iantarc,jantarc,wantarc)
-            varsregpoles[varname][:,:,zz]=hcat(θantarc',θcrop,θarc')
-
+            varsregpoles[varname][:,:,zz]=var2regularpoles(varvals[:,zz],γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
         end
     end
     return varsregpoles
@@ -1480,20 +1468,7 @@ function vars2regularpoles(vars::Dict{String,MeshArrays.gcmarray{Float64,1,Array
 
     varsregpoles = Dict{String,Array{Float32,2}}()
     for (varname, varvals) in vars
-
-        # remove contamination from land
-        replace!(varvals, 0.0 => NaN)
-
-        #pre-allocate dict
-        varsregpoles[varname] = fill(NaN,(nx,ny))
-
-        # get regular grid by cropping
-        θcrop =  LLCcropC(varvals,γ)
-
-        # interpolate to "LLCregular"
-        θarc = reginterp(varvals,nx,nyarc,farc,iarc,jarc,warc)
-        θantarc = reginterp(varvals,nx,nyantarc,fantarc,iantarc,jantarc,wantarc)
-        varsregpoles[varname]=hcat(θantarc',θcrop,θarc')
+        varsregpoles[varname]=var2regularpoles(varvals,γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
     end
     return varsregpoles
 end
@@ -1511,6 +1486,49 @@ function vars2regularpoles(vars::Dict{String,MeshArrays.gcmarray{Float32,1,Array
 
     end
     return varsregpoles
+end
+
+
+"""
+   var2regularpoles
+   Take one gcmarray in memory, put on regularpoles grid
+"""
+function var2regularpoles(var::MeshArrays.gcmarray{Float64,1,Array{Float64,2}},γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
+    # remove contamination from land
+    replace!(var, 0.0 => NaN)
+
+    #pre-allocate output
+    varregpoles = fill(NaN,(nx,ny))
+
+    # get regular grid by cropping
+    θcrop =  LLCcropC(var,γ)
+
+    # interpolate to "regularpoles"
+    θarc = reginterp(var,nx,nyarc,farc,iarc,jarc,warc)
+    θantarc = reginterp(var,nx,nyantarc,fantarc,iantarc,jantarc,wantarc)
+    varregpoles=hcat(θantarc',θcrop,θarc')
+    return varregpoles
+end
+
+"""
+   var2regularpoles
+   Take one gcmarray in memory, put on regularpoles grid
+"""
+function var2regularpoles(var::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
+    # remove contamination from land
+    replace!(var, 0.0 => NaN)
+
+    #pre-allocate output
+    varregpoles = fill(NaN,(nx,ny))
+
+    # get regular grid by cropping
+    θcrop =  LLCcropC(var,γ)
+
+    # interpolate to "regularpoles"
+    θarc = reginterp(var,nx,nyarc,farc,iarc,jarc,warc)
+    θantarc = reginterp(var,nx,nyantarc,fantarc,iantarc,jantarc,wantarc)
+    varregpoles=hcat(θantarc',θcrop,θarc')
+    return varregpoles
 end
 
 """
@@ -1786,27 +1804,6 @@ function apply_regional_mask!(field,mask)
         field[:,i] = field[:,i].*mask
     end
     
-end
-
-"""
-   var2regularpoles
-   Take one gcmarray in memory, put on regularpoles grid
-"""
-function var2regularpoles(var::MeshArrays.gcmarray{Float64,1,Array{Float64,2}},γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
-    # remove contamination from land
-    replace!(var, 0.0 => NaN)
-
-    #pre-allocate output
-    varregpoles = fill(NaN,(nx,ny))
-
-    # get regular grid by cropping
-    θcrop =  LLCcropC(var,γ)
-
-    # interpolate to "LLCregular"
-    θarc = reginterp(var,nx,nyarc,farc,iarc,jarc,warc)
-    θantarc = reginterp(var,nx,nyantarc,fantarc,iantarc,jantarc,wantarc)
-    varregpoles=hcat(θantarc',θcrop,θarc')
-    return varregpoles
 end
 
 end
