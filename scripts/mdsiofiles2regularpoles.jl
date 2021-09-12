@@ -38,7 +38,7 @@ nexps = length(exps) # number of experiments
 # print output here
 # pathout = "/batou/ECCOv4r4/MITgcm/exps/"
 pathout = regpolespath[expt]
-!isdir(path_out) ? mkdir(path_out) : nothing;
+!isdir(pathout) ? mkdir(pathout) : nothing;
 
 # reading NetCDF attributes
 filelog = runpath[expt]*"available_diagnostics.log"
@@ -66,7 +66,7 @@ lonatts = Dict("longname" => "Longitude", "units" => "degrees east")
 latatts = Dict("longname" => "Latitude", "units" => "degrees north")
 depthatts = Dict("longname" => "Depth", "units" => "m")
 
-#for expt in exps
+# Froot= Frootlist[1] # for interactive use
 for Froot in Frootlist
     filelist = searchdir(diagpath[expt],Froot) 
     datafilelist  = filter(x -> occursin("data",x),filelist)

@@ -46,6 +46,9 @@ end
 lonmid =  (lonrect[1]+lonrect[2])/2
 
 # now λC, λG are close to centered for all calcs
+# may cause problem is region is too large.
+# better way: go to regional_mask, compute lon difference.
+# if lon difference > 180, then set equal to 360 - ans.
 centerlon!(λC,lonmid)
 centerlon!(λG,lonmid)
 
@@ -179,3 +182,26 @@ for vname ∈ varnames
     matrixspray(E14to6,-flux_14day_lopass,filein,fileout,years,γ) #changed rmfield to _regional
 
 end
+
+# make a figure to see a spatial map of flux, oceTAUN, oceTAUE are most interesting 
+filename1 = "/poseidon/ecco.jpl.nasa.gov/drive/files/Version4/Release4/other/flux-forced/forcing/oceTAUN_6hourlyavg_2000"
+field1 = read_bin(filename1,Float32,γ)
+filename2 = "/poseidon/ecco.jpl.nasa.gov/drive/files/Version4/Release4/other/flux-forced-interannual_southpac/oceTAUN_6hourlyavg_2000"
+field2 = read_bin(filename2,Float32,γ)
+
+# translate to regularpoles
+field_regpoles =  var2regularpoles(field2[:,100]-field1[:,100],γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
+
+figure()
+clf()
+lims = range(-0.1,step=0.005,stop=0.1)
+contourf(λCregpoles,ϕCregpoles,field_regpoles',lims,cmap=cmap_seismic)
+colorbar(label="wind stress",orientation="vertical",ticks=lims)
+outfname = outputdir*"delta_oceTAUN-2000-1.eps"
+xlbl = "longitude "*L"[\degree E]"
+ylbl = "latitude "*L"[\degree N]"
+titlelbl = L"\tau_y, "*"interannual_southpac - iter129, yr 2000, time 100, "*L"[N/m^2]"
+title(titlelbl)
+xlabel(xlbl)
+ylabel(ylbl)
+savefig(outfname)

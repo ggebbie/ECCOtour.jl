@@ -1410,7 +1410,6 @@ end
 function netcdf2regularpoles(ncfilename,ncvarname,γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
 
     vars = netcdf2dict(ncfilename,ncvarname,γ)
-
     varsregpoles = vars2regularpoles(vars,γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
 
 end
@@ -1430,7 +1429,6 @@ function vars2regularpoles(vars::Dict{String,MeshArrays.gcmarray{Float32,2,Array
 
         # remove contamination from land
         replace!(varvals, 0.0 => NaN)
-
         nz = size(varvals,2)
 
         #pre-allocate dict
@@ -1488,33 +1486,12 @@ function vars2regularpoles(vars::Dict{String,MeshArrays.gcmarray{Float32,1,Array
     return varsregpoles
 end
 
-
 """
    var2regularpoles
    Take one gcmarray in memory, put on regularpoles grid
 """
-function var2regularpoles(var::MeshArrays.gcmarray{Float64,1,Array{Float64,2}},γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
-    # remove contamination from land
-    replace!(var, 0.0 => NaN)
-
-    #pre-allocate output
-    varregpoles = fill(NaN,(nx,ny))
-
-    # get regular grid by cropping
-    θcrop =  LLCcropC(var,γ)
-
-    # interpolate to "regularpoles"
-    θarc = reginterp(var,nx,nyarc,farc,iarc,jarc,warc)
-    θantarc = reginterp(var,nx,nyantarc,fantarc,iantarc,jantarc,wantarc)
-    varregpoles=hcat(θantarc',θcrop,θarc')
-    return varregpoles
-end
-
-"""
-   var2regularpoles
-   Take one gcmarray in memory, put on regularpoles grid
-"""
-function var2regularpoles(var::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
+function var2regularpoles(var,γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
+#    function var2regularpoles(var::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
     # remove contamination from land
     replace!(var, 0.0 => NaN)
 
