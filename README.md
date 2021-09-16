@@ -1,6 +1,6 @@
-# ECCOonPoseidon
+# ECCOtour
 
-[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://ggebbie.github.io/ECCOonPoseidon.jl/stable)
+[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://ggebbie.github.io/ECCOtour.jl/stable)
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://ggebbie.github.io/ECCOonPoseidon.jl/dev)
 [![Build Status](https://github.com/ggebbie/ECCOonPoseidon.jl/workflows/CI/badge.svg)](https://github.com/ggebbie/ECCOonPoseidon.jl/actions)
 [![Coverage](https://codecov.io/gh/ggebbie/ECCOonPoseidon.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/ggebbie/ECCOonPoseidon.jl)

@@ -11,7 +11,7 @@ path_grid="../inputs/GRID_LLC90/"
 γ = setupLLCgrid(path_grid)
 
 # ϕ = lat, λ = lon
-(ϕ,λ) = readlatlon(γ)
+(ϕ,λ) = latlonC(γ)
 area = readarea(γ)
 
 exppath = "/poseidon/ECCOv4r4/MITgcm/exps/"

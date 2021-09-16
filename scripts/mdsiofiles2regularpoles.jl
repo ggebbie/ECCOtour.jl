@@ -38,7 +38,7 @@ nexps = length(exps) # number of experiments
 # print output here
 # pathout = "/batou/ECCOv4r4/MITgcm/exps/"
 pathout = regpolespath[expt]
-!isdir(path_out) ? mkdir(path_out) : nothing;
+!isdir(pathout) ? mkdir(pathout) : nothing;
 
 # reading NetCDF attributes
 filelog = runpath[expt]*"available_diagnostics.log"
@@ -47,25 +47,11 @@ pathgrid="../inputs/GRID_LLC90/"
 γ = setupLLCgrid(pathgrid)
 
 lat,lon = latlon(γ)
+
 # Set up Cartesian grid for interpolation.
-#ϕG,ϕC = regularlatgrid(γ) # regular grid
-ϕGarc,ϕCarc = latgridArctic(γ)
-ϕGantarc,ϕCantarc = latgridAntarctic(γ) 
-ϕGreg,ϕCreg = latgridRegular(γ) 
-λG = -180.0:179.0
-λC = -179.5:179.5
-
-ϕG = vcat(ϕGantarc,ϕGreg,ϕGarc)
-ϕC = vcat(ϕCantarc,ϕCreg,ϕCarc)
-
-farc,iarc,jarc,warc = prereginterp(ϕCarc,λC,γ)
-fantarc,iantarc,jantarc,wantarc = prereginterp(ϕCantarc,λC,γ)
-
-# Fix this (?)
-nx = length(λC)
-ny = length(ϕC)
-nyarc = length(ϕCarc)
-nyantarc = length(ϕCantarc)
+# Time for a structure.
+λC,λG,ϕC,ϕG,nx,ny,nyarc,nyantarc,farc,iarc,jarc,warc,fantarc,iantarc,jantarc,wantarc =
+    factors4regularpoles(γ)
 
 # get standard levels of MITgcm
 z = depthlevels(γ)
@@ -80,7 +66,7 @@ lonatts = Dict("longname" => "Longitude", "units" => "degrees east")
 latatts = Dict("longname" => "Latitude", "units" => "degrees north")
 depthatts = Dict("longname" => "Depth", "units" => "m")
 
-#for expt in exps
+# Froot= Frootlist[1] # for interactive use
 for Froot in Frootlist
     filelist = searchdir(diagpath[expt],Froot) 
     datafilelist  = filter(x -> occursin("data",x),filelist)
