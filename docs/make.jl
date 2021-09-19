@@ -1,16 +1,16 @@
-using Reemergence
+using ECCOtour
 using Documenter
 
-DocMeta.setdocmeta!(Reemergence, :DocTestSetup, :(using Reemergence); recursive=true)
+DocMeta.setdocmeta!(ECCOtour, :DocTestSetup, :(using ECCOtour); recursive=true)
 
 makedocs(;
-    modules=[Reemergence],
+    modules=[ECCOtour],
     authors="G Jake Gebbie",
-    repo="https://github.com/ggebbie/Reemergence.jl/blob/{commit}{path}#{line}",
-    sitename="Reemergence.jl",
+    repo="https://github.com/ggebbie/ECCOtour.jl/blob/{commit}{path}#{line}",
+    sitename="ECCOtour.jl",
     format=Documenter.HTML(;
         prettyurls=get(ENV, "CI", "false") == "true",
-        canonical="https://ggebbie.github.io/Reemergence.jl",
+        canonical="https://ggebbie.github.io/ECCOtour.jl",
         assets=String[],
     ),
     pages=[
@@ -19,5 +19,5 @@ makedocs(;
 )
 
 deploydocs(;
-    repo="github.com/ggebbie/Reemergence.jl",
+    repo="github.com/ggebbie/ECCOtour.jl",
 )

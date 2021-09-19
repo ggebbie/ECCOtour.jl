@@ -1,7 +1,7 @@
-using Reemergence
+using ECCOtour
 using Test
 
-@testset "Reemergence.jl" begin
+@testset "ECCOtour.jl" begin
     # Write your tests here.
 
     na = 10
