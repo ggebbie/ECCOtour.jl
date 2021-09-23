@@ -285,64 +285,6 @@ nino12mean(x,area,ϕ,λ,iswet) = patchmean(x,area,ϕ,λ,isnino12,iswet)
 
 isnotpositive(x) = (abs(x) == -x)
 
-"""
-    function listexperiments(exppath)
-    get a dictionary of experiments and their locations
-# Arguments
-- `exppath`: directory of experiments
-# Output
-- `runpath`: dictionary with keys=experiments, values=run paths
-- `diagpath`: dictionary with keys=experiments, values=diagnostic paths
-"""
-function listexperiments(exppath)
-    dirlist = searchdir(exppath,"") # all files in directory
-    explist  = filter(x -> !occursin("README",x),dirlist) # remove README to get explist
-
-    runpath = Dict(explist .=> exppath.*explist.*"/run/")
-    diagpath = Dict(explist .=> exppath.*explist.*"/run/diags/")
-    regpolespath = Dict(explist .=> exppath.*explist.*"/run/regularpoles/")
-
-    # print to screen all the available
-    println("Available experiments are")
-    for (key,value) in runpath
-        println(key)
-    end
-    return runpath,diagpath,regpolespath
-end
-
-"""
-    function expnames()
-    Abbreviations/shortnames for some experiments, useful for labels
-    Hand-coded and needs manual change with new experiments.
-# Output
-- `shortnames`: dictionary with keys=experiments, values=abbreviations
-"""
-function expnames()
-    shortnames = Dict("iter129_bulkformula" => "129bf")
-    push!(shortnames,"iter0_bulkformula" => "0bf")
-    push!(shortnames,"iter129_fluxforced" => "129ff")
-    push!(shortnames,"noinitadjust" => "noINIT")
-    push!(shortnames,"nosfcadjust" => "noSFC")
-    push!(shortnames,"nointerannual" => "noIA")
-    return shortnames
-end
-
-"""
-    function expsymbols()
-    List of symbols for some experiments, useful for distinguishing plots
-    Hand-coded and needs manual change with new experiments.
-# Output
-- `marks`: dictionary with keys=experiments, values=abbreviations
-"""
-function expsymbols()
-    marks = Dict("iter129_bulkformula" => "o")
-    push!(marks,"iter0_bulkformula" => "x")
-    push!(marks,"iter129_fluxforced" => "*")
-    push!(marks,"noinitadjust" => ".")
-    push!(marks,"nosfcadjust" => "+")
-    push!(marks,"nointerannual" => "s")
-    return marks
-end
 
 """
     function time_label(index)
@@ -723,10 +665,8 @@ function vars2sigma1(vars::Dict{String,Array{Float64,3}},pressure::Array{Float64
                     [varsσ[vckey][xx,yy,ss] = convert(Float32,varσ[ss]) for ss = 1:nσ]
                 end
 
-                    # do standard pressure by hand.
+                # do standard pressure by hand.
                 pσ = var2sigmacolumn(σ₁,pressure[1:nw],sig1grid,splorder)
-
-                # again eliminate sgood
                 [varsσ["p"][xx,yy,ss] = convert(Float32,pσ[ss]) for ss = 1:nσ]
 
             end
@@ -800,7 +740,8 @@ function var2sigmacolumn(σorig,v,σgrid,splorder)
     # 1) no inversions or homogeneity (this constraint relaxed now because too many profiles thrown out)
     # 2) range of sig1, 3) no extrapolation
     # if sum(diff(σ₁).<0)==0 && count(minimum(σ₁).<=sig1grid.<=maximum(σ₁)) > 0
-    if count(minimum(σ).<=σgrid.<=maximum(σ)) > 0
+    # added nσin > 1 to fix error
+    if nσin > 1 && count(minimum(σ).<=σgrid.<=maximum(σ)) > 0
 
         # eliminate any extrapolation
         sgood = findall(minimum(σ).<=σgrid.<=maximum(σ))
@@ -809,9 +750,6 @@ function var2sigmacolumn(σorig,v,σgrid,splorder)
         if nσin > splorder
             θspl = Spline1D(σ,v;k=splorder)
             prinln("doing spline")
-            #println(size(θonσ))
-#            println(ngood)
- #           println(size(σgrid))
             for ss in sgood
                 θonσ[ss] = θspl(σgrid[ss])
             end
@@ -826,6 +764,7 @@ function var2sigmacolumn(σorig,v,σgrid,splorder)
         end # spline interp
 
         if linearinterp
+#            println(size(σ),size(v))
             interp_linear = LinearInterpolation(σ, v)
             for ss in sgood
                 θonσ[ss] = interp_linear(σgrid[ss])
@@ -848,6 +787,21 @@ function factors4regularpoles(γ)
     λC = -179.5:179.5
     ϕG = vcat(ϕGantarc,ϕGreg,ϕGarc)
     ϕC = vcat(ϕCantarc,ϕCreg,ϕCarc)
+    farc,iarc,jarc,warc = prereginterp(ϕCarc,λC,γ)
+    fantarc,iantarc,jantarc,wantarc = prereginterp(ϕCantarc,λC,γ)
+    nx = length(λC)
+    ny = length(ϕC)
+    nyarc = length(ϕCarc)
+    nyantarc = length(ϕCantarc)
+
+    return λC,λG,ϕC,ϕG,nx,ny,nyarc,nyantarc,farc,iarc,jarc,warc,fantarc,iantarc,jantarc,wantarc
+end
+
+"""
+    function factors4regularpoles(γ)
+    Get interpolation factors for regularpoles grid in one place
+"""
+function factors4velocity(γ)
     farc,iarc,jarc,warc = prereginterp(ϕCarc,λC,γ)
     fantarc,iantarc,jantarc,wantarc = prereginterp(ϕCantarc,λC,γ)
     nx = length(λC)
@@ -896,6 +850,22 @@ function reginterp(fldin,nx,ny,f,i,j,w)
     fldout = transpose(reshape(fldout,nx,ny))
     return fldout
 end
+
+"""
+    function rotatevelocity
+    
+    take LLC grid uvel, vvel and rotate to nvel, evel
+"""
+#function nvel,evel = rotatevelocity(uvel,vvel)
+    # from timothyas, first interpolate velocity from cell edges to cell centers
+
+    # compute nvel, evel using cos and sin (angles)
+
+    # read AngleCS, AngleSN
+    
+    #evel = uvel*cosine - vvel * sin
+    #nvel = uvel*sin + vvel*cos
+#end
 
 function mixinversions!(a,b)
     while sum(diff(a).<=0) > 0
@@ -1216,12 +1186,16 @@ function ncwritefromtemplate(vars::Dict{String,Array{Float64,3}},fileprefix::Str
 
         # get a filename with _on_sigma1
         if fldname == "p"
-            fileold = fileprefix*"THETA"*"/"*"THETA"*filesuffixold
+            fileold = fileprefix*"THETA/THETA"*filesuffixold
         else
             fileold = fileprefix*fldname*"/"*fldname*filesuffixold
         end
-        filenew = fileprefix*fldname*"/"*fldname*filesuffixnew
 
+        filenewpath = fileprefix*fldname*"/"
+        filenew = filenewpath*fldname*filesuffixnew
+        # make sure path exists, was a problem for pressure
+        !isdir(filenewpath) ? mkpath(filenewpath) : nothing 
+        
         # recover information from template/existing file
         lon = ncread(fileold,"lon")
         lonunits = ncgetatt(fileold, "lon", "units")
@@ -1264,7 +1238,7 @@ end
 
 
 """
-    function mdsio2sigma1()
+    function mdsio2sigma1
     Take variables in a filelist, read, map to sigma1, write to file.
 """
 function mdsio2sigma1(pathin,pathout,fileroots,γ,pstdz,sig1grid,splorder)
@@ -1302,7 +1276,8 @@ function netcdf2sigma1(pathin,pathout,ncfilenames,γ,pstdz,sig1grid,splorder)
     fileprefix = pathout
     # use first filename to get timestamp
     filesuffixold = ncfilenames["THETA"][end-10:end]
-    filesuffixnew = "_on_sigma1"*ncfilenames["THETA"][end-10:end]
+    #    filesuffixnew = "_on_sigma1"*ncfilenames["THETA"][end-10:end]
+    filesuffixnew = "_on_sigma1"*filesuffixold
     ncwritefromtemplate(varsσ,fileprefix,filesuffixold,filesuffixnew,sig1grid)
 end
 
@@ -1698,10 +1673,11 @@ because this field ends up being SUBTRACTED from the total forcing
 """
 function regional_mask(latpt,lonpt,latrect,lonrect,dlat,dlon)
 
-    # gradient determined by sponge layers
-
     # North
+    # make meridional plane with
+    # gradient determined by sponge layers
     mask = 1 .+ (latrect[2] .- latpt) / dlat
+    
     # only keep values between 0 and 1
     zero2one!(mask)
 
