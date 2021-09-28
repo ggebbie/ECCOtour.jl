@@ -1,6 +1,6 @@
 # Example: Use monthly average temperature/salinity fields on poseidon to compute sigma1
 using Revise
-using Reemergence, MITgcmTools, MeshArrays
+using ECCOtour, MITgcmTools, MeshArrays
 
 # other useful packages in Reemergence project
 # using Statistics, PyPlot, Distributions, FFTW, LinearAlgebra, StatsBase

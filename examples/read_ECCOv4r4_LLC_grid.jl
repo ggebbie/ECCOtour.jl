@@ -1,7 +1,7 @@
 # read the ECCOv4r4 lat-lon-cap (LLC) grid, return grid in γ
 
 using Revise
-using Reemergence, MeshArrays, MITgcmTools
+using ECCOtour, MeshArrays, MITgcmTools
 
 # other useful packages in Reemergence project
 # using Statistics, PyPlot, Distributions, FFTW, LinearAlgebra, StatsBase

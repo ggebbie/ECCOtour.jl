@@ -1,5 +1,5 @@
 using Revise
-using Reemergence, MeshArrays, MITgcmTools
+using ECCOtour, MeshArrays, MITgcmTools
 using PyPlot, JLD2
 
 workdir = pwd()

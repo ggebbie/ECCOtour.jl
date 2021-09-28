@@ -1,7 +1,7 @@
 # ggebbie, 16-Apr-2021
 
-using Revise 
-using MITgcmTools, MeshArrays, Statistics, Reemergence, PyPlot
+using Revise
+using MITgcmTools, MeshArrays, Statistics, ECCOtour, PyPlot
 
 # get MITgcm / ECCOv4r4 LLC grid and depth information. Store in γ.
 path_grid="../inputs/GRID_LLC90/"

@@ -1,5 +1,5 @@
 ```@meta
-CurrentModule = Reemergence
+CurrentModule = ECCOtour
 ```
 
 # Reemergence
@@ -8,5 +8,5 @@ CurrentModule = Reemergence
 ```
 
 ```@autodocs
-Modules = [Reemergence]
+Modules = [ECCOtour]
 ```

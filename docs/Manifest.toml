@@ -512,7 +512,7 @@ git-tree-sha1 = "37d210f612d70f3f7d57d488cb3b6eff56ad4e41"
 uuid = "c84ed2f1-dad5-54f0-aa8e-dbefe2724439"
 version = "0.4.0"
 
-[[Reemergence]]
+[[ECCOtour]]
 deps = ["Dierckx", "Distributions", "FFTW", "Interpolations", "JLD2", "LaTeXStrings", "LinearAlgebra", "MITgcmTools", "MeshArrays", "PyPlot", "Revise", "Statistics", "StatsBase"]
 path = ".."
 uuid = "414fb998-b5a0-4a85-b76f-da39d21445ca"

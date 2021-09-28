@@ -3,7 +3,7 @@
 # ggebbie, 7-Apr-2021
 
 using Revise 
-using Reemergence, Dierckx, PyPlot
+using ECCOtour, Dierckx, PyPlot
 
 pz = 0:500:4000 # pressure levels
 nz = length(pz)
