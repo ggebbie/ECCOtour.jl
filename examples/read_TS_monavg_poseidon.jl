@@ -1,7 +1,7 @@
 # Example: read monthly average temperature/salinity fields on poseidon
 
 using Revise
-using Reemergence, MeshArrays, MITgcmTools
+using ECCOtour, MeshArrays, MITgcmTools
 
 # other useful packages in Reemergence project
 # using Statistics, PyPlot, Distributions, FFTW, LinearAlgebra, StatsBase

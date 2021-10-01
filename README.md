@@ -39,4 +39,5 @@ Check `export` line in src/ECCOtour.jl for list of available functions.
 
 # Directory structure
 - `src`: source code
-- `test`: testing routines, currently empty
+- `test`: a few testing routines
+- `examples`: useful code snippets

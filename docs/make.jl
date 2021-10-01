@@ -19,5 +19,6 @@ makedocs(;
 )
 
 deploydocs(;
-    repo="github.com/ggebbie/ECCOtour.jl",
+           repo="github.com/ggebbie/ECCOtour.jl",
+           devbranch="main",
 )

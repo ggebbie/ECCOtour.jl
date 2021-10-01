@@ -2,7 +2,7 @@
 # Here compare reading with read_mdsio versus MeshArrays built-in method.
 # At bottom, also comparing statistics computed via two types of files.
 using Revise
-using Reemergence, MeshArrays, MITgcmTools, Statistics
+using ECCOtour, MeshArrays, MITgcmTools, Statistics
 
 # other useful packages in Reemergence project
 # using Statistics, PyPlot, Distributions, FFTW, LinearAlgebra, StatsBase
