@@ -2,7 +2,7 @@
 CurrentModule = ECCOtour
 ```
 
-# Reemergence
+# ECCOtour
 
 ```@index
 ```
