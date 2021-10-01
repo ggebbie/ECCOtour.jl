@@ -1,4 +1,4 @@
-using ECCOtour
+using ECCOtour, MeshArrays
 using Test
 
 @testset "ECCOtour.jl" begin
@@ -24,25 +24,17 @@ using Test
     path_grid="../inputs/GRID_LLC90/"
     γ = setupLLCgrid(path_grid)
 
-    lat,lon = latlon(γ)
+    # repeated text that configures regularpoles grid
+lat,lon = latlon(γ)
+
     # Set up Cartesian grid for interpolation.
-    ϕGarc,ϕCarc = latgridArctic(γ)
-    ϕGantarc,ϕCantarc = latgridAntarctic(γ) 
-    ϕGreg,ϕCreg = latgridRegular(γ) 
-    λG = -180.0:179.0
-    λC = -179.5:179.5
+    # Time for a structure.
+    λC,λG,ϕC,ϕG,nx,ny,nyarc,nyantarc,farc,iarc,jarc,warc,fantarc,iantarc,jantarc,wantarc =
+        factors4regularpoles(γ)
 
-    ϕG = vcat(ϕGantarc,ϕGreg,ϕGarc)
-    ϕC = vcat(ϕCantarc,ϕCreg,ϕCarc)
-
-    farc,iarc,jarc,warc = prereginterp(ϕCarc,λC,γ)
-    fantarc,iantarc,jantarc,wantarc = prereginterp(ϕCantarc,λC,γ)
-
-    # Fix this
-    nx = length(λC)
-    ny = length(ϕC)
-    nyarc = length(ϕCarc)
-    nyantarc = length(ϕCantarc)
+    # get standard levels of MITgcm
+    z = depthlevels(γ)
+    nz = length(z)
 
     # load centered longitude
     # dxc = γ.read(γ.path*"XC.data",MeshArray(γ,Float64))
@@ -53,7 +45,5 @@ using Test
     for xx = 1:nx
         println(@test isapprox(dxc_regpoles["XC"][xx,yy],λC[xx], rtol=1e-6))
     end
-
-end
 
 end
