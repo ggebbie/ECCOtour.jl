@@ -25,6 +25,8 @@ Then activate the project and initialize a julia session: `C-c C-a`
 
 `;`\
 `git clone https://github.com/ggebbie/ECCOtour.jl # only do this the first time on each machine`\
+or\
+`git clone git@github.com:ggebbie/ECCOtour.jl.git # if you have SSH keys set up
 `cd ECCOtour.jl`\
 `]`\
 `activate .`\
@@ -35,7 +37,7 @@ Type backspace to return to command mode.
 * Using an editor like Atom/Juno or Visual Studio Code, activate the environment on one of the frame panels. The default environment is @v1.x and should be changed.
 
 # Functions
-Check `export` line in src/ECCOtour.jl for list of available functions.
+Check `export` line in src/ECCOtour.jl for list of available functions. Or check out the documentation at https://ggebbie.github.io/ECCOtour.jl/dev.
 
 # Directory structure
 - `src`: source code

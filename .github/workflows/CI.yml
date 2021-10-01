@@ -56,9 +56,9 @@ jobs:
       - run: |
           julia --project=docs -e '
             using Documenter: DocMeta, doctest
-            using TMI
-            DocMeta.setdocmeta!(TMI, :DocTestSetup, :(using TMI); recursive=true)
-            doctest(TMI)'
+            using ECCOtour
+            DocMeta.setdocmeta!(ECCOtour, :DocTestSetup, :(using ECCOtour); recursive=true)
+            doctest(ECCOtour)'
       - run: julia --project=docs docs/make.jl
         env:
           JULIA_PKG_SERVER: ""
