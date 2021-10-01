@@ -10,12 +10,12 @@ jobs:
       fail-fast: false
       matrix:
         version:
+          - '1.6'
           - 'nightly'
         os:
           - ubuntu-latest
         arch:
           - x64
-          - x86
     steps:
       - uses: actions/checkout@v2
       - uses: julia-actions/setup-julia@v1
@@ -51,13 +51,16 @@ jobs:
             using Pkg
             Pkg.develop(PackageSpec(path=pwd()))
             Pkg.instantiate()'
+        env:
+          PYTHON: ""
       - run: |
           julia --project=docs -e '
             using Documenter: DocMeta, doctest
-            using ECCOtour
-            DocMeta.setdocmeta!(ECCOtour, :DocTestSetup, :(using ECCOtour); recursive=true)
-            doctest(ECCOtour)'
+            using TMI
+            DocMeta.setdocmeta!(TMI, :DocTestSetup, :(using TMI); recursive=true)
+            doctest(TMI)'
       - run: julia --project=docs docs/make.jl
         env:
+          JULIA_PKG_SERVER: ""
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}
