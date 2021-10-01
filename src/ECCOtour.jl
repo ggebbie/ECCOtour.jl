@@ -17,7 +17,7 @@ export latlon, latlonC, latlonG
 export depthlevels, pressurelevels, readarea, patchmean
 export nino34mean, nino3mean, nino4mean, nino12mean, extract_sst34
 export remove_climatology, remove_seasonal, sigma, vars2sigma1
-export historicalNino34, prereginterp, reginterp, trend_theta!
+export historicalNino34, prereginterp, reginterp, trend_theta!, trend_theta
 export regularlatgrid, LLCcropC, LLCcropG, croplimitsLLC
 export latgridAntarctic, latgridArctic, latgridRegular
 export timestamp_monthly_v4r4, sigma1column, var2sigmacolumn
@@ -918,6 +918,8 @@ function trend_theta!(β,diagpathexp,tecco,γ,F)
     # name of file inside diagspath
     # Look at /poseidon ... exps/run/data.diagnostics for this info.
     Troot = "state_3d_set1" # hardcoded for ECCOv4r4
+
+    fill!(β,0.0f0) # initialize β
     nz = size(β,2)
     filelist = searchdir(diagpathexp,Troot) # first filter for state_3d_set1
     datafilelist  = filter(x -> occursin("data",x),filelist) # second filter for "data"
@@ -931,10 +933,10 @@ function trend_theta!(β,diagpathexp,tecco,γ,F)
     global tt = 0
     for Tname in datafilelist
         tt += 1
-        println("year ",Int(floor(tecco[tt]))," month ",((tt-1)%12)+1)
+        #println("year ",Int(floor(tecco[tt]))," month ",((tt-1)%12)+1)
 
         # read θ for timestep
-        @time θ = γ.read(diagpathexp*Tname,MeshArray(γ,Float32,nz))
+        θ = γ.read(diagpathexp*Tname,MeshArray(γ,Float32,nz))
 
         # multiply by the correct part of F matrix
         # be sure to handle all points at once
@@ -942,7 +944,53 @@ function trend_theta!(β,diagpathexp,tecco,γ,F)
         # equal to matrix multiplication w/ columns (θ) times weighting F
         β += F[2,tt] * θ
     end
+end
 
+"""
+    function trend_theta(diagpathexp,path_out,tecco,γ,F)
+    get linear trend of potential temperature
+    from monthly-average ECCOv4r4 gcmarray fields
+# Arguments
+- `diagpathexp`: where to find files
+- `tecco`: time stamps of monthly output
+- `γ`: GCM grid information
+- `F`: linear estimator of trend
+# Output
+- `β`: updated trends
+"""
+function trend_theta(diagpathexp,tecco,γ,F)
+    # name of file inside diagspath
+    # Look at /poseidon ... exps/run/data.diagnostics for this info.
+    Troot = "state_3d_set1" # hardcoded for ECCOv4r4
+
+    # 50 shouldn't be hard coded
+    β = MeshArray(γ,Float32,50) # some nans here
+    fill!(β,0.0f0) # initialize β
+    nz = size(β,2)
+    filelist = searchdir(diagpathexp,Troot) # first filter for state_3d_set1
+    datafilelist  = filter(x -> occursin("data",x),filelist) # second filter for "data"
+
+    nt = length(tecco)
+    nt2 = length(datafilelist)
+    if nt2 != nt
+        error("incompatible t and data files")
+    end
+
+    global tt = 0
+    for Tname in datafilelist
+        tt += 1
+        #println("year ",Int(floor(tecco[tt]))," month ",((tt-1)%12)+1)
+
+        # read θ for timestep
+        θ = γ.read(diagpathexp*Tname,MeshArray(γ,Float32,nz))
+
+        # multiply by the correct part of F matrix
+        # be sure to handle all points at once
+        # add to existing solution for β
+        # equal to matrix multiplication w/ columns (θ) times weighting F
+        β += F[2,tt] * θ
+    end
+    return β
 end
 
 function croplimitsLLC(ϕ,λ)
