@@ -30,6 +30,7 @@ export mixinversions!, dedup!
 export regional_mask, apply_regional_mask!, zero2one!, wrapdist
 export centerlon!, read_netcdf
 export extract_timeseries,matmul,position_label,nancount_gcmarray
+export maximum, minimum, mean, std
 
 include("HannFilter.jl")
 include("MatrixFilter.jl")
@@ -2032,4 +2033,155 @@ function nancount_gcmarray(field)
     return nancount
 end
 
+#ggebbie: think about using AbstractMeshArray as input type.
+"""
+    function maximum
+    Author ggebbie
+    Compute maximum value of gcmgrid type 
+# Input
+- `x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}}`: input of gcmarray type
+- `dryval::Float32`: land value to be eliminated in calculation
+# Output
+- `xmax::`: maximum value of 2D field
+"""
+function maximum(x::gcmarray{Float32,1,Array{Float32,2}},dryval::Float32)
+
+    isdry(z) = (z == dryval)
+    
+    #  vector list of nonzero elements
+    xcount = [sum(count(!isdry,x[i])) for i in eachindex(x)]
+
+    if sum(xcount) > 0
+        xmax = maximum([maximum(filter(!isdry,x[i])) for i in eachindex(x) if xcount[i] > 0])
+    else
+        xmax = NaN32
+    end
+    return xmax
 end
+
+"""
+    function minimum
+    Author ggebbie
+    Compute minimum value of gcmgrid type 
+# Input
+- `x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}}`: input of gcmarray type
+- `dryval::Float32`: land value to be eliminated in calculation
+# Output
+- `xmin::Float32`: minimum value of 2D field
+"""
+function minimum(x::gcmarray{Float32,1,Array{Float32,2}},dryval::Float32)
+    xmin = -maximum(-x,dryval)
+    return xmin
+end
+
+"""
+    function mean
+    Author: ggebbie
+    Mean of gcmgrid type 
+# Input
+- `x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}}`: input of gcmarray type
+- `dryval::Float32`: land value (doesn't work for NaN32)
+# Output
+- `xbar::Float32`: mean value (unweighted)
+"""
+function mean(x::gcmarray{Float32,1,Array{Float32,2}},dryval::Float32)
+
+    isdry(z) = (z == dryval)
+    
+    #  vector list of nonzero elements
+    xcount = [sum(count(!isdry,x[i])) for i in eachindex(x)]
+    if sum(xcount) > 0
+        # don't assume 0 on land
+        xsum = sum([sum(filter(!isdry,x[i])) for i in eachindex(x) if xcount[i] > 0])
+        xbar = xsum/sum(xcount)
+    else
+        xbar = NaN32
+    end
+    return xbar
+end
+
+"""
+    function mean
+    Author: ggebbie
+    Area-weighted mean of gcmgrid type filtered by dryval
+# Input
+- `x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}}`: input of gcmarray type
+- `weight::MeshArrays.gcmarray{Float32,1,Array{Float32,2}}`: weighting variable of gcmarray type
+- `dryval::Float32`: land value (doesn't work for NaN32)
+# Output
+- `xbar::Float32`: mean value (unweighted)
+"""
+function mean(x::gcmarray{Float32,1,Array{Float32,2}},weight::gcmarray{Float64,1,Array{Float64,2}},dryval::Float64)
+
+    isdry(z) = (z == dryval)
+    
+    #  vector list of nonzero elements
+    xcount = [sum(count(!isdry,x[i])) for i in eachindex(x)]
+    if sum(xcount) > 0
+        # don't assume 0 on land
+        xsum = sum([sum(filter(!isdry,x[i].*weight[i])) for i in eachindex(x) if xcount[i] > 0])
+        xdenom = sum([sum(filter(!isdry,weight[i])) for i in eachindex(weight) if xcount[i] > 0])
+        xbar = xsum/xdenom
+    else
+        xbar = NaN32
+    end
+    return xbar
+end
+
+"""
+    function mean
+    Author: ggebbie
+    Area-weighted mean of gcmgrid type filtered by a function
+# Input
+- `x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}}`: input of gcmarray type
+- `weight::MeshArrays.gcmarray{Float32,1,Array{Float32,2}}`: weighting variable of gcmarray type
+- `isgood::Function`: returns true is a value to be used in the mean
+# Output
+- `xbar::Float32`: mean value (weighted and filtered)
+"""
+function mean(x::gcmarray{Float32,1,Array{Float32,2}},weight::gcmarray{Float64,1,Array{Float64,2}},isgood)
+
+    #  vector list of nonzero elements
+    xcount = [sum(count(isgood,x[i])) for i in eachindex(x)]
+    if sum(xcount) > 0
+        # don't assume 0 on land
+        xsum = sum([sum(filter(isgood,x[i].*weight[i])) for i in eachindex(x) if xcount[i] > 0])
+        xdenom = sum([sum(filter(isgood,weight[i])) for i in eachindex(weight) if xcount[i] > 0])
+        xbar = xsum/xdenom
+    else
+        xbar = NaN32
+    end
+    return xbar
+end
+
+"""
+    function std
+    Author: ggebbie
+    Compute standard deviation of gcmgrid type 
+# Input
+- `x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}}`: input of gcmarray type
+- `xbar::Float32`: mean value
+- `dryval::Float32`: land value (doesn't work for NaN32)
+# Output
+- `σx::Float32`: standard deviation 
+"""
+function std(x::gcmarray{Float32,1,Array{Float32,2}},xbar::Float32,dryval)
+
+    isdry(z) = (z == dryval)
+
+    # x prime = fluctuation
+    x′ = x .- xbar
+    
+    #  vector list of nonzero elements
+    xcount = [sum(count(!isdry,x′[i])) for i in eachindex(x′)]
+    if sum(xcount) > 0
+        # don't assume 0 on land
+        x²sum = sum([sum(filter(!isdry,x′[i]).^2) for i in eachindex(x) if xcount[i] > 0])
+        σx = sqrt(x²sum/(sum(xcount)-1))
+    else
+        xbar = NaN32
+    end
+    return σx
+end
+
+end #module
