@@ -370,11 +370,9 @@ version = "0.10.1"
 
 [[MITgcmTools]]
 deps = ["DataFrames", "Dates", "MeshArrays", "NetCDF", "Pkg", "Printf", "SparseArrays"]
-git-tree-sha1 = "533e431c9882fb0654f9388460d19e3aab40efbc"
-repo-rev = "master"
-repo-url = "https://github.com/ggebbie/MITgcmTools.jl"
+git-tree-sha1 = "d17115373af3be6910bb8a97137a0de3ca31f1e9"
 uuid = "62725fbc-3a66-4df3-9000-e33e85b3a198"
-version = "0.1.10"
+version = "0.1.14"
 
 [[MKL_jll]]
 deps = ["Artifacts", "IntelOpenMP_jll", "JLLWrappers", "LazyArtifacts", "Libdl", "Pkg"]
