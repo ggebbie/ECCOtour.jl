@@ -2044,7 +2044,7 @@ end
 # Output
 - `xmax::`: maximum value of 2D field
 """
-function maximum(x::gcmarray{Float32,1,Array{Float32,2}},dryval::Float32)
+function maximum(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},dryval::Float32)
 
     isdry(z) = (z == dryval)
     
@@ -2069,7 +2069,7 @@ end
 # Output
 - `xmin::Float32`: minimum value of 2D field
 """
-function minimum(x::gcmarray{Float32,1,Array{Float32,2}},dryval::Float32)
+function minimum(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},dryval::Float32)
     xmin = -maximum(-x,dryval)
     return xmin
 end
@@ -2084,7 +2084,7 @@ end
 # Output
 - `xbar::Float32`: mean value (unweighted)
 """
-function mean(x::gcmarray{Float32,1,Array{Float32,2}},dryval::Float32)
+function mean(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},dryval::Float32)
 
     isdry(z) = (z == dryval)
     
@@ -2111,7 +2111,7 @@ end
 # Output
 - `xbar::Float32`: mean value (unweighted)
 """
-function mean(x::gcmarray{Float32,1,Array{Float32,2}},weight::gcmarray{Float64,1,Array{Float64,2}},dryval::Float64)
+function mean(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},weight::MeshArrays.gcmarray{Float64,1,Array{Float64,2}},dryval::Float64)
 
     isdry(z) = (z == dryval)
     
@@ -2139,7 +2139,7 @@ end
 # Output
 - `xbar::Float32`: mean value (weighted and filtered)
 """
-function mean(x::gcmarray{Float32,1,Array{Float32,2}},weight::gcmarray{Float64,1,Array{Float64,2}},isgood)
+function mean(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},weight::MeshArrays.gcmarray{Float64,1,Array{Float64,2}},isgood)
 
     #  vector list of nonzero elements
     xcount = [sum(count(isgood,x[i])) for i in eachindex(x)]
@@ -2165,7 +2165,7 @@ end
 # Output
 - `σx::Float32`: standard deviation 
 """
-function std(x::gcmarray{Float32,1,Array{Float32,2}},xbar::Float32,dryval)
+function std(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},xbar::Float32,dryval)
 
     isdry(z) = (z == dryval)
 

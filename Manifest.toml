@@ -395,12 +395,10 @@ deps = ["Artifacts", "Libdl"]
 uuid = "c8ffd9c3-330d-5841-b78e-0817d7145fa1"
 
 [[MeshArrays]]
-deps = ["CatViews", "NearestNeighbors", "Pkg", "Printf", "SparseArrays", "Statistics", "Unitful"]
-git-tree-sha1 = "4af0f8f2a101d31a63aab5a2bcec9b77a06887ea"
-repo-rev = "master"
-repo-url = "https://github.com/ggebbie/MeshArrays.jl"
+deps = ["CatViews", "Dates", "NearestNeighbors", "Pkg", "Printf", "SparseArrays", "Statistics", "Unitful"]
+git-tree-sha1 = "8b4d9d5978215e93377988088adf894f7a685b04"
 uuid = "cb8c808f-1acf-59a3-9d2b-6e38d009f683"
-version = "0.2.15"
+version = "0.2.23"
 
 [[Missings]]
 deps = ["DataAPI"]
