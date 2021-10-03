@@ -1859,10 +1859,6 @@ end
 # Output    
 - `tseries`: timeseries
 - `nseries`: nseries = number of timeseries elements in each year
-# Examples
-```jldoctest
-julia> rand(3)
-0.5 0.4 0.3
 ```
 """
 function extract_timeseries(froot,years,γ,xval,yval,fval)
