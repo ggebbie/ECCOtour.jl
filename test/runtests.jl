@@ -26,11 +26,11 @@ using MITgcmTools, MeshArrays, Statistics, Dierckx
 
     ################################
     # Idealized mapping onto sigma1
-    pz = 0:500:4000 # pressure levels
+    pz = collect(0.:500.:4000.) # pressure levels
     nz = length(pz)
 
-    θz = range(20,stop=10,length=nz)
-    Sz = range(36,stop=35,length=nz)
+    θz = collect(range(20,stop=10,length=nz))
+    Sz = collect(range(36,stop=35,length=nz))
     ztest = sort(rand(2:8,2))
     σ₁true = sigma1column(θz[ztest],Sz[ztest],pz[ztest])
 
@@ -135,6 +135,7 @@ using MITgcmTools, MeshArrays, Statistics, Dierckx
 
     @test !isnan(std(lat,mean(lat,NaN),NaN))
 
-    @test(iszero(nancount(replace!(latnan,NaN=>0.0)))
+    # replace NaN with zero
+    @test iszero(nancount(replace!(latnan,NaN=>0.0)))
 
 end

@@ -475,7 +475,7 @@ end
 # Output
 - `σ::MeshArrays.gcmarray{Float32,2,Array{Float32,2}}`: potential density referenced to p₀ minus 1000 kg/m³
 """
-function sigma(θ::MeshArrays.gcmarray{Float32,2,Array{Float32,2}},S::MeshArrays.gcmarray{Float32,2,Array{Float32,2}},pz::Array{Float64,1},p₀::Int64)
+function sigma(θ::MeshArrays.gcmarray{T,N,Array{T,2}},S::MeshArrays.gcmarray{T,N,Array{T,2}},pz::Array{Float64,1},p₀::Int64) where T<:AbstractFloat where N
 
     # loop over faces
     nf,nz = size(θ)
@@ -487,7 +487,7 @@ function sigma(θ::MeshArrays.gcmarray{Float32,2,Array{Float32,2}},S::MeshArrays
                 θz = [θ[ff,zz][xx,yy] for zz = 1:nz]
                 Sz = [S[ff,zz][xx,yy] for zz = 1:nz]
                 σ1,σ2,σ3 = MITgcmTools.SeaWaterDensity(θz,Sz,pz,p₀)
-                [σ₁[ff,zz][xx,yy] = convert(Float32,σ3[zz]) .- 1000 for zz = 1:nz]
+                [σ₁[ff,zz][xx,yy] = convert(T,σ3[zz]) .- 1000.0 for zz = 1:nz]
             end
         end
     end
@@ -498,15 +498,15 @@ end
     function vars2sigma1(vars,p,sig1grid,γ,spline_order)
     map variables onto sigma1 surfaces for gcmarrays
 # Arguments
-- `vars::Dict{String,MeshArrays.gcmarray{Float32,2,Array{Float32,2}}}`: dict of gcmarrays
+- `vars::Dict{String,MeshArrays.gcmarray{T,N,Array{T,2}}}`: dict of gcmarrays
 - `p::Array{Float64,1}` : vertical profile of standard pressures
 - `sig1grid`: σ₁ surface values
 - `γ`: grid description needed for preallocation
 - `splorder`: 1-5, order of spline
 # Output
-- `varsσ::Dict{String,MeshArrays.gcmarray{Float32,2,Array{Float32,2}}}`: dict of gcmarrays of variables on sigma1 surfaces
+- `varsσ::Dict{String,MeshArrays.gcmarray{T,N,Array{T,2}}}`: dict of gcmarrays of variables on sigma1 surfaces
 """
-function vars2sigma1(vars::Dict{String,MeshArrays.gcmarray{Float32,2,Array{Float32,2}}},pressure::Array{Float64,1},sig1grid::Array{Float64,1},γ::gcmgrid,splorder::Integer)
+function vars2sigma1(vars::Dict{String,MeshArrays.gcmarray{T,N,Array{T,2}}},pressure::Vector{T},sig1grid::Vector{T},γ::gcmgrid,splorder::Integer) where T<:AbstractFloat where N
 
     # check that θ and S exist. They must.
     (haskey(vars,"THETA") && haskey(vars,"SALT")) ? nothing : error("Need θ and S in vars")
@@ -517,16 +517,16 @@ function vars2sigma1(vars::Dict{String,MeshArrays.gcmarray{Float32,2,Array{Float
 
     # vcol = Dict with profile/column data
     # pre-allocate each key in vars
-    vcol = Dict{String,Array{Float64,1}}() # vars in a column
-    varsσ = Dict{String,MeshArrays.gcmarray{Float32,2,Array{Float32,2}}}()
+    vcol = Dict{String,Vector{T}}() # vars in a column
+    varsσ = Dict{String,MeshArrays.gcmarray{T,N,Array{T,2}}}()
 
     for (key, value) in vars
-        vcol[key] = fill(NaN32,nz)
-        varsσ[key] = MeshArray(γ,Float32,nσ); fill!(varsσ[key],NaN32)
+        vcol[key] = fill(convert(T,NaN),nz)
+        varsσ[key] = MeshArray(γ,T,nσ); fill!(varsσ[key],convert(T,NaN))
     end
     # allocate standard pressure by hand.
     # CONSIDER ANOTHER FUNCTION TO DO PHIHYD.
-    varsσ["p"] = MeshArray(γ,Float32,nσ); fill!(varsσ["p"],NaN32)
+    varsσ["p"] = MeshArray(γ,T,nσ); fill!(varsσ["p"],convert(T,NaN))
 
     for ff = 1:nf
         nx,ny = size(vars["THETA"][ff,1])
@@ -561,12 +561,12 @@ function vars2sigma1(vars::Dict{String,MeshArrays.gcmarray{Float32,2,Array{Float
                         for (vckey,vcval) in vcol
                             varσ = var2sigmacolumn(σ₁,vcval[1:nw],sig1grid[sgood],splorder)
 
-                            [varsσ[vckey][ff,sgood[ss]][xx,yy] = convert(Float32,varσ[ss]) for ss = 1:ngood]
+                            [varsσ[vckey][ff,sgood[ss]][xx,yy] = convert(T,varσ[ss]) for ss = 1:ngood]
                         end
 
                         # do standard pressure by hand.
                         pσ = var2sigmacolumn(σ₁,pressure[1:nw],sig1grid[sgood],splorder)
-                        [varsσ["p"][ff,sgood[ss]][xx,yy] = convert(Float32,pσ[ss]) for ss = 1:ngood]
+                        [varsσ["p"][ff,sgood[ss]][xx,yy] = convert(T,pσ[ss]) for ss = 1:ngood]
 
                     end
                 end
@@ -580,15 +580,15 @@ end
     function vars2sigma1(vars,p,sig1grid,γ,spline_order)
     map variables from regularpoles grid onto sigma1 surfaces
 # Arguments
-- `vars::Dict{String,Array{Float64,3}}}`: dict of 3d arrays
-- `p::Array{Float64,1}` : vertical profile of standard pressures
+- `vars::Dict{String,Array{T,3}}}`: dict of 3d arrays
+- `p::Array{T,1}` : vertical profile of standard pressures
 - `sig1grid`: σ₁ surface values
 - `γ`: grid description needed for preallocation
 - `splorder`: 1-5, order of spline
 # Output
-- `varsσ::Dict{String,MeshArrays.gcmarray{Float32,2,Array{Float32,2}}}`: dict of gcmarrays of variables on sigma1 surfaces
+- `varsσ::Dict{String,MeshArrays.gcmarray{T,2,Array{T,2}}}`: dict of gcmarrays of variables on sigma1 surfaces
 """
-function vars2sigma1(vars::Dict{String,Array{Float64,3}},pressure::Array{Float64,1},sig1grid::Array{Float64,1},splorder::Int64)
+function vars2sigma1(vars::Dict{String,Array{T,3}},pressure::Vector{T},sig1grid::Vector{T},splorder::Int64) where T<:AbstractFloat
 
     # check that θ and S exist. They must.
     (haskey(vars,"THETA") && haskey(vars,"SALT")) ? nothing : error("Need θ and S in vars")
@@ -599,16 +599,16 @@ function vars2sigma1(vars::Dict{String,Array{Float64,3}},pressure::Array{Float64
 
     # vcol = Dict with profile/column data
     # pre-allocate each key in vars
-    vcol = Dict{String,Array{Float64,1}}() # vars in a column
-    varsσ = Dict{String,Array{Float64,3}}()
+    vcol = Dict{String,Array{T,1}}() # vars in a column
+    varsσ = Dict{String,Array{T,3}}()
 
     for (key, value) in vars
-        vcol[key] = fill(NaN,nz)
-        varsσ[key] = fill(NaN,(nx,ny,nσ))
+        vcol[key] = fill(convert(T,NaN),nz)
+        varsσ[key] = fill(convert(T,NaN),(nx,ny,nσ))
     end
 
     # allocate standard pressure by hand.
-    varsσ["p"] = fill(NaN,(nx,ny,nσ))
+    varsσ["p"] = fill(convert(T,NaN),(nx,ny,nσ))
 
     for xx = 1:nx
         for yy = 1:ny
@@ -650,19 +650,20 @@ end
     function sigmacolumn(θ,S,p,p0)
     σ for a water column
 # Arguments
-- `θz::Array{Float,1}}`: potential temperature
-- `Sz::Array{Float,1}}`: practical salinity
-- `pz::Array{Float,1}`: vertical profile of standard pressures
-- `p0::Float`: reference pressure
+- `θz::Vector{T}`: potential temperature
+- `Sz::Vector{T}`: practical salinity
+- `pz::Vector{T}`: vertical profile of standard pressures
+- `p0::Integer`: reference pressure
 # Output
-- `σ`:  sigma for wet points in column
+- `σ::Vector{T}`:  sigma for wet points in column
 """
-function sigmacolumn(θz,Sz,pz,p0)
+function sigmacolumn(θz::Vector{T},Sz::Vector{T},pz::Vector{T},p0::Integer)::Vector{T} where T<:AbstractFloat
     nz = length(θz)
     σ = similar(θz)
+    p0T = convert(T,p0)
     # hard coded for sigma1
-    σa,σb,σc = MITgcmTools.SeaWaterDensity(θz,Sz,pz,p0)
-    [σ[zz] = convert(Float32,σc[zz]) .- 1000 for zz = 1:nz]
+    σa,σb,σc = MITgcmTools.SeaWaterDensity(θz,Sz,pz,p0T)
+    [σ[zz] = convert(T,σc[zz]) .- 1000.0 for zz = 1:nz]
     return σ
 end
 
@@ -676,7 +677,7 @@ end
 # Output
 - `σ₁`:  sigma-1 for wet points in column
 """
-sigma1column(θz,Sz,pz) = sigmacolumn(θz,Sz,pz,1000f0)
+sigma1column(θz,Sz,pz) = sigmacolumn(θz,Sz,pz,1000)
 
 """
     function var2sigmacolumn(σ,v,sig1grid,splorder)
