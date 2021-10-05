@@ -134,4 +134,7 @@ using MITgcmTools, MeshArrays, Statistics, Dierckx
     @test minimum(lat,NaN) ≥ -90.0
 
     @test !isnan(std(lat,mean(lat,NaN),NaN))
+
+    @test(iszero(nancount(replace!(latnan,NaN=>0.0)))
+
 end

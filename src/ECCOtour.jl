@@ -424,6 +424,7 @@ end
 """
     function remove_seasonal(x,Ecycle,Fcycle,γ) natively
     `x` = long monthly timeseries, starting in Jan
+
     remove seasonal cycle of this timeseries
 """
 function remove_seasonal(x,Ecycle,Fcycle)
@@ -433,22 +434,30 @@ function remove_seasonal(x,Ecycle,Fcycle)
     xseasonal = Ecycle*βcycle
 
     # remove it from total signal
-    xprime = x - xseasonal
-    return xprime
+    x′ = x - xseasonal
+    return x′
 end
 
 """
-    function remove_seasonal(x,Ecycle,Fcycle,γ) natively
-    `x` = gcmarray of long monthly timeseries, starting in Jan
-    remove seasonal cycle of this timeseries
+    function remove_seasonal(x,Ecycle,Fcycle,γ) 
+    remove seasonal cycle of this timeseries on the native gcmgrid
+
+# Arguments
+-  `x::gcmarray{T,N,Array{T,2}}` = gcmarray of a long timeseries where time is dimension N
+- `Ecycle::Matrix`: matrix that operates on seasonal cycle parameters and return a seasonal cycle timeseries
+- `Fcycle::Matrix`: precomputed pseudo-inverse of `Ecycle`
+- `γ::gcmgrid`: MITgcm grid
+# Output
+- `x′::MeshArrays.gcmarray{Float32,2,Array{Float32,2}}`: potential density referenced to p₀ minus 1000 kg/m³
 """
-function remove_seasonal(x,Ecycle,Fcycle,γ)
+function remove_seasonal(x::MeshArrays.gcmarray{T,N,Array{T,2}},Ecycle,Fcycle,γ)::MeshArrays.gcmarray{T,N,Array{T,2}} where T <: AbstractFloat where N
 
     # remove seasonal cycle from 14-day averaged timeseries
     # solve for seasonal cycle parameters
 
     # for gcmarray input:
     βcycle = matmul(Fcycle,x,γ)
+
     # reconstruct the full seasonal cycle.
     xseasonal = matmul(Ecycle,βcycle,γ)
     x′ = x - xseasonal
@@ -1323,71 +1332,31 @@ function netcdf2dict(ncfilename::String,ncvarname::String,γ::gcmgrid)
 end
 
 """
-function replace!(f,a::MeshArrays.gcmarray{Float64,1,Array{Float64,2}}}
+function replace!(f,a::MeshArrays.gcmarray{T,N,Array{T,2}}}
+# Arguments
+- `f::function` = replace a with f(a)
+- `a::MeshArrays.gcmarray{T,N,Array{T,2}}`: gcmarray with variable type and time-dimension
 """
-function replace!(f,a::MeshArrays.gcmarray{Float64,1,Array{Float64,2}})
+function replace!(f,a::MeshArrays.gcmarray{T,N,Array{T,2}}) where T<:AbstractFloat where N
 
-    nf = size(a,1)
-    for ff = 1:nf
+    #nf = size(a,1)
+    for ff = eachindex(a)
         Base.replace!(f,a[ff])
     end
     return a
 end
 
 """
-function replace!(a::MeshArrays.gcmarray{Float32,1,Array{Float32,2}}},b::Pair)
+function replace!(a::MeshArrays.gcmarray{T,N,Array{T,2}}},b::Pair) where T
+# Arguments
+- `a::MeshArrays.gcmarray{T,N,Array{T,2}}`: gcmarray with variable type and time-dimension
+- `b::Pair`: replace `a` elements of pair 1 with pair 2
 """
-function replace!(a::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},b::Pair)
+function replace!(a::MeshArrays.gcmarray{T,N,Array{T,2}},b::Pair) where T<:AbstractFloat where N
 
-    nf = size(a,1)
-    for ff = 1:nf
+    # nf = size(a,1)
+    for ff = eachindex(a)
         Base.replace!(a[ff],b)
-    end
-    return a
-end
-
-"""
-function replace!(a::MeshArrays.gcmarray{Float64,1,Array{Float64,2}}},b::Pair)
-"""
-function replace!(a::MeshArrays.gcmarray{Float64,1,Array{Float64,2}},b::Pair)
-
-    nf = size(a,1)
-    for ff = 1:nf
-        Base.replace!(a[ff],b)
-    end
-    return a
-end
-
-"""
-function replace!(a::MeshArrays.gcmarray{Float32,2,Array{Float32,2}}},b::Pair)
-"""
-function replace!(a::MeshArrays.gcmarray{Float32,2,Array{Float32,2}},b::Pair)
-
-    # tried to recursively call replace! but failed.
-    # instead do double nested case.
-    nf = size(a,1)
-    nrec = size(a,2)
-    for ff = 1:nf
-        for rr = 1:nrec
-            Base.replace!(a[ff,rr],b)
-        end
-    end
-    return a
-end
-
-"""
-function replace!(a::MeshArrays.gcmarray{Float32,2,Array{Float32,2}}},b::Pair)
-"""
-function replace!(a::MeshArrays.gcmarray{Float64,2,Array{Float64,2}},b::Pair)
-
-    # tried to recursively call replace! but failed.
-    # instead do double nested case.
-    nf = size(a,1)
-    nrec = size(a,2)
-    for ff = 1:nf
-        for rr = 1:nrec
-            Base.replace!(a[ff,rr],b)
-        end
     end
     return a
 end
