@@ -114,4 +114,24 @@ using MITgcmTools, MeshArrays, Statistics, Dierckx
         println(@test isapprox(dxc_regpoles["XC"][xx,yy],λC[xx], rtol=1e-6))
     end
 
+    ######################################
+    # Test the statistics for MeshArrays.
+    @test  -360.0 ≤ mean(lat,NaN) ≤ 360.0
+
+    # can it find a NaN?
+    latnan = deepcopy(lat)
+    latnan[1][30,30] = NaN
+    @test sum(nancount(latnan)-nancount(lat)) == 1
+
+    # nancount work with different array size?
+    lat2 = MeshArrays.gcmarray(γ,Float64,2)
+    lat2[:,1] = latnan;
+    lat2[:,2] = latnan;
+    @test sum(nancount(lat2)) == 2*sum(nancount(latnan))
+
+    @test maximum(latnan,NaN) ≤ 90.0
+
+    @test minimum(lat,NaN) ≥ -90.0
+
+    @test !isnan(std(lat,mean(lat,NaN),NaN))
 end

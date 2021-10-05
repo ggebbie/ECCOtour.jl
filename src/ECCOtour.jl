@@ -2,16 +2,18 @@ module ECCOtour
 # write new functions and put them in this module.
 # add them with text below, or create a new file in "src" and include it.
 
-using Statistics, PyPlot, Distributions, FFTW, LinearAlgebra, StatsBase
-using MeshArrays, MITgcmTools, LaTeXStrings, Dierckx
-using DelimitedFiles, Interpolations, NetCDF
+using MeshArrays, MITgcmTools 
+using Statistics, PyPlot, Distributions, FFTW,
+    LinearAlgebra, StatsBase, LaTeXStrings,
+    Dierckx, DelimitedFiles, Interpolations, NetCDF
+
+import Base.maximum, Base.minimum, Base.replace!, Statistics.std
 
 export hanncoeffs, hannsum, hannsum!, hannfilter
 export get_filtermatrix, matrixfilter, matrixspray, columnscale!
 export seasonal_matrices, trend_matrices
 export position_label, searchdir, setupLLCgrid
 export listexperiments, expnames, expsymbols, time_label
-export faststats, allstats, std, mean
 export inrectangle, isnino34, issouthpac, isnino3, isnino4, isnino12
 export latlon, latlonC, latlonG
 export depthlevels, pressurelevels, readarea, patchmean
@@ -23,16 +25,15 @@ export latgridAntarctic, latgridArctic, latgridRegular
 export timestamp_monthly_v4r4, sigma1column, var2sigmacolumn
 export sigma1grid, mdsio2dict, netcdf2dict, write_vars
 export mdsio2sigma1, ncwritefromtemplate
-export netcdf2sigma1, replace!, mdsio2regularpoles
+export netcdf2sigma1, mdsio2regularpoles
 export writeregularpoles, vars2regularpoles, var2regularpoles
 export netcdf2regularpoles, factors4regularpoles
 export mixinversions!, dedup!
 export regional_mask, apply_regional_mask!, zero2one!, wrapdist
 export centerlon!, read_netcdf
-export extract_timeseries,matmul,position_label,nancount_gcmarray
-export maximum, minimum, mean, std
-
-import Base.maximum, Base.minimum, Base.replace!
+export extract_timeseries,matmul,position_label,nancount
+export faststats, allstats, std, mean
+export maximum, minimum, mean, std, replace!
 
 include("HannFilter.jl")
 include("MatrixFilter.jl")
@@ -382,49 +383,6 @@ function faststats(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}})
         absxbar = NaN
     end
     return xbar, xmax, xmin, σx, absxbar
-end
-
-"""
-    function std(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},xbar::Float32,dryval)
-    Compute standard deviation of gcmgrid type using function calls, eliminate redundancy
-    Eliminate all values = dryval
-    Avoid a name clash with StatsBase and MeshArrays
-"""
-function std(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},xbar::Float32,dryval)
-     MeshArrays.std(x,xbar,dryval)
-end
-
-# avoid another name clash.
-"""
-    function mean(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},dryval::Float32)
-    Compute mean of gcmgrid type using function calls, eliminate redundancy
-    Eliminate all values = dryval
-    Avoid a name clash with StatsBase and MeshArrays
-"""
-function mean(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},dryval::Float32)
-     MeshArrays.mean(x,dryval)
-end
-
-"""
-    function mean(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},dryval::Float32)
-    Compute area-weighted mean of gcmgrid type using function calls, eliminate redundancy
-    Area weighting = area
-    Eliminate all values = dryval
-    Avoid a name clash with StatsBase and MeshArrays
-"""
-function mean(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},area::MeshArrays.gcmarray{Float64,1,Array{Float64,2}},dryval::Float64)
-    MeshArrays.mean(x,area,dryval)
-end
-
-"""
-    function mean(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},dryval::Float32)
-    Compute area-weighted mean of gcmgrid type using filtered with function isgood
-    Area weighting = area
-    Eliminate all values = isgood(x) -> true
-    Avoid a name clash with StatsBase and MeshArrays
-"""
-function mean(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},area::MeshArrays.gcmarray{Float64,1,Array{Float64,2}},isgood)
-    MeshArrays.mean(x,area,isgood)
 end
 
 """
@@ -2022,74 +1980,86 @@ function matmul(M::Array{Float64,1},flux::MeshArrays.gcmarray{Float64,1,Array{Fl
     return product
 end
 
-function nancount_gcmarray(field)
-    # function nancount_gcmarray(field)
-    s1,s2 = size(field)
+"""
+    function nancount
 
-    nancount = zeros(s1,s2)
-    for i1 = 1:s1
-        for i2 = 1:s2
-            nancount[i1,i2] = sum(isnan,field[i1,i2])
-        end
+    Count number of NaN's in gcmgrid type 
+# Input
+- `field::MeshArrays.gcmarray{T,N,Matrix{T}}`: input of gcmarray type, can have multiple records
+# Output
+- `nannum::Int`: number of NaNs
+"""
+function nancount(field::MeshArrays.gcmarray{T, N, Matrix{T}}) where T<:AbstractFloat where N
+
+    nannum = zeros(Int64,size(field))
+    for i1 = eachindex(field)
+        nannum[i1] = sum(isnan,field[i1])
     end
-    return nancount
+    return nannum
 end
 
-#ggebbie: think about using AbstractMeshArray as input type.
 """
     function maximum
-    Author ggebbie
+
     Compute maximum value of gcmgrid type 
 # Input
-- `x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}}`: input of gcmarray type
-- `dryval::Float32`: land value to be eliminated in calculation
+- `x::MeshArrays.gcmarray{T,N,Array{T,2}}`: input of gcmarray type and filter out `dryval`s
+- `dryval::T`: land value to be eliminated in calculation
 # Output
-- `xmax::`: maximum value of 2D field
+- `xmax::T`: maximum value of 2D field
 """
-function maximum(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},dryval::Float32)
+function maximum(x::MeshArrays.gcmarray{T,N,Array{T,2}},dryval::T) where T<:AbstractFloat where N
 
-    isdry(z) = (z == dryval)
+    # problem NaN == NaN is false
+    # if isnan(z)
+    #     isdry = isnan
+    # else
+    #     isdry(z) = (z == dryval)
+    # end
+    isnan(dryval) ? isdry = isnan : isdry(z) = (z == dryval)
     
-    #  vector list of nonzero elements
+    #  vector list of non-dry (wet) elements
     xcount = [sum(count(!isdry,x[i])) for i in eachindex(x)]
-
+    println(xcount)
     if sum(xcount) > 0
         xmax = maximum([maximum(filter(!isdry,x[i])) for i in eachindex(x) if xcount[i] > 0])
     else
-        xmax = NaN32
+        xmax = convert(T,NaN)
     end
     return xmax
 end
 
 """
     function minimum
-    Author ggebbie
+
     Compute minimum value of gcmgrid type 
+    and filter out `dryval`s
 # Input
-- `x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}}`: input of gcmarray type
-- `dryval::Float32`: land value to be eliminated in calculation
-# Output
-- `xmin::Float32`: minimum value of 2D field
+- `x::MeshArrays.gcmarray{T,N,Array{T,2}}`: input of gcmarray type and filter out `dryval`s
+- `dryval::T`: land value to be eliminated in calculatio# Output
+- `xmin::T`: minimum value of 2D field
 """
-function minimum(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},dryval::Float32)
+function minimum(x::MeshArrays.gcmarray{T,N,Array{T,2}},dryval::T) where T<:AbstractFloat where N
     xmin = -maximum(-x,dryval)
     return xmin
 end
 
 """
     function mean
-    Author: ggebbie
-    Mean of gcmgrid type 
-# Input
-- `x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}}`: input of gcmarray type
-- `dryval::Float32`: land value (doesn't work for NaN32)
-# Output
-- `xbar::Float32`: mean value (unweighted)
-"""
-function mean(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},dryval::Float32)
 
-    isdry(z) = (z == dryval)
-    
+    Compute mean of gcmgrid type using function calls, eliminate redundancy
+    Eliminate all values = dryval
+# Input
+- `x::MeshArrays.gcmarray{T,N,Array{T,2}}`: input of gcmarray type
+- `dryval::T`: land value (doesn't work for NaN32)
+# Output
+- `xbar::T`: mean value (unweighted)
+"""
+function mean(x::MeshArrays.gcmarray{T,N,Array{T,2}},dryval::T)::T where T<:AbstractFloat where N
+
+    #isdry(z) = (z == dryval)
+    isnan(dryval) ? isdry = isnan : isdry(z) = (z == dryval)
+
     #  vector list of nonzero elements
     xcount = [sum(count(!isdry,x[i])) for i in eachindex(x)]
     if sum(xcount) > 0
@@ -2097,15 +2067,18 @@ function mean(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},dryval::Float32
         xsum = sum([sum(filter(!isdry,x[i])) for i in eachindex(x) if xcount[i] > 0])
         xbar = xsum/sum(xcount)
     else
-        xbar = NaN32
+        #xbar = NaN
+        xbar = convert(T,NaN)
     end
     return xbar
 end
 
 """
     function mean
-    Author: ggebbie
-    Area-weighted mean of gcmgrid type filtered by dryval
+    Compute area-weighted mean of gcmgrid type using function calls, eliminate redundancy
+    Area weighting = area
+    Eliminate all values = dryval
+
 # Input
 - `x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}}`: input of gcmarray type
 - `weight::MeshArrays.gcmarray{Float32,1,Array{Float32,2}}`: weighting variable of gcmarray type
@@ -2115,7 +2088,8 @@ end
 """
 function mean(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},weight::MeshArrays.gcmarray{Float64,1,Array{Float64,2}},dryval::Float64)
 
-    isdry(z) = (z == dryval)
+    isnan(dryval) ? isdry = isnan : isdry(z) = (z == dryval)
+    #isdry(z) = (z == dryval)
     
     #  vector list of nonzero elements
     xcount = [sum(count(!isdry,x[i])) for i in eachindex(x)]
@@ -2132,8 +2106,10 @@ end
 
 """
     function mean
-    Author: ggebbie
-    Area-weighted mean of gcmgrid type filtered by a function
+    Compute area-weighted mean of gcmgrid type using filtered with function isgood
+    Area weighting = area
+    Eliminate all values = isgood(x) -> true
+
 # Input
 - `x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}}`: input of gcmarray type
 - `weight::MeshArrays.gcmarray{Float32,1,Array{Float32,2}}`: weighting variable of gcmarray type
@@ -2158,18 +2134,19 @@ end
 
 """
     function std
-    Author: ggebbie
-    Compute standard deviation of gcmgrid type 
-# Input
-- `x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}}`: input of gcmarray type
-- `xbar::Float32`: mean value
-- `dryval::Float32`: land value (doesn't work for NaN32)
-# Output
-- `σx::Float32`: standard deviation 
-"""
-function std(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},xbar::Float32,dryval)
+    Compute standard deviation of gcmgrid type using function calls, eliminate redundancy
+    Eliminate all values = dryval
 
-    isdry(z) = (z == dryval)
+# Input
+- `x::MeshArrays.gcmarray{T,N,Array{T,2}}`: input of gcmarray type
+- `xbar::T`: mean value
+- `dryval::T`: land value 
+# Output
+- `σx::T`: standard deviation 
+"""
+function std(x::MeshArrays.gcmarray{T,N,Array{T,2}},xbar::T,dryval::T) where T<:AbstractFloat where N
+
+    isnan(dryval) ? isdry = isnan : isdry(z) = (z == dryval)
 
     # x prime = fluctuation
     x′ = x .- xbar
@@ -2181,7 +2158,7 @@ function std(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},xbar::Float32,dr
         x²sum = sum([sum(filter(!isdry,x′[i]).^2) for i in eachindex(x) if xcount[i] > 0])
         σx = sqrt(x²sum/(sum(xcount)-1))
     else
-        xbar = NaN32
+        xbar = convert(T,NaN)
     end
     return σx
 end
