@@ -32,6 +32,8 @@ export centerlon!, read_netcdf
 export extract_timeseries,matmul,position_label,nancount_gcmarray
 export maximum, minimum, mean, std
 
+import Base.maximum, Base.minimum, Base.replace!
+
 include("HannFilter.jl")
 include("MatrixFilter.jl")
 include("SeasonalCycle.jl")
@@ -743,15 +745,15 @@ function var2sigmacolumn(σorig,v,σgrid,splorder)
     # 2) range of sig1, 3) no extrapolation
     # if sum(diff(σ₁).<0)==0 && count(minimum(σ₁).<=sig1grid.<=maximum(σ₁)) > 0
     # added nσin > 1 to fix error
-    if nσin > 1 && count(minimum(σ).<=σgrid.<=maximum(σ)) > 0
+    if nσin > 1 && count(minimum(σ) .<= σgrid .<= maximum(σ)) > 0
 
         # eliminate any extrapolation
-        sgood = findall(minimum(σ).<=σgrid.<=maximum(σ))
+        sgood = findall(minimum(σ).<=σgrid.<= maximum(σ))
         ngood = length(sgood)
 
         if nσin > splorder
             θspl = Spline1D(σ,v;k=splorder)
-            prinln("doing spline")
+            println("doing spline")
             for ss in sgood
                 θonσ[ss] = θspl(σgrid[ss])
             end
