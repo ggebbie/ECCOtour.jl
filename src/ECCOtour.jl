@@ -7,7 +7,7 @@ using Statistics, PyPlot, Distributions, FFTW,
     LinearAlgebra, StatsBase, LaTeXStrings,
     Dierckx, DelimitedFiles, Interpolations, NetCDF
 
-import Base.maximum, Base.minimum, Base.replace!, Statistics.std
+import Statistics.mean, Base.maximum, Base.minimum, Base.replace!, Statistics.std
 
 export hanncoeffs, hannsum, hannsum!, hannfilter
 export get_filtermatrix, matrixfilter, matrixspray, columnscale!
