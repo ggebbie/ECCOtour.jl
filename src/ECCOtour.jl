@@ -2,16 +2,18 @@ module ECCOtour
 # write new functions and put them in this module.
 # add them with text below, or create a new file in "src" and include it.
 
-using Statistics, PyPlot, Distributions, FFTW, LinearAlgebra, StatsBase
-using MeshArrays, MITgcmTools, LaTeXStrings, Dierckx
-using DelimitedFiles, Interpolations, NetCDF
+using MeshArrays, MITgcmTools 
+using Statistics, PyPlot, Distributions, FFTW,
+    LinearAlgebra, StatsBase, LaTeXStrings,
+    Dierckx, DelimitedFiles, Interpolations, NetCDF
+
+import Statistics.mean, Base.maximum, Base.minimum, Base.replace!, Statistics.std
 
 export hanncoeffs, hannsum, hannsum!, hannfilter
 export get_filtermatrix, matrixfilter, matrixspray, columnscale!
 export seasonal_matrices, trend_matrices
 export position_label, searchdir, setupLLCgrid
 export listexperiments, expnames, expsymbols, time_label
-export faststats, allstats, std, mean
 export inrectangle, isnino34, issouthpac, isnino3, isnino4, isnino12
 export latlon, latlonC, latlonG
 export depthlevels, pressurelevels, readarea, patchmean
@@ -23,12 +25,15 @@ export latgridAntarctic, latgridArctic, latgridRegular
 export timestamp_monthly_v4r4, sigma1column, var2sigmacolumn
 export sigma1grid, mdsio2dict, netcdf2dict, write_vars
 export mdsio2sigma1, ncwritefromtemplate
-export netcdf2sigma1, replace!, mdsio2regularpoles
+export netcdf2sigma1, mdsio2regularpoles
 export writeregularpoles, vars2regularpoles, var2regularpoles
 export netcdf2regularpoles, factors4regularpoles
 export mixinversions!, dedup!
 export regional_mask, apply_regional_mask!, zero2one!, wrapdist
-export centerlon!
+export centerlon!, read_netcdf
+export extract_timeseries,matmul,position_label,nancount
+export faststats, allstats, std, mean
+export maximum, minimum, mean, std, replace!
 
 include("HannFilter.jl")
 include("MatrixFilter.jl")
@@ -381,49 +386,6 @@ function faststats(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}})
 end
 
 """
-    function std(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},xbar::Float32,dryval)
-    Compute standard deviation of gcmgrid type using function calls, eliminate redundancy
-    Eliminate all values = dryval
-    Avoid a name clash with StatsBase and MeshArrays
-"""
-function std(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},xbar::Float32,dryval)
-     MeshArrays.std(x,xbar,dryval)
-end
-
-# avoid another name clash.
-"""
-    function mean(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},dryval::Float32)
-    Compute mean of gcmgrid type using function calls, eliminate redundancy
-    Eliminate all values = dryval
-    Avoid a name clash with StatsBase and MeshArrays
-"""
-function mean(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},dryval::Float32)
-     MeshArrays.mean(x,dryval)
-end
-
-"""
-    function mean(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},dryval::Float32)
-    Compute area-weighted mean of gcmgrid type using function calls, eliminate redundancy
-    Area weighting = area
-    Eliminate all values = dryval
-    Avoid a name clash with StatsBase and MeshArrays
-"""
-function mean(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},area::MeshArrays.gcmarray{Float64,1,Array{Float64,2}},dryval::Float64)
-    MeshArrays.mean(x,area,dryval)
-end
-
-"""
-    function mean(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},dryval::Float32)
-    Compute area-weighted mean of gcmgrid type using filtered with function isgood
-    Area weighting = area
-    Eliminate all values = isgood(x) -> true
-    Avoid a name clash with StatsBase and MeshArrays
-"""
-function mean(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},area::MeshArrays.gcmarray{Float64,1,Array{Float64,2}},isgood)
-    MeshArrays.mean(x,area,isgood)
-end
-
-"""
     function extract_sst34
     extract by reading multiple files
 """
@@ -462,6 +424,7 @@ end
 """
     function remove_seasonal(x,Ecycle,Fcycle,γ) natively
     `x` = long monthly timeseries, starting in Jan
+
     remove seasonal cycle of this timeseries
 """
 function remove_seasonal(x,Ecycle,Fcycle)
@@ -471,22 +434,30 @@ function remove_seasonal(x,Ecycle,Fcycle)
     xseasonal = Ecycle*βcycle
 
     # remove it from total signal
-    xprime = x - xseasonal
-    return xprime
+    x′ = x - xseasonal
+    return x′
 end
 
 """
-    function remove_seasonal(x,Ecycle,Fcycle,γ) natively
-    `x` = gcmarray of long monthly timeseries, starting in Jan
-    remove seasonal cycle of this timeseries
+    function remove_seasonal(x,Ecycle,Fcycle,γ) 
+    remove seasonal cycle of this timeseries on the native gcmgrid
+
+# Arguments
+-  `x::gcmarray{T,N,Array{T,2}}` = gcmarray of a long timeseries where time is dimension N
+- `Ecycle::Matrix`: matrix that operates on seasonal cycle parameters and return a seasonal cycle timeseries
+- `Fcycle::Matrix`: precomputed pseudo-inverse of `Ecycle`
+- `γ::gcmgrid`: MITgcm grid
+# Output
+- `x′::MeshArrays.gcmarray{Float32,2,Array{Float32,2}}`: potential density referenced to p₀ minus 1000 kg/m³
 """
-function remove_seasonal(x,Ecycle,Fcycle,γ)
+function remove_seasonal(x::MeshArrays.gcmarray{T,N,Array{T,2}},Ecycle,Fcycle,γ)::MeshArrays.gcmarray{T,N,Array{T,2}} where T <: AbstractFloat where N
 
     # remove seasonal cycle from 14-day averaged timeseries
     # solve for seasonal cycle parameters
 
     # for gcmarray input:
     βcycle = matmul(Fcycle,x,γ)
+
     # reconstruct the full seasonal cycle.
     xseasonal = matmul(Ecycle,βcycle,γ)
     x′ = x - xseasonal
@@ -504,7 +475,7 @@ end
 # Output
 - `σ::MeshArrays.gcmarray{Float32,2,Array{Float32,2}}`: potential density referenced to p₀ minus 1000 kg/m³
 """
-function sigma(θ::MeshArrays.gcmarray{Float32,2,Array{Float32,2}},S::MeshArrays.gcmarray{Float32,2,Array{Float32,2}},pz::Array{Float64,1},p₀::Int64)
+function sigma(θ::MeshArrays.gcmarray{T,N,Array{T,2}},S::MeshArrays.gcmarray{T,N,Array{T,2}},pz::Array{Float64,1},p₀::Int64) where T<:AbstractFloat where N
 
     # loop over faces
     nf,nz = size(θ)
@@ -516,7 +487,7 @@ function sigma(θ::MeshArrays.gcmarray{Float32,2,Array{Float32,2}},S::MeshArrays
                 θz = [θ[ff,zz][xx,yy] for zz = 1:nz]
                 Sz = [S[ff,zz][xx,yy] for zz = 1:nz]
                 σ1,σ2,σ3 = MITgcmTools.SeaWaterDensity(θz,Sz,pz,p₀)
-                [σ₁[ff,zz][xx,yy] = convert(Float32,σ3[zz]) .- 1000 for zz = 1:nz]
+                [σ₁[ff,zz][xx,yy] = convert(T,σ3[zz]) .- 1000.0 for zz = 1:nz]
             end
         end
     end
@@ -527,15 +498,15 @@ end
     function vars2sigma1(vars,p,sig1grid,γ,spline_order)
     map variables onto sigma1 surfaces for gcmarrays
 # Arguments
-- `vars::Dict{String,MeshArrays.gcmarray{Float32,2,Array{Float32,2}}}`: dict of gcmarrays
+- `vars::Dict{String,MeshArrays.gcmarray{T,N,Array{T,2}}}`: dict of gcmarrays
 - `p::Array{Float64,1}` : vertical profile of standard pressures
 - `sig1grid`: σ₁ surface values
 - `γ`: grid description needed for preallocation
 - `splorder`: 1-5, order of spline
 # Output
-- `varsσ::Dict{String,MeshArrays.gcmarray{Float32,2,Array{Float32,2}}}`: dict of gcmarrays of variables on sigma1 surfaces
+- `varsσ::Dict{String,MeshArrays.gcmarray{T,N,Array{T,2}}}`: dict of gcmarrays of variables on sigma1 surfaces
 """
-function vars2sigma1(vars::Dict{String,MeshArrays.gcmarray{Float32,2,Array{Float32,2}}},pressure::Array{Float64,1},sig1grid::Array{Float64,1},γ::gcmgrid,splorder::Integer)
+function vars2sigma1(vars::Dict{String,MeshArrays.gcmarray{T,N,Array{T,2}}},pressure::Vector{T},sig1grid::Vector{T},γ::gcmgrid,splorder::Integer) where T<:AbstractFloat where N
 
     # check that θ and S exist. They must.
     (haskey(vars,"THETA") && haskey(vars,"SALT")) ? nothing : error("Need θ and S in vars")
@@ -546,16 +517,16 @@ function vars2sigma1(vars::Dict{String,MeshArrays.gcmarray{Float32,2,Array{Float
 
     # vcol = Dict with profile/column data
     # pre-allocate each key in vars
-    vcol = Dict{String,Array{Float64,1}}() # vars in a column
-    varsσ = Dict{String,MeshArrays.gcmarray{Float32,2,Array{Float32,2}}}()
+    vcol = Dict{String,Vector{T}}() # vars in a column
+    varsσ = Dict{String,MeshArrays.gcmarray{T,N,Array{T,2}}}()
 
     for (key, value) in vars
-        vcol[key] = fill(NaN32,nz)
-        varsσ[key] = MeshArray(γ,Float32,nσ); fill!(varsσ[key],NaN32)
+        vcol[key] = fill(convert(T,NaN),nz)
+        varsσ[key] = MeshArray(γ,T,nσ); fill!(varsσ[key],convert(T,NaN))
     end
     # allocate standard pressure by hand.
     # CONSIDER ANOTHER FUNCTION TO DO PHIHYD.
-    varsσ["p"] = MeshArray(γ,Float32,nσ); fill!(varsσ["p"],NaN32)
+    varsσ["p"] = MeshArray(γ,T,nσ); fill!(varsσ["p"],convert(T,NaN))
 
     for ff = 1:nf
         nx,ny = size(vars["THETA"][ff,1])
@@ -590,12 +561,12 @@ function vars2sigma1(vars::Dict{String,MeshArrays.gcmarray{Float32,2,Array{Float
                         for (vckey,vcval) in vcol
                             varσ = var2sigmacolumn(σ₁,vcval[1:nw],sig1grid[sgood],splorder)
 
-                            [varsσ[vckey][ff,sgood[ss]][xx,yy] = convert(Float32,varσ[ss]) for ss = 1:ngood]
+                            [varsσ[vckey][ff,sgood[ss]][xx,yy] = convert(T,varσ[ss]) for ss = 1:ngood]
                         end
 
                         # do standard pressure by hand.
                         pσ = var2sigmacolumn(σ₁,pressure[1:nw],sig1grid[sgood],splorder)
-                        [varsσ["p"][ff,sgood[ss]][xx,yy] = convert(Float32,pσ[ss]) for ss = 1:ngood]
+                        [varsσ["p"][ff,sgood[ss]][xx,yy] = convert(T,pσ[ss]) for ss = 1:ngood]
 
                     end
                 end
@@ -609,15 +580,15 @@ end
     function vars2sigma1(vars,p,sig1grid,γ,spline_order)
     map variables from regularpoles grid onto sigma1 surfaces
 # Arguments
-- `vars::Dict{String,Array{Float64,3}}}`: dict of 3d arrays
-- `p::Array{Float64,1}` : vertical profile of standard pressures
+- `vars::Dict{String,Array{T,3}}}`: dict of 3d arrays
+- `p::Array{T,1}` : vertical profile of standard pressures
 - `sig1grid`: σ₁ surface values
 - `γ`: grid description needed for preallocation
 - `splorder`: 1-5, order of spline
 # Output
-- `varsσ::Dict{String,MeshArrays.gcmarray{Float32,2,Array{Float32,2}}}`: dict of gcmarrays of variables on sigma1 surfaces
+- `varsσ::Dict{String,MeshArrays.gcmarray{T,2,Array{T,2}}}`: dict of gcmarrays of variables on sigma1 surfaces
 """
-function vars2sigma1(vars::Dict{String,Array{Float64,3}},pressure::Array{Float64,1},sig1grid::Array{Float64,1},splorder::Int64)
+function vars2sigma1(vars::Dict{String,Array{T,3}},pressure::Vector{T},sig1grid::Vector{T},splorder::Int64) where T<:AbstractFloat
 
     # check that θ and S exist. They must.
     (haskey(vars,"THETA") && haskey(vars,"SALT")) ? nothing : error("Need θ and S in vars")
@@ -628,16 +599,16 @@ function vars2sigma1(vars::Dict{String,Array{Float64,3}},pressure::Array{Float64
 
     # vcol = Dict with profile/column data
     # pre-allocate each key in vars
-    vcol = Dict{String,Array{Float64,1}}() # vars in a column
-    varsσ = Dict{String,Array{Float64,3}}()
+    vcol = Dict{String,Array{T,1}}() # vars in a column
+    varsσ = Dict{String,Array{T,3}}()
 
     for (key, value) in vars
-        vcol[key] = fill(NaN,nz)
-        varsσ[key] = fill(NaN,(nx,ny,nσ))
+        vcol[key] = fill(convert(T,NaN),nz)
+        varsσ[key] = fill(convert(T,NaN),(nx,ny,nσ))
     end
 
     # allocate standard pressure by hand.
-    varsσ["p"] = fill(NaN,(nx,ny,nσ))
+    varsσ["p"] = fill(convert(T,NaN),(nx,ny,nσ))
 
     for xx = 1:nx
         for yy = 1:ny
@@ -679,19 +650,20 @@ end
     function sigmacolumn(θ,S,p,p0)
     σ for a water column
 # Arguments
-- `θz::Array{Float,1}}`: potential temperature
-- `Sz::Array{Float,1}}`: practical salinity
-- `pz::Array{Float,1}`: vertical profile of standard pressures
-- `p0::Float`: reference pressure
+- `θz::Vector{T}`: potential temperature
+- `Sz::Vector{T}`: practical salinity
+- `pz::Vector{T}`: vertical profile of standard pressures
+- `p0::Integer`: reference pressure
 # Output
-- `σ`:  sigma for wet points in column
+- `σ::Vector{T}`:  sigma for wet points in column
 """
-function sigmacolumn(θz,Sz,pz,p0)
+function sigmacolumn(θz::Vector{T},Sz::Vector{T},pz::Vector{T},p0::Integer)::Vector{T} where T<:AbstractFloat
     nz = length(θz)
     σ = similar(θz)
+    p0T = convert(T,p0)
     # hard coded for sigma1
-    σa,σb,σc = MITgcmTools.SeaWaterDensity(θz,Sz,pz,p0)
-    [σ[zz] = convert(Float32,σc[zz]) .- 1000 for zz = 1:nz]
+    σa,σb,σc = MITgcmTools.SeaWaterDensity(θz,Sz,pz,p0T)
+    [σ[zz] = convert(T,σc[zz]) .- 1000.0 for zz = 1:nz]
     return σ
 end
 
@@ -705,7 +677,7 @@ end
 # Output
 - `σ₁`:  sigma-1 for wet points in column
 """
-sigma1column(θz,Sz,pz) = sigmacolumn(θz,Sz,pz,1000f0)
+sigma1column(θz,Sz,pz) = sigmacolumn(θz,Sz,pz,1000)
 
 """
     function var2sigmacolumn(σ,v,sig1grid,splorder)
@@ -741,15 +713,15 @@ function var2sigmacolumn(σorig,v,σgrid,splorder)
     # 2) range of sig1, 3) no extrapolation
     # if sum(diff(σ₁).<0)==0 && count(minimum(σ₁).<=sig1grid.<=maximum(σ₁)) > 0
     # added nσin > 1 to fix error
-    if nσin > 1 && count(minimum(σ).<=σgrid.<=maximum(σ)) > 0
+    if nσin > 1 && count(minimum(σ) .<= σgrid .<= maximum(σ)) > 0
 
         # eliminate any extrapolation
-        sgood = findall(minimum(σ).<=σgrid.<=maximum(σ))
+        sgood = findall(minimum(σ).<=σgrid.<= maximum(σ))
         ngood = length(sgood)
 
         if nσin > splorder
             θspl = Spline1D(σ,v;k=splorder)
-            prinln("doing spline")
+            println("doing spline")
             for ss in sgood
                 θonσ[ss] = θspl(σgrid[ss])
             end
@@ -1361,71 +1333,31 @@ function netcdf2dict(ncfilename::String,ncvarname::String,γ::gcmgrid)
 end
 
 """
-function replace!(f,a::MeshArrays.gcmarray{Float64,1,Array{Float64,2}}}
+function replace!(f,a::MeshArrays.gcmarray{T,N,Array{T,2}}}
+# Arguments
+- `f::function` = replace a with f(a)
+- `a::MeshArrays.gcmarray{T,N,Array{T,2}}`: gcmarray with variable type and time-dimension
 """
-function replace!(f,a::MeshArrays.gcmarray{Float64,1,Array{Float64,2}})
+function replace!(f,a::MeshArrays.gcmarray{T,N,Array{T,2}}) where T<:AbstractFloat where N
 
-    nf = size(a,1)
-    for ff = 1:nf
+    #nf = size(a,1)
+    for ff = eachindex(a)
         Base.replace!(f,a[ff])
     end
     return a
 end
 
 """
-function replace!(a::MeshArrays.gcmarray{Float32,1,Array{Float32,2}}},b::Pair)
+function replace!(a::MeshArrays.gcmarray{T,N,Array{T,2}}},b::Pair) where T
+# Arguments
+- `a::MeshArrays.gcmarray{T,N,Array{T,2}}`: gcmarray with variable type and time-dimension
+- `b::Pair`: replace `a` elements of pair 1 with pair 2
 """
-function replace!(a::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},b::Pair)
+function replace!(a::MeshArrays.gcmarray{T,N,Array{T,2}},b::Pair) where T<:AbstractFloat where N
 
-    nf = size(a,1)
-    for ff = 1:nf
+    # nf = size(a,1)
+    for ff = eachindex(a)
         Base.replace!(a[ff],b)
-    end
-    return a
-end
-
-"""
-function replace!(a::MeshArrays.gcmarray{Float64,1,Array{Float64,2}}},b::Pair)
-"""
-function replace!(a::MeshArrays.gcmarray{Float64,1,Array{Float64,2}},b::Pair)
-
-    nf = size(a,1)
-    for ff = 1:nf
-        Base.replace!(a[ff],b)
-    end
-    return a
-end
-
-"""
-function replace!(a::MeshArrays.gcmarray{Float32,2,Array{Float32,2}}},b::Pair)
-"""
-function replace!(a::MeshArrays.gcmarray{Float32,2,Array{Float32,2}},b::Pair)
-
-    # tried to recursively call replace! but failed.
-    # instead do double nested case.
-    nf = size(a,1)
-    nrec = size(a,2)
-    for ff = 1:nf
-        for rr = 1:nrec
-            Base.replace!(a[ff,rr],b)
-        end
-    end
-    return a
-end
-
-"""
-function replace!(a::MeshArrays.gcmarray{Float32,2,Array{Float32,2}}},b::Pair)
-"""
-function replace!(a::MeshArrays.gcmarray{Float64,2,Array{Float64,2}},b::Pair)
-
-    # tried to recursively call replace! but failed.
-    # instead do double nested case.
-    nf = size(a,1)
-    nrec = size(a,2)
-    for ff = 1:nf
-        for rr = 1:nrec
-            Base.replace!(a[ff,rr],b)
-        end
     end
     return a
 end
@@ -1807,4 +1739,398 @@ function apply_regional_mask!(field,mask)
     
 end
 
+"""
+    read_netcdf(fileName,fldName,mygrid)
+
+Read model output from NetCDF files that are global and convert to MeshArray instance.
+```
+"""
+function read_netcdf(fileName::String,fldName::String,mygrid::gcmgrid)
+    if (mygrid.class!="LatLonCap")||(mygrid.ioSize!=[90 1170])
+        error("non-llc90 cases not implemented yet")
+    end
+
+    fileIn= fileName #@sprintf("%s.%04d.nc",fileName,1)
+    #    println(fileIn)
+    xglobal = ncread(fileIn,fldName)
+    s = [size(xglobal,i) for i in 1:ndims(xglobal)]
+    n=length(size(xglobal))
+    
+    # manually, drop dimension 5.
+    if n == 5
+        xglobal = xglobal[:,:,:,:,1]
+        n = ndims(xglobal)
+    end
+    f0=Array{Float64}(undef,90,0,s[4])
+    f00=Array{Float64}(undef,0,90,s[4])
+    f=[f0,f0,f0,f00,f00]
+
+    # take the 13 tiles and put them into 5 faces
+    #xarray = Array{Float64}(undef,90,1170,50)
+    f[1] = cat(xglobal[:,:,1,:],xglobal[:,:,2,:],xglobal[:,:,3,:];dims=2)
+    f[2] = cat(xglobal[:,:,4,:],xglobal[:,:,5,:],xglobal[:,:,6,:];dims=2)
+    f[3] = xglobal[:,:,7,:];
+    f[4] = cat(xglobal[:,:,8,:],xglobal[:,:,9,:],xglobal[:,:,10,:];dims=1)
+    f[5] = cat(xglobal[:,:,11,:],xglobal[:,:,12,:],xglobal[:,:,13,:];dims=1)
+
+    fld=MeshArray(mygrid,f)
+    return fld
 end
+
+
+"""
+    extract_timeseries(froot,years,γ,xval,yval,fval)
+# Arguments
+- `froot::String`: filename root
+- `years::StepRange`: iterator for multiple files
+- `γ::gcmarray`: GCM grid from MeshArrays.jl
+- `xval::Integer`: x grid index
+- `yval::Integer`: y grid index
+- `fval::Integer`: face index
+# Output    
+- `tseries`: timeseries
+- `nseries`: nseries = number of timeseries elements in each year
+```
+"""
+function extract_timeseries(froot,years,γ,xval,yval,fval)
+    tseries = []
+    nseries = []
+    nyr = length(years)
+    for tt = 1:nyr
+        fname = froot*string(years[tt])
+        println(fname)
+        field = read_bin(fname,Float32,γ)
+        series = extract_timeseries(field,xval,yval,fval)
+        push!(nseries,length(series))
+        append!(tseries,series[:])
+    end
+    return tseries,nseries
+end
+
+################################################################################################
+"""
+    extract_timeseries(flux,xval,yval,fval)
+# Arguments
+- `flux::MeshArrays.gcmarray{Float32,2,Array{Float32,2}}`: input array of arrays
+- `years::StepRange`: iterator for multiple files
+- `xval::Integer`: x grid index
+- `yval::Integer`: y grid index
+- `fval::Integer`: face index
+# Output    
+- `series`: timeseries
+"""
+function extract_timeseries(flux::MeshArrays.gcmarray{Float32,2,Array{Float32,2}},xval,yval,fval)
+    nt = size(flux,2)
+    series = Float32[]
+    
+    for tval ∈ 1:nt
+        tmp = flux[fval,tval]
+        push!(series,tmp[xval,yval])
+    end
+    return series
+end
+
+###############################################################################################
+"""
+    extract_timeseries(flux,xval,yval,fval)
+# Arguments
+- `flux::MeshArrays.gcmarray{Float64,2,Array{Float64,2}}`: input array of arrays
+- `years::StepRange`: iterator for multiple files
+- `xval::Integer`: x grid index
+- `yval::Integer`: y grid index
+- `fval::Integer`: face index
+# Output    
+- `series`: timeseries
+"""
+function extract_timeseries(flux::MeshArrays.gcmarray{Float64,2,Array{Float64,2}},xval,yval,fval)
+    nt = size(flux,2)
+    series = Float64[]
+    
+    for tval ∈ 1:nt
+        tmp = flux[fval,tval]
+        push!(series,tmp[xval,yval])
+    end
+    return series
+end
+
+#################################################################################################
+# tell julia how to do matrix multiplication
+function matmul(M::Array{Float64,2},flux::MeshArrays.gcmarray{Float64,2,Array{Float64,2}},γ) ::MeshArrays.gcmarray{Float64,2,Array{Float64,2}}
+
+    nM = size(M,1)  # matrix size M
+    nN = size(flux,2) # matrix size N
+    nQ  = size(flux,1) # repeat matmul Q times
+    
+    # initialize product
+    product = 0.0 .* MeshArray(γ,Float64,nM)
+    
+    for mm = 1:nM
+        for qq = 1:nQ # inner product over faces
+            for nn = 1:nN # inner product over time
+                product[qq,mm] += flux[qq,nn] * M[mm,nn]
+                #product[ff,pp] +=  transpose(F[pp,tt]'*flux[ff,tt]')
+            end
+        end
+    end
+    return product
+end
+
+function matmul(M::Array{Float32,2},flux::MeshArrays.gcmarray{Float32,2,Array{Float32,2}},γ::gcmgrid) ::MeshArrays.gcmarray{Float32,2,Array{Float32,2}}
+
+    nM = size(M,1)  # matrix size M
+    nN = size(flux,2) # matrix size N
+    nQ  = size(flux,1) # repeat matmul Q times
+    
+    # initialize product
+    #product = 0.0f0 .* MeshArray(γ,Float32,nM)
+    println("sub-optimal initialization")
+    product = MeshArray(γ,Float32,nM) # some nans here
+    tmp1=zeros(Float32,Tuple(γ.ioSize))
+    for tt= 1:nM
+        # initialize a sub-optimal way
+        product[:,tt]=γ.read(tmp1,MeshArray(γ,Float32))
+    end
+
+    for mm = 1:nM
+        for qq = 1:nQ # inner product over faces
+            for nn = 1:nN # inner product over time
+                product[qq,mm] += flux[qq,nn] * M[mm,nn]
+                #product[ff,pp] +=  transpose(F[pp,tt]'*flux[ff,tt]')
+            end
+        end
+    end
+    return product
+end
+
+function matmul(M::Array{Float32,1},flux::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},γ::gcmgrid) ::MeshArrays.gcmarray{Float32,2,Array{Float32,2}}
+
+    nM = size(M,1)  # matrix size M
+    nQ  = size(flux,1) # repeat matmul Q times
+    
+    # initialize product
+    #product = 0.0f0 .* MeshArray(γ,Float32,nM)
+    println("sub-optimal initialization")
+    product = MeshArray(γ,Float32,nM) # some nans here
+    tmp1=zeros(Float32,Tuple(γ.ioSize))
+    for tt= 1:nM
+        # initialize a sub-optimal way
+        product[:,tt]=γ.read(tmp1,MeshArray(γ,Float32))
+    end
+
+    for mm = 1:nM
+        for qq = 1:nQ # inner product over faces
+            product[qq,mm] += flux[qq] * M[mm]
+                #product[ff,pp] +=  transpose(F[pp,tt]'*flux[ff,tt]')
+        end
+    end
+    return product
+end
+
+function matmul(M::Array{Float64,1},flux::MeshArrays.gcmarray{Float64,1,Array{Float64,2}},γ) ::MeshArrays.gcmarray{Float64,2,Array{Float64,2}}
+
+    nM = size(M,1)  # matrix size M
+    nQ  = size(flux,1) # repeat matmul Q times
+    
+    # initialize product
+    #product = 0.0 .* MeshArray(γ,Float64,nM)
+    println("sub-optimal initialization")
+    product = MeshArray(γ,Float64,nM) # some nans here
+    tmp1=zeros(Float64,Tuple(γ.ioSize))
+    for tt= 1:nM
+        # initialize a sub-optimal way
+        product[:,tt]=γ.read(tmp1,MeshArray(γ,Float64))
+    end
+    
+    for mm = 1:nM
+        for qq = 1:nQ # inner product over faces
+            product[qq,mm] += flux[qq] * M[mm]
+                #product[ff,pp] +=  transpose(F[pp,tt]'*flux[ff,tt]')
+        end
+    end
+    return product
+end
+
+"""
+    function nancount
+
+    Count number of NaN's in gcmgrid type 
+# Input
+- `field::MeshArrays.gcmarray{T,N,Matrix{T}}`: input of gcmarray type, can have multiple records
+# Output
+- `nannum::Int`: number of NaNs
+"""
+function nancount(field::MeshArrays.gcmarray{T, N, Matrix{T}}) where T<:AbstractFloat where N
+
+    nannum = zeros(Int64,size(field))
+    for i1 = eachindex(field)
+        nannum[i1] = sum(isnan,field[i1])
+    end
+    return nannum
+end
+
+"""
+    function maximum
+
+    Compute maximum value of gcmgrid type 
+# Input
+- `x::MeshArrays.gcmarray{T,N,Array{T,2}}`: input of gcmarray type and filter out `dryval`s
+- `dryval::T`: land value to be eliminated in calculation
+# Output
+- `xmax::T`: maximum value of 2D field
+"""
+function maximum(x::MeshArrays.gcmarray{T,N,Array{T,2}},dryval::T) where T<:AbstractFloat where N
+
+    # problem NaN == NaN is false
+    # if isnan(z)
+    #     isdry = isnan
+    # else
+    #     isdry(z) = (z == dryval)
+    # end
+    isnan(dryval) ? isdry = isnan : isdry(z) = (z == dryval)
+    
+    #  vector list of non-dry (wet) elements
+    xcount = [sum(count(!isdry,x[i])) for i in eachindex(x)]
+    println(xcount)
+    if sum(xcount) > 0
+        xmax = maximum([maximum(filter(!isdry,x[i])) for i in eachindex(x) if xcount[i] > 0])
+    else
+        xmax = convert(T,NaN)
+    end
+    return xmax
+end
+
+"""
+    function minimum
+
+    Compute minimum value of gcmgrid type 
+    and filter out `dryval`s
+# Input
+- `x::MeshArrays.gcmarray{T,N,Array{T,2}}`: input of gcmarray type and filter out `dryval`s
+- `dryval::T`: land value to be eliminated in calculatio# Output
+- `xmin::T`: minimum value of 2D field
+"""
+function minimum(x::MeshArrays.gcmarray{T,N,Array{T,2}},dryval::T) where T<:AbstractFloat where N
+    xmin = -maximum(-x,dryval)
+    return xmin
+end
+
+"""
+    function mean
+
+    Compute mean of gcmgrid type using function calls, eliminate redundancy
+    Eliminate all values = dryval
+# Input
+- `x::MeshArrays.gcmarray{T,N,Array{T,2}}`: input of gcmarray type
+- `dryval::T`: land value (doesn't work for NaN32)
+# Output
+- `xbar::T`: mean value (unweighted)
+"""
+function mean(x::MeshArrays.gcmarray{T,N,Array{T,2}},dryval::T)::T where T<:AbstractFloat where N
+
+    #isdry(z) = (z == dryval)
+    isnan(dryval) ? isdry = isnan : isdry(z) = (z == dryval)
+
+    #  vector list of nonzero elements
+    xcount = [sum(count(!isdry,x[i])) for i in eachindex(x)]
+    if sum(xcount) > 0
+        # don't assume 0 on land
+        xsum = sum([sum(filter(!isdry,x[i])) for i in eachindex(x) if xcount[i] > 0])
+        xbar = xsum/sum(xcount)
+    else
+        #xbar = NaN
+        xbar = convert(T,NaN)
+    end
+    return xbar
+end
+
+"""
+    function mean
+    Compute area-weighted mean of gcmgrid type using function calls, eliminate redundancy
+    Area weighting = area
+    Eliminate all values = dryval
+
+# Input
+- `x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}}`: input of gcmarray type
+- `weight::MeshArrays.gcmarray{Float32,1,Array{Float32,2}}`: weighting variable of gcmarray type
+- `dryval::Float32`: land value (doesn't work for NaN32)
+# Output
+- `xbar::Float32`: mean value (unweighted)
+"""
+function mean(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},weight::MeshArrays.gcmarray{Float64,1,Array{Float64,2}},dryval::Float64)
+
+    isnan(dryval) ? isdry = isnan : isdry(z) = (z == dryval)
+    #isdry(z) = (z == dryval)
+    
+    #  vector list of nonzero elements
+    xcount = [sum(count(!isdry,x[i])) for i in eachindex(x)]
+    if sum(xcount) > 0
+        # don't assume 0 on land
+        xsum = sum([sum(filter(!isdry,x[i].*weight[i])) for i in eachindex(x) if xcount[i] > 0])
+        xdenom = sum([sum(filter(!isdry,weight[i])) for i in eachindex(weight) if xcount[i] > 0])
+        xbar = xsum/xdenom
+    else
+        xbar = NaN32
+    end
+    return xbar
+end
+
+"""
+    function mean
+    Compute area-weighted mean of gcmgrid type using filtered with function isgood
+    Area weighting = area
+    Eliminate all values = isgood(x) -> true
+
+# Input
+- `x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}}`: input of gcmarray type
+- `weight::MeshArrays.gcmarray{Float32,1,Array{Float32,2}}`: weighting variable of gcmarray type
+- `isgood::Function`: returns true is a value to be used in the mean
+# Output
+- `xbar::Float32`: mean value (weighted and filtered)
+"""
+function mean(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},weight::MeshArrays.gcmarray{Float64,1,Array{Float64,2}},isgood)
+
+    #  vector list of nonzero elements
+    xcount = [sum(count(isgood,x[i])) for i in eachindex(x)]
+    if sum(xcount) > 0
+        # don't assume 0 on land
+        xsum = sum([sum(filter(isgood,x[i].*weight[i])) for i in eachindex(x) if xcount[i] > 0])
+        xdenom = sum([sum(filter(isgood,weight[i])) for i in eachindex(weight) if xcount[i] > 0])
+        xbar = xsum/xdenom
+    else
+        xbar = NaN32
+    end
+    return xbar
+end
+
+"""
+    function std
+    Compute standard deviation of gcmgrid type using function calls, eliminate redundancy
+    Eliminate all values = dryval
+
+# Input
+- `x::MeshArrays.gcmarray{T,N,Array{T,2}}`: input of gcmarray type
+- `xbar::T`: mean value
+- `dryval::T`: land value 
+# Output
+- `σx::T`: standard deviation 
+"""
+function std(x::MeshArrays.gcmarray{T,N,Array{T,2}},xbar::T,dryval::T) where T<:AbstractFloat where N
+
+    isnan(dryval) ? isdry = isnan : isdry(z) = (z == dryval)
+
+    # x prime = fluctuation
+    x′ = x .- xbar
+    
+    #  vector list of nonzero elements
+    xcount = [sum(count(!isdry,x′[i])) for i in eachindex(x′)]
+    if sum(xcount) > 0
+        # don't assume 0 on land
+        x²sum = sum([sum(filter(!isdry,x′[i]).^2) for i in eachindex(x) if xcount[i] > 0])
+        σx = sqrt(x²sum/(sum(xcount)-1))
+    else
+        xbar = convert(T,NaN)
+    end
+    return σx
+end
+
+end #module
