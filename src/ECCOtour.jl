@@ -34,6 +34,7 @@ export centerlon!, read_netcdf
 export extract_timeseries,matmul,position_label,nancount
 export faststats, allstats, std, mean
 export maximum, minimum, mean, std, replace!
+export velocity2center, rotate_uv, rotate_velocity!
 
 include("HannFilter.jl")
 include("MatrixFilter.jl")
@@ -759,18 +760,18 @@ function factors4regularpoles(γ)
     λC = -179.5:179.5
     ϕG = vcat(ϕGantarc,ϕGreg,ϕGarc)
     ϕC = vcat(ϕCantarc,ϕCreg,ϕCarc)
-    farc,iarc,jarc,warc = prereginterp(ϕCarc,λC,γ)
-    fantarc,iantarc,jantarc,wantarc = prereginterp(ϕCantarc,λC,γ)
+    λarc = prereginterp(ϕCarc,λC,γ)
+    λantarc = prereginterp(ϕCantarc,λC,γ)
     nx = length(λC)
     ny = length(ϕC)
     nyarc = length(ϕCarc)
     nyantarc = length(ϕCantarc)
 
-    return λC,λG,ϕC,ϕG,nx,ny,nyarc,nyantarc,farc,iarc,jarc,warc,fantarc,iantarc,jantarc,wantarc
+    return λC,λG,ϕC,ϕG,nx,ny,nyarc,nyantarc,λarc,λantarc
 end
 
 """
-    function factors4regularpoles(γ)
+    function factors4velocity(γ)
     Get interpolation factors for regularpoles grid in one place
 """
 function factors4velocity(γ)
@@ -796,11 +797,12 @@ end
 - `f,i,j,w`: interpolation factors
 """
 function prereginterp(latgrid,longrid,γ)
-    Γ = GridLoad(γ)
+    Γ = GridLoad(γ;option="full")
     lon2d=[i for i=longrid, j=latgrid]
     lat2d=[j for i=longrid, j=latgrid]
     @time (f,i,j,w)=InterpolationFactors(Γ,vec(lon2d),vec(lat2d))
-    return f,i,j,w
+    λ=(lon=lon2d,lat=lat2d,f=f,i=i,j=j,w=w);
+    return λ
 end
 
 """
@@ -810,35 +812,23 @@ end
 # Arguments
 - `fldin`: gcmarray field of input
 - `nx,ny`: x,y dimension of output regular field
-- `f,i,j,w`: precomputed interpolation factors
+- `λ=(f,i,j,w)`: precomputed interpolation factors
 # Output
 - `fldout`: interpolated regular 2d field
 """
-function reginterp(fldin,nx,ny,f,i,j,w)
-    fldout = Interpolate(fldin,f,i,j,w)
+function reginterp(fldin,nx,ny,λ)
+    fldout = Interpolate(fldin,λ.f,λ.i,λ.j,λ.w)
 
     # think about moving this before interpolation
     # replace!(fldout,0.0 => NaN)
     fldout = transpose(reshape(fldout,nx,ny))
+    
     return fldout
 end
 
 """
-    function rotatevelocity
-    
-    take LLC grid uvel, vvel and rotate to nvel, evel
+function mixinversions!(a,b)
 """
-#function nvel,evel = rotatevelocity(uvel,vvel)
-    # from timothyas, first interpolate velocity from cell edges to cell centers
-
-    # compute nvel, evel using cos and sin (angles)
-
-    # read AngleCS, AngleSN
-    
-    #evel = uvel*cosine - vvel * sin
-    #nvel = uvel*sin + vvel*cos
-#end
-
 function mixinversions!(a,b)
     while sum(diff(a).<=0) > 0
         length(a) == 1 ? da = 1. : da = diff(a)
@@ -850,6 +840,9 @@ function mixinversions!(a,b)
     end
 end
 
+"""
+function dedup!(a,b)
+"""
 function dedup!(a,b)
     length(a) == 1 ? da = 1. : da = diff(a)
     while count(iszero,da) > 0
@@ -1362,21 +1355,23 @@ function replace!(a::MeshArrays.gcmarray{T,N,Array{T,2}},b::Pair) where T<:Abstr
     return a
 end
 
-function netcdf2regularpoles(ncfilename,ncvarname,γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
+function netcdf2regularpoles(ncfilename,ncvarname,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
 
     vars = netcdf2dict(ncfilename,ncvarname,γ)
-    varsregpoles = vars2regularpoles(vars,γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
+    varsregpoles = vars2regularpoles(vars,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
 
 end
 
-function mdsio2regularpoles(pathin,filein,γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
+function mdsio2regularpoles(pathin,filein,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
 
     vars = mdsio2dict(pathin,filein,γ)
-    varsregpoles = vars2regularpoles(vars,γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
+    Γ = GridLoad(γ;option="full")
+    rotate_velocity!(vars,Γ)
+    varsregpoles = vars2regularpoles(vars,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
 
 end
 
-function vars2regularpoles(vars::Dict{String,MeshArrays.gcmarray{Float32,2,Array{Float32,2}}},γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
+function vars2regularpoles(vars::Dict{String,MeshArrays.gcmarray{Float32,2,Array{Float32,2}}},γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
 
     varsregpoles = Dict{String,Array{Float32,3}}()
 
@@ -1391,13 +1386,13 @@ function vars2regularpoles(vars::Dict{String,MeshArrays.gcmarray{Float32,2,Array
 
         for zz = 1:nz
             # get regular grid by cropping
-            varsregpoles[varname][:,:,zz]=var2regularpoles(varvals[:,zz],γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
+            varsregpoles[varname][:,:,zz]=var2regularpoles(varvals[:,zz],γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
         end
     end
     return varsregpoles
 end
 
-function vars2regularpoles(vars::Dict{String,MeshArrays.gcmarray{Float64,2,Array{Float64,2}}},γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
+function vars2regularpoles(vars::Dict{String,MeshArrays.gcmarray{Float64,2,Array{Float64,2}}},γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
 
     varsregpoles = Dict{String,Array{Float32,3}}()
 
@@ -1411,31 +1406,31 @@ function vars2regularpoles(vars::Dict{String,MeshArrays.gcmarray{Float64,2,Array
         varsregpoles[varname] = fill(NaN,(nx,ny,nz))
 
         for zz = 1:nz
-            varsregpoles[varname][:,:,zz]=var2regularpoles(varvals[:,zz],γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
+            varsregpoles[varname][:,:,zz]=var2regularpoles(varvals[:,zz],γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
         end
     end
     return varsregpoles
 end
 
-function vars2regularpoles(vars::Dict{String,MeshArrays.gcmarray{Float64,1,Array{Float64,2}}},γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
+function vars2regularpoles(vars::Dict{String,MeshArrays.gcmarray{Float64,1,Array{Float64,2}}},γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
 
     varsregpoles = Dict{String,Array{Float32,2}}()
     for (varname, varvals) in vars
-        varsregpoles[varname]=var2regularpoles(varvals,γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
+        varsregpoles[varname]=var2regularpoles(varvals,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
     end
     return varsregpoles
 end
 
 """
-function vars2regularpoles(vars::Dict{String,MeshArrays.gcmarray{Float32,1,Array{Float32,2}}},γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
+function vars2regularpoles(vars::Dict{String,MeshArrays.gcmarray{Float32,1,Array{Float32,2}}},γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
      variables interpolated onto regularpoles grid
 """
-function vars2regularpoles(vars::Dict{String,MeshArrays.gcmarray{Float32,1,Array{Float32,2}}},γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
+function vars2regularpoles(vars::Dict{String,MeshArrays.gcmarray{Float32,1,Array{Float32,2}}},γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
 
     varsregpoles = Dict{String,Array{Float32,2}}()
     for (varname, varvals) in vars
 
-        varsregpoles[varname] = var2regularpoles(varvals,γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
+        varsregpoles[varname] = var2regularpoles(varvals,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
 
     end
     return varsregpoles
@@ -1445,8 +1440,8 @@ end
    var2regularpoles
    Take one gcmarray in memory, put on regularpoles grid
 """
-function var2regularpoles(var,γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
-#    function var2regularpoles(var::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
+function var2regularpoles(var,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
+
     # remove contamination from land
     replace!(var, 0.0 => NaN)
 
@@ -1457,8 +1452,8 @@ function var2regularpoles(var,γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantar
     θcrop =  LLCcropC(var,γ)
 
     # interpolate to "regularpoles"
-    θarc = reginterp(var,nx,nyarc,farc,iarc,jarc,warc)
-    θantarc = reginterp(var,nx,nyantarc,fantarc,iantarc,jantarc,wantarc)
+    θarc = reginterp(var,nx,nyarc,λarc)
+    θantarc = reginterp(var,nx,nyantarc,λantarc)
     varregpoles=hcat(θantarc',θcrop,θarc')
     return varregpoles
 end
@@ -2131,6 +2126,66 @@ function std(x::MeshArrays.gcmarray{T,N,Array{T,2}},xbar::T,dryval::T) where T<:
         xbar = convert(T,NaN)
     end
     return σx
+end
+
+function rotate_velocity!(vars,Γ)
+
+    if haskey(vars,"UVELMASS") & haskey(vars,"VVELMASS")
+        evel = similar(vars["UVELMASS"])
+        nvel = similar(vars["UVELMASS"])
+        for zz = 1: size(vars["UVELMASS"],2)
+            println(zz)
+            #interpolate velocity to center of C-grid
+            uC,vC = velocity2center(vars["UVELMASS"][:,zz],vars["VVELMASS"][:,zz],Γ)
+        
+            evel[:,zz],nvel[:,zz] = rotate_uv(uC,vC,Γ);
+        end
+        push!(vars,"EVELMASS" => evel)
+        push!(vars,"NVELMASS" => nvel)
+        delete!(vars,"UVELMASS")
+        delete!(vars,"VVELMASS")
+    end
+end
+
+"""
+    velocity2center(u,v,G)
+  
+    From Gael Forget, JuliaClimateNotebooks/Transport
+    #1. Convert to `Sv` units and mask out land
+    2. Interpolate `x/y` transport to grid cell center
+"""
+function velocity2center(u,v,G)
+
+    #G = GridLoad(γ;option="full")
+    u[findall(G.hFacW[:,1].==0)].=NaN
+    v[findall(G.hFacS[:,1].==0)].=NaN;
+
+    nanmean(x) = mean(filter(!isnan,x))
+    nanmean(x,y) = mapslices(nanmean,x,dims=y)
+    (u,v)=exch_UV(u,v); uC=similar(u); vC=similar(v)
+    for iF=1:u.grid.nFaces
+        tmp1=u[iF][1:end-1,:]; tmp2=u[iF][2:end,:]
+        uC[iF]=reshape(nanmean([tmp1[:] tmp2[:]],2),size(tmp1))
+        tmp1=v[iF][:,1:end-1]; tmp2=v[iF][:,2:end]
+        vC[iF]=reshape(nanmean([tmp1[:] tmp2[:]],2),size(tmp1))
+    end
+
+    return uC, vC
+end
+
+"""
+function rotate_uv(uvel,vvel,G)
+From Gael Forget, JuliaClimateNotebooks/Transport
+    3. Convert to `Eastward/Northward` transport
+    4. Display Subdomain Arrays (optional)
+"""
+function rotate_uv(uvel,vvel,G)
+    cs=G.AngleCS
+    sn=G.AngleSN
+    evel=uvel.*cs-vvel.*sn
+    nvel=uvel.*sn+vvel.*cs
+
+    return evel,nvel
 end
 
 end #module
