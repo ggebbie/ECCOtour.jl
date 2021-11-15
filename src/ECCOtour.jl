@@ -2130,20 +2130,64 @@ end
 
 function rotate_velocity!(vars,Γ)
 
-    if haskey(vars,"UVELMASS") & haskey(vars,"VVELMASS")
-        evel = similar(vars["UVELMASS"])
-        nvel = similar(vars["UVELMASS"])
-        for zz = 1: size(vars["UVELMASS"],2)
-            println(zz)
-            #interpolate velocity to center of C-grid
-            uC,vC = velocity2center(vars["UVELMASS"][:,zz],vars["VVELMASS"][:,zz],Γ)
-        
-            evel[:,zz],nvel[:,zz] = rotate_uv(uC,vC,Γ);
+    velvars = (("UVELMASS","VVELMASS"),("GM_PsiX","GM_PsiY"),("oceTAUX","oceTAUY"))
+    velchange = Dict("UVELMASS" => "EVELMASS",
+                     "VVELMASS" => "NVELMASS",
+                     "GM_PsiX" => "GM_PsiE",
+                     "GM_PsiY" => "GM_PsiN",
+                     "oceTAUX" => "oceTAUE",
+                     "oceTAUY" => "oceTAUN")
+
+    for (kk,vv) in velvars
+        if haskey(vars,kk) && haskey(vars,vv)
+            evel = similar(vars[kk])
+            nvel = similar(vars[vv])
+            uC = similar(vars[kk][:,1]) # one level
+            vC = similar(vars[vv][:,1]) # one level
+            for zz = 1: size(vars[kk],2)
+
+                #interpolate velocity to center of C-grid
+                velocity2center!(uC,vC,vars[kk][:,zz],vars[vv][:,zz],Γ)
+                
+                evel[:,zz],nvel[:,zz] = rotate_uv(uC,vC,Γ);
+            end
+            push!(vars,velchange[kk] => evel)
+            push!(vars,velchange[vv] => nvel)
+            delete!(vars,kk)
+            delete!(vars,vv)
         end
-        push!(vars,"EVELMASS" => evel)
-        push!(vars,"NVELMASS" => nvel)
-        delete!(vars,"UVELMASS")
-        delete!(vars,"VVELMASS")
+    end
+end
+
+"""
+    velocity2center!(uC,vC,u,v,G)
+  
+    From Gael Forget, JuliaClimateNotebooks/Transport
+    #1. Convert to `Sv` units and mask out land
+    2. Interpolate `x/y` transport to grid cell center
+"""
+function velocity2center!(uC,vC,u,v,G)
+
+    #G = GridLoad(γ;option="full")
+    #u[findall(G.hFacW[:,1].==0)].=NaN
+    #v[findall(G.hFacS[:,1].==0)].=NaN;
+
+    # replace slow findall with this kludge
+    # kludge makes routine 2x faster
+    # tmp variables below may also be slow (not views)
+    # warning: may introduce bugs
+    T = eltype(u)
+    replace!(u,zero(T) => zero(T)/zero(T)) # NaN
+    replace!(v,zero(T) => zero(T)/zero(T)) # NaN
+    
+    nanmean(x) = mean(filter(!isnan,x))
+    nanmean(x,y) = mapslices(nanmean,x,dims=y)
+    (u,v)=exch_UV(u,v); 
+    for iF=1:u.grid.nFaces
+        tmp1=u[iF][1:end-1,:]; tmp2=u[iF][2:end,:]
+        uC[iF]=reshape(nanmean([tmp1[:] tmp2[:]],2),size(tmp1))
+        tmp1=v[iF][:,1:end-1]; tmp2=v[iF][:,2:end]
+        vC[iF]=reshape(nanmean([tmp1[:] tmp2[:]],2),size(tmp1))
     end
 end
 
