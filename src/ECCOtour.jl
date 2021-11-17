@@ -34,6 +34,7 @@ export centerlon!, read_netcdf
 export extract_timeseries,matmul,position_label,nancount
 export faststats, allstats, std, mean
 export maximum, minimum, mean, std, replace!
+export velocity2center, rotate_uv, rotate_velocity!
 
 include("HannFilter.jl")
 include("MatrixFilter.jl")
@@ -283,17 +284,14 @@ function faststats(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}})
     #isdry(z) = (z == dryval)
 
     xcount = [sum(count(notnanorzero,x[i])) for i in eachindex(x)]
-    println(xcount)
+
     if sum(xcount)>0
         xmax = maximum([maximum(filter(notnanorzero,x[i])) for i ∈ eachindex(x) if xcount[i] > 0])
         xmin = minimum([minimum(filter(notnanorzero,x[i])) for i ∈ eachindex(x) if xcount[i] > 0])
 
         # compute mean the old fashioned way
         xsum = sum([sum(filter(notnanorzero,x[i])) for i ∈ eachindex(x) if xcount[i] > 0])
-        println(xsum)
-
         xbar = xsum/sum(xcount)
-        println(xbar)
 
         # compute standard deviation
         x′ = x.-xbar
@@ -433,10 +431,11 @@ end
 # Output
 - `varsσ::Dict{String,MeshArrays.gcmarray{T,N,Array{T,2}}}`: dict of gcmarrays of variables on sigma1 surfaces
 """
-function vars2sigma1(vars::Dict{String,MeshArrays.gcmarray{T,N,Array{T,2}}},pressure::Vector{T},sig1grid::Vector{T},γ::gcmgrid,splorder::Integer) where T<:AbstractFloat where N
+function vars2sigma1(vars::Dict{String,MeshArrays.gcmarray{T,2,Matrix{T}}},pressure::Vector{Float64},sig1grid::Vector{Float64},γ::gcmgrid,splorder::Integer) where T<:AbstractFloat 
 
-    # check that θ and S exist. They must.
-    (haskey(vars,"THETA") && haskey(vars,"SALT")) ? nothing : error("Need θ and S in vars")
+    # θ and S must exist
+    !haskey(vars,"THETA") && error("θ missing")
+    !haskey(vars,"SALT") && error("S missing")
 
     # loop over faces
     nf,nz = size(vars["THETA"])
@@ -445,14 +444,13 @@ function vars2sigma1(vars::Dict{String,MeshArrays.gcmarray{T,N,Array{T,2}}},pres
     # vcol = Dict with profile/column data
     # pre-allocate each key in vars
     vcol = Dict{String,Vector{T}}() # vars in a column
-    varsσ = Dict{String,MeshArrays.gcmarray{T,N,Array{T,2}}}()
+    varsσ = Dict{String,MeshArrays.gcmarray{T,2,Matrix{T}}}()
 
     for (key, value) in vars
         vcol[key] = fill(convert(T,NaN),nz)
         varsσ[key] = MeshArray(γ,T,nσ); fill!(varsσ[key],convert(T,NaN))
     end
     # allocate standard pressure by hand.
-    # CONSIDER ANOTHER FUNCTION TO DO PHIHYD.
     varsσ["p"] = MeshArray(γ,T,nσ); fill!(varsσ["p"],convert(T,NaN))
 
     for ff = 1:nf
@@ -472,30 +470,31 @@ function vars2sigma1(vars::Dict{String,MeshArrays.gcmarray{T,N,Array{T,2}}},pres
                     error("T,S zeroes inconsistent")
                 end
 
-                # incurs error if splorder > number of points in column
-                if nw > splorder #need >=n+1 points to do order-n interpolation
-                    #println(length(vcol["θ"][1:nw]))
+                if nw > 3 #need >=n+1 points to do order-n interpolation
                     σ₁=sigma1column(vcol["THETA"][1:nw],vcol["SALT"][1:nw],pressure[1:nw])
 
                     # 1) no inversions or homogeneity
                     # 2) range of sig1, 3) no extrapolation
-                    if sum(diff(σ₁).<0)==0 && count(minimum(σ₁).<=sig1grid.<=maximum(σ₁)) > 0
+                    #                    if sum(diff(σ₁).<0)==0 && count(minimum(σ₁).<=sig1grid.<=maximum(σ₁)) > 0
 
-                        # eliminate any extrapolation
-                        sgood = findall(minimum(σ₁).<=sig1grid.<=maximum(σ₁))
-                        ngood = length(sgood)
+                    # eliminate any extrapolation
+                    #                        sgood = findall(minimum(σ₁).<=sig1grid.<=maximum(σ₁))
+                    #                        ngood = length(sgood)
 
-                        for (vckey,vcval) in vcol
-                            varσ = var2sigmacolumn(σ₁,vcval[1:nw],sig1grid[sgood],splorder)
+                    for (vckey,vcval) in vcol
+                        varσ = var2sigmacolumn(σ₁,vcval[1:nw],sig1grid,splorder)
+                        #varσ = var2sigmacolumn(σ₁,vcval[1:nw],sig1grid[sgood],splorder)
 
-                            [varsσ[vckey][ff,sgood[ss]][xx,yy] = convert(T,varσ[ss]) for ss = 1:ngood]
-                        end
-
-                        # do standard pressure by hand.
-                        pσ = var2sigmacolumn(σ₁,pressure[1:nw],sig1grid[sgood],splorder)
-                        [varsσ["p"][ff,sgood[ss]][xx,yy] = convert(T,pσ[ss]) for ss = 1:ngood]
-
+                        [varsσ[vckey][ff,ss][xx,yy] = convert(T,varσ[ss]) for ss = 1:nσ]
+                        #[varsσ[vckey][ff,sgood[ss]][xx,yy] = convert(T,varσ[ss]) for ss = 1:ngood]
                     end
+
+                    # do standard pressure by hand.
+                    pσ = var2sigmacolumn(σ₁,pressure[1:nw],sig1grid,splorder)
+                    #                        pσ = var2sigmacolumn(σ₁,pressure[1:nw],sig1grid[sgood],splorder)
+                    [varsσ["p"][ff,ss][xx,yy] = convert(T,pσ[ss]) for ss = 1:nσ]
+                    #                        [varsσ["p"][ff,sgood[ss]][xx,yy] = convert(T,pσ[ss]) for ss = 1:ngood]
+
                 end
             end
         end
@@ -517,8 +516,11 @@ end
 """
 function vars2sigma1(vars::Dict{String,Array{T,3}},pressure::Vector{T},sig1grid::Vector{T},splorder::Int64) where T<:AbstractFloat
 
-    # check that θ and S exist. They must.
-    (haskey(vars,"THETA") && haskey(vars,"SALT")) ? nothing : error("Need θ and S in vars")
+    # is there a problem if pressure is not the same type as the input vars?
+    # could introduce two parametric types to function definition above
+    
+    # θ and S must exist
+    (!haskey(vars,"THETA") || !haskey(vars,"SALT")) && error("Need θ and S in vars")
 
     # loop over faces
     nx,ny,nz = size(vars["THETA"])
@@ -584,12 +586,13 @@ end
 # Output
 - `σ::Vector{T}`:  sigma for wet points in column
 """
-function sigmacolumn(θz::Vector{T},Sz::Vector{T},pz::Vector{T},p0::Integer)::Vector{T} where T<:AbstractFloat
+function sigmacolumn(θz::Vector{T},Sz::Vector{T},pz::Vector{T2},p0::Integer)::Vector{T} where T<:AbstractFloat where T2<:AbstractFloat
     nz = length(θz)
     σ = similar(θz)
-    p0T = convert(T,p0)
+    #p0T = convert(T,p0)
+    
     # hard coded for sigma1
-    σa,σb,σc = MITgcmTools.SeaWaterDensity(θz,Sz,pz,p0T)
+    σa,σb,σc = MITgcmTools.SeaWaterDensity(θz,Sz,pz,p0)
     [σ[zz] = convert(T,σc[zz]) .- 1000.0 for zz = 1:nz]
     return σ
 end
@@ -617,7 +620,7 @@ sigma1column(θz,Sz,pz) = sigmacolumn(θz,Sz,pz,1000)
 # Output
 - `θonσ`: variable on sig1 sigma surfaces
 """
-function var2sigmacolumn(σorig,v,σgrid,splorder)
+function var2sigmacolumn(σorig::Vector{T},v,σgrid,splorder::Integer) where T<:AbstractFloat where T2<:AbstractFloat 
     # choose a univariate spline with s = magic number
     #θspl = Spline1D(σ₁,θz;k=splorder,s=length(σ₁))
 
@@ -626,7 +629,7 @@ function var2sigmacolumn(σorig,v,σgrid,splorder)
     σ = copy(σorig) # make sure sigma-1 doesn't mutate and pass back
 
     nσout = length(σgrid)
-    θonσ = fill(NaN,nσout)
+    θonσ = fill(convert(T,NaN),nσout)
 
     # eliminate homogeneities
     dedup!(σ,v)
@@ -644,31 +647,39 @@ function var2sigmacolumn(σorig,v,σgrid,splorder)
 
         # eliminate any extrapolation
         sgood = findall(minimum(σ).<=σgrid.<= maximum(σ))
-        ngood = length(sgood)
 
         if nσin > splorder
             θspl = Spline1D(σ,v;k=splorder)
-            println("doing spline")
             for ss in sgood
                 θonσ[ss] = θspl(σgrid[ss])
             end
 
             # check for spline instability
-            if maximum(θonσ[sgood]) - minimum(θonσ[sgood]) > 1.05 * (maximum(v) - minimum(v))
+
+            # this version didn't work if length(sgood)==1
+            #if maximum(θonσ[sgood]) - minimum(θonσ[sgood]) > 1.00 * (maximum(v) - minimum(v))
+
+            # give some leeway with "0.1"
+            if (maximum(θonσ[sgood]) > maximum(v) + 0.1*(maximum(v)-minimum(v)) ||
+                minimum(θonσ[sgood]) < minimum(v) - 0.1*(maximum(v)-minimum(v)))
                 linearinterp = true
-                println("unstable spline")
+                #println("unstable spline")
             end
-        else
+        else # spline interp
             linearinterp = true
-        end # spline interp
+        end 
 
         if linearinterp
+            #println("doing linear interp")
 #            println(size(σ),size(v))
             interp_linear = LinearInterpolation(σ, v)
             for ss in sgood
                 θonσ[ss] = interp_linear(σgrid[ss])
             end
         end # linearinterp
+
+    else
+        #println("not doing any calcs")
     end # any good points?
 
     return θonσ
@@ -686,18 +697,18 @@ function factors4regularpoles(γ)
     λC = -179.5:179.5
     ϕG = vcat(ϕGantarc,ϕGreg,ϕGarc)
     ϕC = vcat(ϕCantarc,ϕCreg,ϕCarc)
-    farc,iarc,jarc,warc = prereginterp(ϕCarc,λC,γ)
-    fantarc,iantarc,jantarc,wantarc = prereginterp(ϕCantarc,λC,γ)
+    λarc = prereginterp(ϕCarc,λC,γ)
+    λantarc = prereginterp(ϕCantarc,λC,γ)
     nx = length(λC)
     ny = length(ϕC)
     nyarc = length(ϕCarc)
     nyantarc = length(ϕCantarc)
 
-    return λC,λG,ϕC,ϕG,nx,ny,nyarc,nyantarc,farc,iarc,jarc,warc,fantarc,iantarc,jantarc,wantarc
+    return λC,λG,ϕC,ϕG,nx,ny,nyarc,nyantarc,λarc,λantarc
 end
 
 """
-    function factors4regularpoles(γ)
+    function factors4velocity(γ)
     Get interpolation factors for regularpoles grid in one place
 """
 function factors4velocity(γ)
@@ -723,11 +734,12 @@ end
 - `f,i,j,w`: interpolation factors
 """
 function prereginterp(latgrid,longrid,γ)
-    Γ = GridLoad(γ)
+    Γ = GridLoad(γ;option="full")
     lon2d=[i for i=longrid, j=latgrid]
     lat2d=[j for i=longrid, j=latgrid]
     @time (f,i,j,w)=InterpolationFactors(Γ,vec(lon2d),vec(lat2d))
-    return f,i,j,w
+    λ=(lon=lon2d,lat=lat2d,f=f,i=i,j=j,w=w);
+    return λ
 end
 
 """
@@ -737,35 +749,23 @@ end
 # Arguments
 - `fldin`: gcmarray field of input
 - `nx,ny`: x,y dimension of output regular field
-- `f,i,j,w`: precomputed interpolation factors
+- `λ=(f,i,j,w)`: precomputed interpolation factors
 # Output
 - `fldout`: interpolated regular 2d field
 """
-function reginterp(fldin,nx,ny,f,i,j,w)
-    fldout = Interpolate(fldin,f,i,j,w)
+function reginterp(fldin,nx,ny,λ)
+    fldout = Interpolate(fldin,λ.f,λ.i,λ.j,λ.w)
 
     # think about moving this before interpolation
     # replace!(fldout,0.0 => NaN)
     fldout = transpose(reshape(fldout,nx,ny))
+    
     return fldout
 end
 
 """
-    function rotatevelocity
-    
-    take LLC grid uvel, vvel and rotate to nvel, evel
+function mixinversions!(a,b)
 """
-#function nvel,evel = rotatevelocity(uvel,vvel)
-    # from timothyas, first interpolate velocity from cell edges to cell centers
-
-    # compute nvel, evel using cos and sin (angles)
-
-    # read AngleCS, AngleSN
-    
-    #evel = uvel*cosine - vvel * sin
-    #nvel = uvel*sin + vvel*cos
-#end
-
 function mixinversions!(a,b)
     while sum(diff(a).<=0) > 0
         length(a) == 1 ? da = 1. : da = diff(a)
@@ -777,6 +777,9 @@ function mixinversions!(a,b)
     end
 end
 
+"""
+function dedup!(a,b)
+"""
 function dedup!(a,b)
     length(a) == 1 ? da = 1. : da = diff(a)
     while count(iszero,da) > 0
@@ -1110,8 +1113,9 @@ end
 """
    function write_vars
    This version writes mdsio output on the native grid
+   Missing: write the accompanying meta file
 """
-function write_vars(vars::Dict{String,MeshArrays.gcmarray{Float32,2,Array{Float32,2}}},fileprefix::String,filesuffix::String)
+function write_vars(vars::Dict{String,MeshArrays.gcmarray{Float32,2,Matrix{Float32}}},fileprefix::String,filesuffix::String)
     for (fldname,fldvals) in vars
         filename = fileprefix*fldname*filesuffix
         write(filename,fldvals)
@@ -1130,7 +1134,9 @@ function ncwritefromtemplate(vars::Dict{String,Array{Float64,3}},fileprefix::Str
     # choose method 2 here
 
     for (fldname,fldval) in vars
-
+        println(fldname)
+        println(fldval)
+        
         # get a filename with _on_sigma1
         if fldname == "p"
             fileold = fileprefix*"THETA/THETA"*filesuffixold
@@ -1183,18 +1189,23 @@ function ncwritefromtemplate(vars::Dict{String,Array{Float64,3}},fileprefix::Str
     end
 end
 
-
 """
     function mdsio2sigma1
     Take variables in a filelist, read, map to sigma1, write to file.
 """
-function mdsio2sigma1(pathin,pathout,fileroots,γ,pstdz,sig1grid,splorder)
+function mdsio2sigma1(pathin,pathout,fileroots,γ,pstdz,sig1grid,splorder) 
     # Read All Variables And Puts Them Into "Vars" Dictionary
 
-    vars = Dict{String,MeshArrays.gcmarray{Float32,2,Array{Float32,2}}}()
+    # ideally would be more generic and Float64 would be covered.
+    vars = Dict{String,MeshArrays.gcmarray{Float32,2,Matrix{Float32}}}()
     for fileroot in fileroots
         merge!(vars,mdsio2dict(pathin,fileroot,γ))
     end
+
+    # check for fields on the velocity (staggered) grid
+    # and rotate them if necessary
+    Γ = GridLoad(γ;option="full")
+    rotate_velocity!(vars,Γ)
 
     # solve for sigma1 on depth levels.
     @time varsσ = vars2sigma1(vars,pstdz,sig1grid,γ,splorder)
@@ -1203,6 +1214,8 @@ function mdsio2sigma1(pathin,pathout,fileroots,γ,pstdz,sig1grid,splorder)
     # use first filename to get timestamp
     filesuffix = "_on_sigma1"*fileroots[1][14:end]*".data"
     write_vars(varsσ,fileprefix,filesuffix)
+
+    return varsσ
 end
 
 """
@@ -1289,80 +1302,54 @@ function replace!(a::MeshArrays.gcmarray{T,N,Array{T,2}},b::Pair) where T<:Abstr
     return a
 end
 
-function netcdf2regularpoles(ncfilename,ncvarname,γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
+function netcdf2regularpoles(ncfilename,ncvarname,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
 
     vars = netcdf2dict(ncfilename,ncvarname,γ)
-    varsregpoles = vars2regularpoles(vars,γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
+    varsregpoles = vars2regularpoles(vars,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
 
 end
 
-function mdsio2regularpoles(pathin,filein,γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
+function mdsio2regularpoles(pathin,filein,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
 
     vars = mdsio2dict(pathin,filein,γ)
-    varsregpoles = vars2regularpoles(vars,γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
+    Γ = GridLoad(γ;option="full")
+    rotate_velocity!(vars,Γ)
+    varsregpoles = vars2regularpoles(vars,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
 
 end
 
-function vars2regularpoles(vars::Dict{String,MeshArrays.gcmarray{Float32,2,Array{Float32,2}}},γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
+function vars2regularpoles(vars::Dict{String,MeshArrays.gcmarray{T,2,Matrix{T}}},γ,nx,ny,nyarc,λarc,nyantarc,λantarc) where T<:AbstractFloat
 
-    varsregpoles = Dict{String,Array{Float32,3}}()
-
+    varsregpoles = Dict{String,Array{T,3}}()
+    NaNT = zero(T)/zero(T)
     for (varname, varvals) in vars
 
         # remove contamination from land
-        replace!(varvals, 0.0 => NaN)
+        
+        replace!(varvals, 0.0 => NaNT)
         nz = size(varvals,2)
 
         #pre-allocate dict
-        varsregpoles[varname] = fill(NaN,(nx,ny,nz))
+        varsregpoles[varname] = fill(NaNT,(nx,ny,nz))
 
         for zz = 1:nz
             # get regular grid by cropping
-            varsregpoles[varname][:,:,zz]=var2regularpoles(varvals[:,zz],γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
+            varsregpoles[varname][:,:,zz]=var2regularpoles(varvals[:,zz],γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
         end
-    end
-    return varsregpoles
-end
-
-function vars2regularpoles(vars::Dict{String,MeshArrays.gcmarray{Float64,2,Array{Float64,2}}},γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
-
-    varsregpoles = Dict{String,Array{Float32,3}}()
-
-    for (varname, varvals) in vars
-
-        # remove contamination from land
-        replace!(varvals, 0.0 => NaN)
-        nz = size(varvals,2)
-
-        #pre-allocate dict
-        varsregpoles[varname] = fill(NaN,(nx,ny,nz))
-
-        for zz = 1:nz
-            varsregpoles[varname][:,:,zz]=var2regularpoles(varvals[:,zz],γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
-        end
-    end
-    return varsregpoles
-end
-
-function vars2regularpoles(vars::Dict{String,MeshArrays.gcmarray{Float64,1,Array{Float64,2}}},γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
-
-    varsregpoles = Dict{String,Array{Float32,2}}()
-    for (varname, varvals) in vars
-        varsregpoles[varname]=var2regularpoles(varvals,γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
     end
     return varsregpoles
 end
 
 """
-function vars2regularpoles(vars::Dict{String,MeshArrays.gcmarray{Float32,1,Array{Float32,2}}},γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
+function vars2regularpoles(vars::Dict{String,MeshArrays.gcmarray{T,1,Matrix{T}}},γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
      variables interpolated onto regularpoles grid
 """
-function vars2regularpoles(vars::Dict{String,MeshArrays.gcmarray{Float32,1,Array{Float32,2}}},γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
+function vars2regularpoles(vars::Dict{String,MeshArrays.gcmarray{T,1,Matrix{T}}},γ,nx,ny,nyarc,λarc,nyantarc,λantarc) where T<:AbstractFloat
 
-    varsregpoles = Dict{String,Array{Float32,2}}()
+    varsregpoles = Dict{String,Matrix{T}}()
     for (varname, varvals) in vars
 
-        varsregpoles[varname] = var2regularpoles(varvals,γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
+        varsregpoles[varname] = var2regularpoles(varvals,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
 
     end
     return varsregpoles
@@ -1372,22 +1359,26 @@ end
    var2regularpoles
    Take one gcmarray in memory, put on regularpoles grid
 """
-function var2regularpoles(var,γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
-#    function var2regularpoles(var::MeshArrays.gcmarray{Float32,1,Array{Float32,2}},γ,nx,ny,nyarc,farc,iarc,jarc,warc,nyantarc,fantarc,iantarc,jantarc,wantarc)
+function var2regularpoles(var,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
+
+    T = eltype(var)
+    NaNT = zero(T)/zero(T)
     # remove contamination from land
-    replace!(var, 0.0 => NaN)
+    replace!(var, 0.0 => NaNT)
 
     #pre-allocate output
-    varregpoles = fill(NaN,(nx,ny))
+    varregpoles = fill(NaNT,(nx,ny))
 
     # get regular grid by cropping
     θcrop =  LLCcropC(var,γ)
 
     # interpolate to "regularpoles"
-    θarc = reginterp(var,nx,nyarc,farc,iarc,jarc,warc)
-    θantarc = reginterp(var,nx,nyantarc,fantarc,iantarc,jantarc,wantarc)
+    θarc = reginterp(var,nx,nyarc,λarc)
+    θantarc = reginterp(var,nx,nyantarc,λantarc)
     varregpoles=hcat(θantarc',θcrop,θarc')
+
     return varregpoles
+    
 end
 
 """
@@ -1396,22 +1387,40 @@ function writeregularpoles(vars,γ,pathout,filesuffix,filelog,λC,lonatts,ϕC,la
 function writeregularpoles(vars::Dict{String,Array{Float32,3}},γ,pathout,filesuffix,filelog,λC,lonatts,ϕC,latatts,z,depthatts)
 
     for (varname,varvals) in vars
-        if varname[1] == 'E'
+        println(varname)
+        # Some names are a little inconsistent
+        # Useful to pull meta-data from these locations
+        if varname == "EVELMASS"
             field = "UE_VEL_C"
-        elseif varname[1] == 'N'
+        elseif varname == "NVELMASS"
             field = "VN_VEL_C"
-        elseif varname[1] == 'W'
+        elseif varname == "WVELMASS"
             field = "WVEL"
-        elseif varname[end] == 'N'
+        elseif varname == "oceTAUN"
             field = "oceTAUY"
-        elseif varname[end] == 'E'
+        elseif varname == "oceTAUE"
             field = "oceTAUX"
+        elseif varname == "GM_PsiN"
+            field = "GM_PsiY"
+        elseif varname == "GM_PsiE"
+            field = "GM_PsiX"
         else
             field = varname
         end
 
-        fieldDict = read_available_diagnostics(field,filename=filelog)
+        if varname == "p"
+            fieldDict = Dict("fldname" => "p","title" => "standard pressure", "units" => "dbar", "levs" => length(z))
+        else
+            fieldDict = read_available_diagnostics(field,filename=filelog)
+            
+        end
 
+        if depthatts["longname"] == "Sigma-1"
+            depthname = "sigma-1"
+        else
+            depthname = "depth"
+        end
+        
         # make a directory for this output
         pathoutdir = pathout*varname*"/"
         !isdir(pathoutdir) ? mkdir(pathoutdir) : nothing;
@@ -1433,7 +1442,7 @@ function writeregularpoles(vars::Dict{String,Array{Float32,3}},γ,pathout,filesu
             "lat",
             ϕC,
             latatts,
-            "depth",
+            depthname,
             z,
             depthatts,
             atts = varatts,
@@ -1501,7 +1510,7 @@ function writeregularpoles(vars::Dict{String,Array{Float64,3}},γ,pathout,filesu
 
         # make a directory for this output
         pathoutdir = pathout*fieldDict["fldname"]*"/"
-        !isdir(pathoutdir) ? mkdir(pathoutdir) : nothing;
+        !isdir(pathoutdir) && mkdir(pathoutdir)
 
         # get filename for this month.
         fileout = pathoutdir*fieldDict["fldname"]*filesuffix
@@ -1917,7 +1926,7 @@ function maximum(x::MeshArrays.gcmarray{T,N,Array{T,2}},dryval::T) where T<:Abst
     
     #  vector list of non-dry (wet) elements
     xcount = [sum(count(!isdry,x[i])) for i in eachindex(x)]
-    println(xcount)
+
     if sum(xcount) > 0
         xmax = maximum([maximum(filter(!isdry,x[i])) for i in eachindex(x) if xcount[i] > 0])
     else
@@ -2058,6 +2067,110 @@ function std(x::MeshArrays.gcmarray{T,N,Array{T,2}},xbar::T,dryval::T) where T<:
         xbar = convert(T,NaN)
     end
     return σx
+end
+
+function rotate_velocity!(vars,Γ)
+
+    velvars = (("UVELMASS","VVELMASS"),("GM_PsiX","GM_PsiY"),("oceTAUX","oceTAUY"))
+    velchange = Dict("UVELMASS" => "EVELMASS",
+                     "VVELMASS" => "NVELMASS",
+                     "GM_PsiX" => "GM_PsiE",
+                     "GM_PsiY" => "GM_PsiN",
+                     "oceTAUX" => "oceTAUE",
+                     "oceTAUY" => "oceTAUN")
+
+    for (kk,vv) in velvars
+        if haskey(vars,kk) && haskey(vars,vv)
+            evel = similar(vars[kk])
+            nvel = similar(vars[vv])
+            uC = similar(vars[kk][:,1]) # one level
+            vC = similar(vars[vv][:,1]) # one level
+            for zz = 1: size(vars[kk],2)
+
+                #interpolate velocity to center of C-grid
+                velocity2center!(uC,vC,vars[kk][:,zz],vars[vv][:,zz],Γ)
+                
+                evel[:,zz],nvel[:,zz] = rotate_uv(uC,vC,Γ);
+            end
+            push!(vars,velchange[kk] => evel)
+            push!(vars,velchange[vv] => nvel)
+            delete!(vars,kk)
+            delete!(vars,vv)
+        end
+    end
+end
+
+"""
+    velocity2center!(uC,vC,u,v,G)
+  
+    From Gael Forget, JuliaClimateNotebooks/Transport
+    #1. Convert to `Sv` units and mask out land
+    2. Interpolate `x/y` transport to grid cell center
+"""
+function velocity2center!(uC,vC,u,v,G)
+
+    #G = GridLoad(γ;option="full")
+    #u[findall(G.hFacW[:,1].==0)].=NaN
+    #v[findall(G.hFacS[:,1].==0)].=NaN;
+
+    # replace slow findall with this kludge
+    # kludge makes routine 2x faster
+    # tmp variables below may also be slow (not views)
+    # warning: may introduce bugs
+    T = eltype(u)
+    replace!(u,zero(T) => zero(T)/zero(T)) # NaN
+    replace!(v,zero(T) => zero(T)/zero(T)) # NaN
+    
+    nanmean(x) = mean(filter(!isnan,x))
+    nanmean(x,y) = mapslices(nanmean,x,dims=y)
+    (u,v)=exch_UV(u,v); 
+    for iF=1:u.grid.nFaces
+        tmp1=u[iF][1:end-1,:]; tmp2=u[iF][2:end,:]
+        uC[iF]=reshape(nanmean([tmp1[:] tmp2[:]],2),size(tmp1))
+        tmp1=v[iF][:,1:end-1]; tmp2=v[iF][:,2:end]
+        vC[iF]=reshape(nanmean([tmp1[:] tmp2[:]],2),size(tmp1))
+    end
+end
+
+"""
+    velocity2center(u,v,G)
+  
+    From Gael Forget, JuliaClimateNotebooks/Transport
+    #1. Convert to `Sv` units and mask out land
+    2. Interpolate `x/y` transport to grid cell center
+"""
+function velocity2center(u,v,G)
+
+    #G = GridLoad(γ;option="full")
+    u[findall(G.hFacW[:,1].==0)].=NaN
+    v[findall(G.hFacS[:,1].==0)].=NaN;
+
+    nanmean(x) = mean(filter(!isnan,x))
+    nanmean(x,y) = mapslices(nanmean,x,dims=y)
+    (u,v)=exch_UV(u,v); uC=similar(u); vC=similar(v)
+    for iF=1:u.grid.nFaces
+        tmp1=u[iF][1:end-1,:]; tmp2=u[iF][2:end,:]
+        uC[iF]=reshape(nanmean([tmp1[:] tmp2[:]],2),size(tmp1))
+        tmp1=v[iF][:,1:end-1]; tmp2=v[iF][:,2:end]
+        vC[iF]=reshape(nanmean([tmp1[:] tmp2[:]],2),size(tmp1))
+    end
+
+    return uC, vC
+end
+
+"""
+function rotate_uv(uvel,vvel,G)
+From Gael Forget, JuliaClimateNotebooks/Transport
+    3. Convert to `Eastward/Northward` transport
+    4. Display Subdomain Arrays (optional)
+"""
+function rotate_uv(uvel,vvel,G)
+    cs=G.AngleCS
+    sn=G.AngleSN
+    evel=uvel.*cs-vvel.*sn
+    nvel=uvel.*sn+vvel.*cs
+
+    return evel,nvel
 end
 
 end #module
