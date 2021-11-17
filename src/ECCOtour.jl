@@ -631,6 +631,11 @@ function var2sigmacolumn(σorig::Vector{T},v,σgrid,splorder::Integer) where T<:
     nσout = length(σgrid)
     θonσ = fill(convert(T,NaN),nσout)
 
+    # some velocity variables may include NaN's
+    # add this kludge to make NaN velocity equal to zero
+    # a useful approximation to no-flow boundary condition?
+    replace!(v,convert(T,NaN)=>zero(T))
+    
     # eliminate homogeneities
     dedup!(σ,v)
 
