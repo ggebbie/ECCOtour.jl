@@ -746,7 +746,7 @@ end
 """
 function write_vars(vars::Dict{String,MeshArrays.gcmarray{Float32,2,Matrix{Float32}}},fileprefix::String,filesuffix::String)
     for (fldname,fldvals) in vars
-        filename = fileprefix*fldname*filesuffix
+        filename = joinpath(fileprefix,fldname*filesuffix)
         write(filename,fldvals)
     end
 end

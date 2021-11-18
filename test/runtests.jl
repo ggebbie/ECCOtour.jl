@@ -26,8 +26,8 @@ using SigmaShift
         # download sample data set
         url = "https://docs.google.com/uc?export=download&id=1Sst5Y9AUbef1-Vk2ocBgOOiI2kudYRPx"
         filegz = google_download(url,datadir)
-        println(filegz)
-        run(`gunzip -f $filegz`)
+        cd(datadir)
+        run(`tar xvzf $filegz`)
 
         # DEFINE THE LIST OF SIGMA1 VALUES.
         sig1grid = sigma1grid()
