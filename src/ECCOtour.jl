@@ -202,7 +202,6 @@ nino12mean(x,area,ϕ,λ,iswet) = patchmean(x,area,ϕ,λ,isnino12,iswet)
 
 isnotpositive(x) = (abs(x) == -x)
 
-
 """
     function time_label(index)
     Time label useful in plots. For ECCOv4r4.
@@ -708,21 +707,27 @@ function mdsio2dict(pathin,filein,γ)
 
     metafile = filein*".meta"
     datafile = filein*".data"
-    meta = read_meta(pathin,metafile);
+    meta = read_meta(joinpath(pathin,metafile));
+    state =  read_bin(joinpath(pathin,datafile),missing,missing,Float32,γ)
 
-    state =  read_bin(pathin*datafile,missing,missing,Float32,γ)
-    ndimz = meta[1].nDims
+    # changed this but don't understand why
+    # other changes below, check ECCOtour for errors
+    #    ndimz = meta[1].nDims
+    ndimz = meta.nDims
 
+    # should be able to use multiple dispatch with "N" parametric type below
     if ndimz == 3         # 3d
-        nz = meta[1].dimList[ndimz,1]
-        vars = Dict{String,MeshArrays.gcmarray{Float32,2,Array{Float32,2}}}()
+        #nz = meta[1].dimList[ndimz,1]
+        nz = meta.dimList[ndimz,1]
+        vars = Dict{String,MeshArrays.gcmarray{Float32,2,Matrix{Float32}}}()
     elseif ndimz == 2
         nz = 1
-        vars = Dict{String,MeshArrays.gcmarray{Float32,1,Array{Float32,2}}}()
+        vars = Dict{String,MeshArrays.gcmarray{Float32,1,Matrix{Float32}}}()
     end
 
     zlo = 1
-    for fldname in meta[1].fldList
+    #for fldname in meta[1].fldList
+    for fldname in meta.fldList
 
         # use a dictionary
         zhi = zlo + nz -1
@@ -815,7 +820,7 @@ end
     function mdsio2sigma1
     Take variables in a filelist, read, map to sigma1, write to file.
 """
-function mdsio2sigma1(pathin,pathout,fileroots,γ,pstdz,sig1grid,splorder) 
+function mdsio2sigma1(pathin::String,pathout::String,fileroots::Vector{String},γ,pstdz,sig1grid,splorder) 
     # Read All Variables And Puts Them Into "Vars" Dictionary
 
     # ideally would be more generic and Float64 would be covered.

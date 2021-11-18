@@ -5,55 +5,48 @@ using SigmaShift
 
 @testset "ECCOtour.jl" begin
 
+    pth = MeshArrays.GRID_LLC90
+    γ = GridSpec("LatLonCap",pth)
+    Γ = GridLoad(γ;option="full")
+
     @testset "SigmaShift" begin
 
-        #Test the mapping onto sigma1.#
-        # expt = "test"
-        # diagpath = pwd()
-        # path_out = pwd()
+        nf = length(γ.fSize)
+        z = depthlevels(γ)
+        pstdz = pressurelevels(z)
+        p₀ = 1000.0; # dbar
+
+        projectdir = dirname(Base.active_project())
+        datadir = joinpath(projectdir,"data")
+        #datadir = "../data/"
+       
+        !isdir(datadir) && mkdir(datadir)
         
-        # γ = setupLLCgrid("grid/"))
-        # nf = length(γ.fSize)
+        # DEFINE THE LIST OF SIGMA1 VALUES.
+        sig1grid = sigma1grid()
 
-        # # get standard levels of MITgcm
-        # z = depthlevels(γ)
-        # pstdz = pressurelevels(z)
-        # p₀ = 1000.0 ; # dbar
+        ## specific for state
+        # the state_3d monthly-average diagnostic output
+        TSroot = "state_3d_set1" # 1: θ, 2: S
 
-        # # sig1 value of interestn
-        # sig1grid = 30.0;
+        splorder = 3 # spline order
 
-        # TSroot = "state_3d_set1" # 1: θ, 2: S
-        # splorder = 100 # spline order
+        # first filter for state_3d_set1
+        filelist = searchdir(datadir,TSroot)
+        # second filter for "data"
+        datafile  = filter(x -> occursin("data",x),filelist)
 
-        # # first filter for state_3d_set1
-        # filelist = searchdir(diagpath,TSroot)
+        # Read from filelist, map to sigma-1, write to file
+        fileroots = Vector{String}()
+        fileroot = rstrip(datafile[1],['.','d','a','t','a'])
+        push!(fileroots,fileroot)
 
-        # # second filter for "data"
-        # datafilelist  = filter(x -> occursin("data",x),filelist)
-
-        # filelist2 = searchdir(diagpath,RProot) 
-        # datafilelist2  = filter(x -> occursin("data",x),filelist)
-
-        # # make an output directory for each expteriment
-        # !isdir(path_out) ? mkdir(path_out) : nothing;
-        # nt = length(datafilelist)
-        
-        # global tt = 0
-        # for datafile in datafilelist
-        #     tt += 1
-
-        #     #print timestamp
-        #     year,month = timestamp_monthly_v4r4(tt)
-
-        #     # eliminate suffix
-        #     fileroot = rstrip(datafile,['.','d','a','t','a'])
-        #     fileroot2 = RProot*fileroot[14:end] # a better way?
-        #     fileroots = (fileroot,fileroot2)
+        varsσ = mdsio2sigma1(datadir,datadir,fileroots,γ,pstdz,sig1grid,splorder)
+        @test maximum(varsσ["SALT"],NaN32) < 50.
+        @test minimum(varsσ["SALT"],NaN32) ≥ 0.0
+        @test maximum(varsσ["THETA"],NaN32) < 35.
+        @test minimum(varsσ["THETA"],NaN32) ≥ -2.5
             
-        #     # Read from filelist, map to sigma-1, write to file
-        #     mdsio2sigma1(diagpath,path_out,fileroots,γ,pstdz,sig1grid,splorder)
-        # end
     end
     
     @testset "regularpoles" begin
