@@ -26,6 +26,7 @@ using SigmaShift
         # download sample data set
         url = "https://docs.google.com/uc?export=download&id=1Sst5Y9AUbef1-Vk2ocBgOOiI2kudYRPx"
         filegz = google_download(url,datadir)
+        println(filegz)
         run(`gunzip -f $filegz`)
 
         # DEFINE THE LIST OF SIGMA1 VALUES.
@@ -46,7 +47,7 @@ using SigmaShift
         fileroots = Vector{String}()
         fileroot = rstrip(datafile[1],['.','d','a','t','a'])
         push!(fileroots,fileroot)
-
+        println(fileroots)
         varsσ = mdsio2sigma1(datadir,datadir,fileroots,γ,pstdz,sig1grid,splorder)
         @test maximum(varsσ["SALT"],NaN32) < 50.
         @test minimum(varsσ["SALT"],NaN32) ≥ 0.0

@@ -707,7 +707,9 @@ function mdsio2dict(pathin,filein,γ)
 
     metafile = filein*".meta"
     datafile = filein*".data"
+    println(joinpath(pathin,metafile))
     meta = read_meta(joinpath(pathin,metafile));
+    println(joinpath(pathin,datafile))
     state =  read_bin(joinpath(pathin,datafile),missing,missing,Float32,γ)
 
     # changed this but don't understand why
