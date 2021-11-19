@@ -23,8 +23,7 @@ export prereginterp, reginterp, trend_theta!, trend_theta
 export regularlatgrid, LLCcropC, LLCcropG, croplimitsLLC
 export latgridAntarctic, latgridArctic, latgridRegular
 export timestamp_monthly_v4r4, netcdf2dict, write_vars
-export mdsio2dict
-export mdsio2sigma1, ncwritefromtemplate
+export mdsio2dict, mdsio2sigma1, ncwritefromtemplate
 export netcdf2sigma1, mdsio2regularpoles
 export writeregularpoles, vars2regularpoles, var2regularpoles
 export netcdf2regularpoles, factors4regularpoles
@@ -34,6 +33,7 @@ export extract_timeseries,matmul,position_label,nancount
 export faststats, allstats, std, mean
 export maximum, minimum, mean, std, replace!
 export velocity2center, rotate_uv, rotate_velocity!
+export var2sigma1
 
 include("HannFilter.jl")
 include("MatrixFilter.jl")
@@ -816,6 +816,81 @@ function ncwritefromtemplate(vars::Dict{String,Array{Float64,3}},fileprefix::Str
         )
             ncwrite(fldval, filenew, fldname)
     end
+end
+
+"""
+    function vars2sigma1(vars,p,sig1grid,γ,spline_order)
+    map variables onto sigma1 surfaces for gcmarrays
+# Arguments
+- `vars::Dict{String,MeshArrays.gcmarray{T,N,Array{T,2}}}`: dict of gcmarrays
+- `p::Array{Float64,1}` : vertical profile of standard pressures
+- `sig1grid`: σ₁ surface values
+- `γ`: grid description needed for preallocation
+- `splorder`: 1-5, order of spline
+# Output
+- `varsσ::Dict{String,MeshArrays.gcmarray{T,N,Array{T,2}}}`: dict of gcmarrays of variables on sigma1 surfaces
+"""
+function vars2sigma1(vars::Dict{String,MeshArrays.gcmarray{T,2,Matrix{T}}},pressure::Vector{Float64},sig1grid::Vector{Float64},γ::gcmgrid,splorder::Integer) where T<:AbstractFloat 
+
+    # θ and S must exist
+    !haskey(vars,"THETA") && error("θ missing")
+    !haskey(vars,"SALT") && error("S missing")
+
+    # loop over faces
+    nf,nz = size(vars["THETA"])
+    nσ = length(sig1grid)
+
+    # vcol = Dict with profile/column data
+    # pre-allocate each key in vars
+    vcol = Dict{String,Vector{T}}() # vars in a column
+    varsσ = Dict{String,MeshArrays.gcmarray{T,2,Matrix{T}}}()
+
+    for (key, value) in vars
+        vcol[key] = fill(convert(T,NaN),nz)
+        varsσ[key] = MeshArray(γ,T,nσ); fill!(varsσ[key],convert(T,NaN))
+    end
+    # allocate standard pressure by hand.
+    varsσ["p"] = MeshArray(γ,T,nσ); fill!(varsσ["p"],convert(T,NaN))
+
+    for ff = 1:nf
+        nx,ny = size(vars["THETA"][ff,1])
+        for xx = 1:nx
+            for yy = 1:ny
+                for (vcolname, vcolval) in vars
+                    # vcol = Dict with profile/column data
+                    vcol[vcolname] = [vcolval[ff,zz][xx,yy] for zz = 1:nz]
+                end
+
+                # also need to filter dry values and to change zz
+                # Consider using `isdry` function and dryval in future.
+                nw = count(notnanorzero,vcol["THETA"]) # number of wet points in column
+                nwS = count(notnanorzero,vcol["SALT"])
+                if nw != nwS
+                    error("T,S zeroes inconsistent")
+                end
+
+                if nw > 3 #need >=n+1 points to do order-n interpolation
+                    σ₁=sigma1column(vcol["THETA"][1:nw],vcol["SALT"][1:nw],pressure[1:nw])
+
+                    for (vckey,vcval) in vcol
+                        varσ = var2sigmacolumn(σ₁,vcval[1:nw],sig1grid,splorder)
+                        #varσ = var2sigmacolumn(σ₁,vcval[1:nw],sig1grid[sgood],splorder)
+
+                        [varsσ[vckey][ff,ss][xx,yy] = convert(T,varσ[ss]) for ss = 1:nσ]
+                        #[varsσ[vckey][ff,sgood[ss]][xx,yy] = convert(T,varσ[ss]) for ss = 1:ngood]
+                    end
+
+                    # do standard pressure by hand.
+                    pσ = var2sigmacolumn(σ₁,pressure[1:nw],sig1grid,splorder)
+                    #                        pσ = var2sigmacolumn(σ₁,pressure[1:nw],sig1grid[sgood],splorder)
+                    [varsσ["p"][ff,ss][xx,yy] = convert(T,pσ[ss]) for ss = 1:nσ]
+                    #                        [varsσ["p"][ff,sgood[ss]][xx,yy] = convert(T,pσ[ss]) for ss = 1:ngood]
+
+                end
+            end
+        end
+    end
+    return varsσ
 end
 
 """

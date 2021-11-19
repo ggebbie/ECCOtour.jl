@@ -715,10 +715,8 @@ deps = ["Distributed", "Mmap", "Random", "Serialization"]
 uuid = "1a1011a3-84de-559e-8e89-a11a2f7dc383"
 
 [[SigmaShift]]
-deps = ["Dierckx", "Interpolations", "MITgcmTools", "MeshArrays", "Revise"]
-git-tree-sha1 = "389484ebde218cb25a53f81fa3de69a5ce232099"
-repo-rev = "main"
-repo-url = "https://github.com/ggebbie/SigmaShift.jl"
+deps = ["Dierckx", "GoogleDrive", "Interpolations", "MITgcmTools", "MeshArrays", "Revise"]
+path = "/home/gebbie/projects/SigmaShift/"
 uuid = "29a8b8bc-eb2a-4ada-9a47-be49547c4d59"
 version = "0.1.0"
 
