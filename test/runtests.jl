@@ -8,14 +8,14 @@ using SigmaShift
     pth = MeshArrays.GRID_LLC90
     γ = GridSpec("LatLonCap",pth)
     Γ = GridLoad(γ;option="full")
+    nf = length(γ.fSize)
+    z = depthlevels(γ)
+    pstdz = pressurelevels(z)
 
     @testset "SigmaShift" begin
 
         using GoogleDrive
         
-        nf = length(γ.fSize)
-        z = depthlevels(γ)
-        pstdz = pressurelevels(z)
         p₀ = 1000.0; # dbar
 
         projectdir = dirname(Base.active_project())
@@ -39,8 +39,6 @@ using SigmaShift
         # the state_3d monthly-average diagnostic output
         TSroot = "state_3d_set1" # 1: θ, 2: S
 
-        splorder = 3 # spline order
-
         # first filter for state_3d_set1
         filelist = searchdir(datadir,TSroot)
         # second filter for "data"
@@ -50,43 +48,51 @@ using SigmaShift
         fileroots = Vector{String}()
         fileroot = rstrip(datafile[1],['.','d','a','t','a'])
         push!(fileroots,fileroot)
-        println(fileroots)
-        varsσ = mdsio2sigma1(datadir,datadir,fileroots,γ,pstdz,sig1grid,splorder)
-        @test maximum(varsσ["SALT"],NaN32) < 50.
-        @test minimum(varsσ["SALT"],NaN32) ≥ 0.0
-        @test maximum(varsσ["THETA"],NaN32) < 35.
-        @test minimum(varsσ["THETA"],NaN32) ≥ -2.5
-            
-    end
-    
-    @testset "regularpoles" begin
-        ###################################################
-        # Test the mapping onto the regularpoles grid.
-        pth = MeshArrays.GRID_LLC90
-        γ = GridSpec("LatLonCap",pth)
-        Γ = GridLoad(γ;option="full")
-        nf = length(γ.fSize)
 
-        lat,lon = latlon(γ)
-
-        # Set up Cartesian grid for interpolation.
-        # Time for a structure.
-        λC,λG,ϕC,ϕG,nx,ny,nyarc,nyantarc,λarc,λantarc =
-            factors4regularpoles(γ)
-
-        # load centered longitude
-        # dxc = γ.read(γ.path*"XC.data",MeshArray(γ,Float64))
-        vars = Dict("XC" => γ.read(γ.path*"XC.data",MeshArray(γ,Float64)))
-        dxc_regpoles = vars2regularpoles(vars,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
-
-        yy = 100
-        for xx = 1:nx
-            println(@test isapprox(dxc_regpoles["XC"][xx,yy],λC[xx], rtol=1e-6))
+        @testset "spline_interpolation" begin
+            splorder = 3 # spline order
+            varsσ = mdsio2sigma1(datadir,datadir,fileroots,γ,pstdz,sig1grid,splorder)
+            @test maximum(varsσ["SALT"],NaN32) < 50.
+            @test minimum(varsσ["SALT"],NaN32) ≥ 0.0
+            @test maximum(varsσ["THETA"],NaN32) < 35.
+            @test minimum(varsσ["THETA"],NaN32) ≥ -2.5
         end
 
-        @testset "MeshArrays.jl" begin
+        @testset "linear_interpolation" begin
+            splorder = 100 # spline order
+            varsσ = mdsio2sigma1(datadir,datadir,fileroots,γ,pstdz,sig1grid,splorder)
+            @test maximum(varsσ["SALT"],NaN32) < 50.
+            @test minimum(varsσ["SALT"],NaN32) ≥ 0.0
+            @test maximum(varsσ["THETA"],NaN32) < 35.
+            @test minimum(varsσ["THETA"],NaN32) ≥ -2.5
+        end
+    
+        @testset "regularpoles" begin
+            ###################################################
+            # Test the mapping onto the regularpoles grid.
+            lat,lon = latlon(γ)
+
+            # Set up Cartesian grid for interpolation.
+            # Time for a structure.
+            λC,λG,ϕC,ϕG,nx,ny,nyarc,nyantarc,λarc,λantarc =
+                factors4regularpoles(γ)
+
+            # load centered longitude
+            # dxc = γ.read(γ.path*"XC.data",MeshArray(γ,Float64))
+            vars = Dict("XC" => γ.read(γ.path*"XC.data",MeshArray(γ,Float64)))
+            dxc_regpoles = vars2regularpoles(vars,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
+
+            yy = 100
+            for xx = 1:nx
+                println(@test isapprox(dxc_regpoles["XC"][xx,yy],λC[xx], rtol=1e-6))
+            end
+
+        end
+        
+        @testset "MeshArrays" begin
             ######################################
             # Test the statistics for MeshArrays.
+            lat,lon = latlon(γ)
             @test  -360.0 ≤ mean(lat,NaN) ≤ 360.0
 
             # can it find a NaN?

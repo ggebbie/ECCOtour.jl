@@ -33,7 +33,7 @@ export extract_timeseries,matmul,position_label,nancount
 export faststats, allstats, std, mean
 export maximum, minimum, mean, std, replace!
 export velocity2center, rotate_uv, rotate_velocity!
-export var2sigma1
+export vars2sigma1, sigma
 
 include("HannFilter.jl")
 include("MatrixFilter.jl")
@@ -703,6 +703,11 @@ end
 
 notnanorzero(z) = !iszero(z) && !isnan(z)
 
+"""
+function mdsio2dict(pathin,filein,γ)
+
+Read native (i.e., mdsio) MITgcm files and return a Dictionary.
+"""
 function mdsio2dict(pathin,filein,γ)
 
     metafile = filein*".meta"
@@ -819,6 +824,36 @@ function ncwritefromtemplate(vars::Dict{String,Array{Float64,3}},fileprefix::Str
 end
 
 """
+    function sigma(θ,S,pz,p₀)
+    sigma values from SeaWaterDensity for gcmarrays
+# Arguments
+- `θ::MeshArrays.gcmarray{Float32,2,Array{Float32,2}}`: potential temperature
+- `S::MeshArrays.gcmarray{Float32,2,Array{Float32,2}}`: practical salinity
+- `pz::Array{Float64,1}` : vertical profile of standard pressures
+- `p₀::Int64` : reference pressure for sigma value
+# Output
+- `σ::MeshArrays.gcmarray{Float32,2,Array{Float32,2}}`: potential density referenced to p₀ minus 1000 kg/m³
+"""
+function sigma(θ::MeshArrays.gcmarray{T,N,Array{T,2}},S::MeshArrays.gcmarray{T,N,Array{T,2}},pz::Array{Float64,1},p₀::Int64) where T<:AbstractFloat where N
+
+    # loop over faces
+    nf,nz = size(θ)
+    σ₁ = similar(θ)
+    for ff = 1:nf
+        nx,ny = size(θ[ff,1])
+        for xx = 1:nx
+            for yy = 1:ny
+                θz = [θ[ff,zz][xx,yy] for zz = 1:nz]
+                Sz = [S[ff,zz][xx,yy] for zz = 1:nz]
+                σ1,σ2,σ3 = MITgcmTools.SeaWaterDensity(θz,Sz,pz,p₀)
+                [σ₁[ff,zz][xx,yy] = convert(T,σ3[zz]) .- 1000.0 for zz = 1:nz]
+            end
+        end
+    end
+    return σ₁
+end
+
+"""
     function vars2sigma1(vars,p,sig1grid,γ,spline_order)
     map variables onto sigma1 surfaces for gcmarrays
 # Arguments
@@ -861,8 +896,6 @@ function vars2sigma1(vars::Dict{String,MeshArrays.gcmarray{T,2,Matrix{T}}},press
                     vcol[vcolname] = [vcolval[ff,zz][xx,yy] for zz = 1:nz]
                 end
 
-                # also need to filter dry values and to change zz
-                # Consider using `isdry` function and dryval in future.
                 nw = count(notnanorzero,vcol["THETA"]) # number of wet points in column
                 nwS = count(notnanorzero,vcol["SALT"])
                 if nw != nwS
@@ -874,18 +907,13 @@ function vars2sigma1(vars::Dict{String,MeshArrays.gcmarray{T,2,Matrix{T}}},press
 
                     for (vckey,vcval) in vcol
                         varσ = var2sigmacolumn(σ₁,vcval[1:nw],sig1grid,splorder)
-                        #varσ = var2sigmacolumn(σ₁,vcval[1:nw],sig1grid[sgood],splorder)
-
                         [varsσ[vckey][ff,ss][xx,yy] = convert(T,varσ[ss]) for ss = 1:nσ]
-                        #[varsσ[vckey][ff,sgood[ss]][xx,yy] = convert(T,varσ[ss]) for ss = 1:ngood]
                     end
 
                     # do standard pressure by hand.
                     pσ = var2sigmacolumn(σ₁,pressure[1:nw],sig1grid,splorder)
-                    #                        pσ = var2sigmacolumn(σ₁,pressure[1:nw],sig1grid[sgood],splorder)
                     [varsσ["p"][ff,ss][xx,yy] = convert(T,pσ[ss]) for ss = 1:nσ]
-                    #                        [varsσ["p"][ff,sgood[ss]][xx,yy] = convert(T,pσ[ss]) for ss = 1:ngood]
-
+                    
                 end
             end
         end
@@ -897,7 +925,7 @@ end
     function mdsio2sigma1
     Take variables in a filelist, read, map to sigma1, write to file.
 """
-function mdsio2sigma1(pathin::String,pathout::String,fileroots::Vector{String},γ,pstdz,sig1grid,splorder) 
+function mdsio2sigma1(pathin::String,pathout::String,fileroots::Vector{String},γ,pstdz,sig1grid,splorder::Integer) 
     # Read All Variables And Puts Them Into "Vars" Dictionary
 
     # ideally would be more generic and Float64 would be covered.
