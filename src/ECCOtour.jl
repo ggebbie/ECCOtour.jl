@@ -7,7 +7,9 @@ using Statistics, PyPlot, Distributions, FFTW,
     LinearAlgebra, StatsBase, LaTeXStrings,
     Dierckx, DelimitedFiles, Interpolations, NetCDF
 
-import Statistics.mean, Base.maximum, Base.minimum, Base.replace!, Statistics.std
+import Statistics.mean, Statistics.std,
+       Base.maximum, Base.minimum, Base.replace!,
+       SigmaShift.vars2sigma1
 
 export hanncoeffs, hannsum, hannsum!, hannfilter
 export get_filtermatrix, matrixfilter, matrixspray, columnscale!
@@ -33,7 +35,7 @@ export extract_timeseries,matmul,position_label,nancount
 export faststats, allstats, std, mean
 export maximum, minimum, mean, std, replace!
 export velocity2center, rotate_uv, rotate_velocity!
-export vars2sigma1, sigma
+#export vars2sigma1, sigma
 
 include("HannFilter.jl")
 include("MatrixFilter.jl")

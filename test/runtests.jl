@@ -29,8 +29,8 @@ using SigmaShift
         cd(datadir)
         run(`tar xvzf $filegz`)
 
-        # test having two input times.
-        # copy input into a second file.
+        #= future work: test having two input times.
+        copy input into a second file. =#
 
         # DEFINE THE LIST OF SIGMA1 VALUES.
         sig1grid = sigma1grid()
@@ -68,7 +68,7 @@ using SigmaShift
         end
     
         @testset "regularpoles" begin
-            ###################################################
+            ####################################
             # Test the mapping onto the regularpoles grid.
             lat,lon = latlon(γ)
 
