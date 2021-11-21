@@ -131,12 +131,6 @@ git-tree-sha1 = "cc70b17275652eb47bc9e5f81635981f13cea5c8"
 uuid = "9a962f9c-6df0-11e9-0e5d-c546b8b5ee8a"
 version = "1.9.0"
 
-[[DataDeps]]
-deps = ["DelimitedFiles", "HTTP", "Reexport", "SHA", "Test"]
-git-tree-sha1 = "5c5d7e55b744f277a99b9e9de3f16ef46d4df4f7"
-uuid = "124859b0-ceae-595e-8997-d05f6a7a8dfe"
-version = "0.5.3"
-
 [[DataStructures]]
 deps = ["Compat", "InteractiveUtils", "OrderedCollections"]
 git-tree-sha1 = "7d9d316f04214f7efdbb6398d545446e246eff02"
@@ -207,8 +201,10 @@ deps = ["ArgTools", "LibCURL", "NetworkOptions"]
 uuid = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
 
 [[ECCOtour]]
-deps = ["Conda", "DelimitedFiles", "Dierckx", "Distributions", "FFTW", "GoogleDrive", "Interpolations", "JLD2", "LaTeXStrings", "LinearAlgebra", "MAT", "MITgcmTools", "MeshArrays", "NetCDF", "Pkg", "PyPlot", "Revise", "SigmaShift", "Statistics", "StatsBase"]
-path = ".."
+deps = ["Conda", "DelimitedFiles", "Dierckx", "Distributions", "FFTW", "Interpolations", "JLD2", "LaTeXStrings", "LinearAlgebra", "MAT", "MITgcmTools", "MeshArrays", "NetCDF", "Pkg", "PyPlot", "Revise", "Statistics", "StatsBase"]
+git-tree-sha1 = "a834389c13d9686ee8e8b1b348768b14e4f1119a"
+repo-rev = "main"
+repo-url = "https://github.com/ggebbie/ECCOtour.jl"
 uuid = "414fb998-b5a0-4a85-b76f-da39d21445ca"
 version = "0.1.11"
 
@@ -223,6 +219,12 @@ deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "c6033cc3892d0ef5bb9cd29b7f2f0331ea5184ea"
 uuid = "f5851436-0d7a-5f13-b9de-f02708fd171a"
 version = "3.3.10+0"
+
+[[FileIO]]
+deps = ["Pkg", "Requires", "UUIDs"]
+git-tree-sha1 = "2db648b6712831ecb333eae76dbfd1c156ca13bb"
+uuid = "5789e2e9-d7fb-5bc7-8068-2c6fae9b9549"
+version = "1.11.2"
 
 [[FileWatching]]
 uuid = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
@@ -245,12 +247,6 @@ git-tree-sha1 = "8339d61043228fdd3eb658d86c926cb282ae72a8"
 uuid = "59287772-0a20-5a39-b81b-1366585eb4c0"
 version = "0.4.2"
 
-[[GoogleDrive]]
-deps = ["DataDeps", "Dates", "HTTP", "Random"]
-git-tree-sha1 = "8d727949558876fe03af17d9a94ca4a27fba01ed"
-uuid = "91feb7a0-3508-11ea-1e8e-afea2c1c9a19"
-version = "0.1.0"
-
 [[HDF5]]
 deps = ["Blosc", "Compat", "HDF5_jll", "Libdl", "Mmap", "Random", "Requires"]
 git-tree-sha1 = "698c099c6613d7b7f151832868728f426abe698b"
@@ -263,23 +259,11 @@ git-tree-sha1 = "fd83fa0bde42e01952757f01149dd968c06c4dba"
 uuid = "0234f1f7-429e-5d53-9886-15a909be8d59"
 version = "1.12.0+1"
 
-[[HTTP]]
-deps = ["Base64", "Dates", "IniFile", "MbedTLS", "Sockets"]
-git-tree-sha1 = "c7ec02c4c6a039a98a15f955462cd7aea5df4508"
-uuid = "cd3eb016-35fb-5094-929b-558a96fad6f3"
-version = "0.8.19"
-
 [[IOCapture]]
 deps = ["Logging", "Random"]
 git-tree-sha1 = "f7be53659ab06ddc986428d3a9dcc95f6fa6705a"
 uuid = "b5f81e59-6552-4d32-b1f0-c071b021bf89"
 version = "0.2.2"
-
-[[IniFile]]
-deps = ["Test"]
-git-tree-sha1 = "098e4d2c533924c921f9f9847274f2ad89e018b8"
-uuid = "83e8ac13-25f8-5344-8a64-a9f2b223428f"
-version = "0.5.0"
 
 [[IntelOpenMP_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -309,10 +293,10 @@ uuid = "92d709cd-6900-40b7-9082-c6be49f344b6"
 version = "0.1.1"
 
 [[JLD2]]
-deps = ["CodecZlib", "DataStructures", "MacroTools", "Mmap", "Pkg", "Printf", "Requires", "UUIDs"]
-git-tree-sha1 = "9f2f2f24e60305feb6ae293a617ddf06f429efc3"
+deps = ["DataStructures", "FileIO", "MacroTools", "Mmap", "Pkg", "Printf", "Reexport", "TranscodingStreams", "UUIDs"]
+git-tree-sha1 = "46b7834ec8165c541b0b5d1c8ba63ec940723ffb"
 uuid = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
-version = "0.4.3"
+version = "0.4.15"
 
 [[JLLWrappers]]
 deps = ["Preferences"]
@@ -412,12 +396,6 @@ version = "0.5.9"
 [[Markdown]]
 deps = ["Base64"]
 uuid = "d6f4376e-aef5-505a-96c1-9c027394607a"
-
-[[MbedTLS]]
-deps = ["Dates", "MbedTLS_jll", "Random", "Sockets"]
-git-tree-sha1 = "1c38e51c3d08ef2278062ebceade0e46cefc96fe"
-uuid = "739be429-bea8-5141-9913-cc70e7f3736d"
-version = "1.0.3"
 
 [[MbedTLS_jll]]
 deps = ["Artifacts", "Libdl"]
@@ -542,10 +520,9 @@ uuid = "c84ed2f1-dad5-54f0-aa8e-dbefe2724439"
 version = "0.4.2"
 
 [[Reexport]]
-deps = ["Pkg"]
-git-tree-sha1 = "7b1d07f411bc8ddb7977ec7f377b97b158514fe0"
+git-tree-sha1 = "45e428421666073eab6f2da5c9d310d99bb12f9b"
 uuid = "189a3867-3050-52da-a836-e630ba90ab69"
-version = "0.2.0"
+version = "1.2.2"
 
 [[Requires]]
 deps = ["UUIDs"]
@@ -630,10 +607,10 @@ uuid = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 version = "0.33.13"
 
 [[StatsFuns]]
-deps = ["Rmath", "SpecialFunctions"]
-git-tree-sha1 = "ced55fd4bae008a8ea12508314e725df61f0ba45"
+deps = ["ChainRulesCore", "InverseFunctions", "IrrationalConstants", "LogExpFunctions", "Reexport", "Rmath", "SpecialFunctions"]
+git-tree-sha1 = "385ab64e64e79f0cd7cfcf897169b91ebbb2d6c8"
 uuid = "4c63d2b9-4356-54db-8cca-17b64c39e42c"
-version = "0.9.7"
+version = "0.9.13"
 
 [[SuiteSparse]]
 deps = ["Libdl", "LinearAlgebra", "Serialization", "SparseArrays"]
