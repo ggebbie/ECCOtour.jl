@@ -1,127 +1,98 @@
 using Revise
 using Test, ECCOtour
 using MITgcmTools, MeshArrays, Statistics, Dierckx
+using SigmaShift
 
 @testset "ECCOtour.jl" begin
-    # Write your tests here.
 
-    @testset "SigmaShift.jl" begin
-        #############################
-        # Test dedup! function
-        na = 10
-        for ndupes = 1:na-1
-            println(ndupes)
-            a = sort(randn(na))
-            b = randn(na)
-            # make duplicates at end
-            counter = 0
-            while counter < ndupes  
-                a[end-counter-1] = a[end-counter]
-                counter += 1
-            end
-            dedup!(a,b)
-            println(a)
-            println(b)
-            println(@test issorted(a))
+    pth = MeshArrays.GRID_LLC90
+    γ = GridSpec("LatLonCap",pth)
+    Γ = GridLoad(γ;option="full")
+    nf = length(γ.fSize)
+    z = depthlevels(γ)
+    pstdz = pressurelevels(z)
+
+    @testset "SigmaShift" begin
+
+        using GoogleDrive
+        
+        p₀ = 1000.0; # dbar
+
+        projectdir = dirname(Base.active_project())
+        datadir = joinpath(projectdir,"data")
+       
+        !isdir(datadir) && mkdir(datadir)
+
+        # download sample data set
+        url = "https://docs.google.com/uc?export=download&id=1Sst5Y9AUbef1-Vk2ocBgOOiI2kudYRPx"
+        filegz = google_download(url,datadir)
+        cd(datadir)
+        run(`tar xvzf $filegz`)
+
+        #= future work: test having two input times.
+        copy input into a second file. =#
+
+        # DEFINE THE LIST OF SIGMA1 VALUES.
+        sig1grid = sigma1grid()
+
+        ## specific for state
+        # the state_3d monthly-average diagnostic output
+        TSroot = "state_3d_set1" # 1: θ, 2: S
+
+        # first filter for state_3d_set1
+        filelist = searchdir(datadir,TSroot)
+        # second filter for "data"
+        datafile  = filter(x -> occursin("data",x),filelist)
+
+        # Read from filelist, map to sigma-1, write to file
+        fileroots = Vector{String}()
+        fileroot = rstrip(datafile[1],['.','d','a','t','a'])
+        push!(fileroots,fileroot)
+
+        @testset "spline_interpolation" begin
+            splorder = 3 # spline order
+            varsσ = mdsio2sigma1(datadir,datadir,fileroots,γ,pstdz,sig1grid,splorder)
+            @test maximum(varsσ["SALT"],NaN32) < 50.
+            @test minimum(varsσ["SALT"],NaN32) ≥ 0.0
+            @test maximum(varsσ["THETA"],NaN32) < 35.
+            @test minimum(varsσ["THETA"],NaN32) ≥ -2.5
         end
 
-        ################################
-        # Idealized mapping onto sigma1
-        pz = collect(0.:500.:4000.) # pressure levels
-        nz = length(pz)
-
-        θz = collect(range(20,stop=10,length=nz))
-        Sz = collect(range(36,stop=35,length=nz))
-        ztest = sort(rand(2:8,2))
-        σ₁true = sigma1column(θz[ztest],Sz[ztest],pz[ztest])
-
-        sig1grid = range(minimum(σ₁true),stop=maximum(σ₁true),length=20)
-        splorder = 3
-        σ₁=sigma1column(θz,Sz,pz)
-        sgood = findall(minimum(σ₁) .<= sig1grid .<= maximum(σ₁))
-        pσ = var2sigmacolumn(σ₁,pz,sig1grid[sgood],splorder)
-
-        @test isapprox(pσ[begin],pz[ztest[begin]])
-        @test isapprox(pσ[end],pz[ztest[end]])
-
-        ################################
-        # Test the mapping onto sigma1.#
-        # expt = "test"
-        # diagpath = pwd()
-        # path_out = pwd()
-        
-        # γ = setupLLCgrid("grid/"))
-        # nf = length(γ.fSize)
-
-        # # get standard levels of MITgcm
-        # z = depthlevels(γ)
-        # pstdz = pressurelevels(z)
-        # p₀ = 1000.0 ; # dbar
-
-        # # sig1 value of interestn
-        # sig1grid = 30.0;
-
-        # TSroot = "state_3d_set1" # 1: θ, 2: S
-        # splorder = 100 # spline order
-
-        # # first filter for state_3d_set1
-        # filelist = searchdir(diagpath,TSroot)
-
-        # # second filter for "data"
-        # datafilelist  = filter(x -> occursin("data",x),filelist)
-
-        # filelist2 = searchdir(diagpath,RProot) 
-        # datafilelist2  = filter(x -> occursin("data",x),filelist)
-
-        # # make an output directory for each expteriment
-        # !isdir(path_out) ? mkdir(path_out) : nothing;
-        # nt = length(datafilelist)
-        
-        # global tt = 0
-        # for datafile in datafilelist
-        #     tt += 1
-
-        #     #print timestamp
-        #     year,month = timestamp_monthly_v4r4(tt)
-
-        #     # eliminate suffix
-        #     fileroot = rstrip(datafile,['.','d','a','t','a'])
-        #     fileroot2 = RProot*fileroot[14:end] # a better way?
-        #     fileroots = (fileroot,fileroot2)
-        
-        #     # Read from filelist, map to sigma-1, write to file
-        #     mdsio2sigma1(diagpath,path_out,fileroots,γ,pstdz,sig1grid,splorder)
-        # end
-    end
+        @testset "linear_interpolation" begin
+            splorder = 100 # spline order
+            varsσ = mdsio2sigma1(datadir,datadir,fileroots,γ,pstdz,sig1grid,splorder)
+            @test maximum(varsσ["SALT"],NaN32) < 50.
+            @test minimum(varsσ["SALT"],NaN32) ≥ 0.0
+            @test maximum(varsσ["THETA"],NaN32) < 35.
+            @test minimum(varsσ["THETA"],NaN32) ≥ -2.5
+        end
     
-    @testset "regularpoles" begin
-        ###################################################
-        # Test the mapping onto the regularpoles grid.
-        pth = MeshArrays.GRID_LLC90
-        γ = GridSpec("LatLonCap",pth)
-        Γ = GridLoad(γ;option="full")
-        nf = length(γ.fSize)
+        @testset "regularpoles" begin
+            ####################################
+            # Test the mapping onto the regularpoles grid.
+            lat,lon = latlon(γ)
 
-        lat,lon = latlon(γ)
+            # Set up Cartesian grid for interpolation.
+            # Time for a structure.
+            λC,λG,ϕC,ϕG,nx,ny,nyarc,nyantarc,λarc,λantarc =
+                factors4regularpoles(γ)
 
-        # Set up Cartesian grid for interpolation.
-        # Time for a structure.
-        λC,λG,ϕC,ϕG,nx,ny,nyarc,nyantarc,λarc,λantarc =
-            factors4regularpoles(γ)
+            # load centered longitude
+            # dxc = γ.read(γ.path*"XC.data",MeshArray(γ,Float64))
+            vars = Dict("XC" => γ.read(γ.path*"XC.data",MeshArray(γ,Float64)))
+            dxc_regpoles = vars2regularpoles(vars,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
 
-        # load centered longitude
-        # dxc = γ.read(γ.path*"XC.data",MeshArray(γ,Float64))
-        vars = Dict("XC" => γ.read(γ.path*"XC.data",MeshArray(γ,Float64)))
-        dxc_regpoles = vars2regularpoles(vars,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
+            yy = 100
+            for xx = 1:nx
+                println(@test isapprox(dxc_regpoles["XC"][xx,yy],λC[xx], rtol=1e-6))
+            end
 
-        yy = 100
-        for xx = 1:nx
-            println(@test isapprox(dxc_regpoles["XC"][xx,yy],λC[xx], rtol=1e-6))
         end
-
-        @testset "MeshArrays.jl" begin
+        
+        @testset "MeshArrays" begin
             ######################################
             # Test the statistics for MeshArrays.
+            lat,lon = latlon(γ)
             @test  -360.0 ≤ mean(lat,NaN) ≤ 360.0
 
             # can it find a NaN?

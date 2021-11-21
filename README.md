@@ -3,7 +3,7 @@
 [![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://ggebbie.github.io/ECCOtour.jl/stable)
 [![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://ggebbie.github.io/ECCOtour.jl/dev)
 [![Build Status](https://github.com/ggebbie/ECCOtour.jl/workflows/CI/badge.svg)](https://github.com/ggebbie/ECCOtour.jl/actions)
-[![Coverage](https://codecov.io/gh/ggebbie/ECCOtour.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/ggebbie/ECCOtour.jl)
+[![Coverage](https://codecov.io/gh/ggebbie/ECCOtour.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/ggebbie/ECCOtour.jl)
 
 Take a self-guided tour of the ECCO version 4 release 4 ocean reanalysis product. 
 
