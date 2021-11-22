@@ -1,5 +1,8 @@
 using Pkg, Conda
 
+#Pkg.add(url="https://github.com/ggebbie/SigmaShift.jl")
+#Pkg.instantiate()
+
 if lowercase(get(ENV, "CI", "false")) == "true"    
 
     ENV["PYTHON"] = ""

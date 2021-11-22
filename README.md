@@ -26,7 +26,7 @@ Then activate the project and initialize a julia session: `C-c C-a`
 `;`\
 `git clone https://github.com/ggebbie/ECCOtour.jl # only do this the first time on each machine`\
 or\
-`git clone git@github.com:ggebbie/ECCOtour.jl.git # if you have SSH keys set up
+`git clone git@github.com:ggebbie/ECCOtour.jl.git # if you have SSH keys set up`\
 `cd ECCOtour.jl`\
 `]`\
 `activate .`\
