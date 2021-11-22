@@ -1,6 +1,8 @@
 using Pkg, Conda
 
-#Pkg.add(url="https://github.com/ggebbie/SigmaShift.jl")
+# this line doesn't seem to be hit
+println("building ECCOtour package")
+Pkg.add(url="https://github.com/ggebbie/SigmaShift.jl")
 #Pkg.instantiate()
 
 if lowercase(get(ENV, "CI", "false")) == "true"    
