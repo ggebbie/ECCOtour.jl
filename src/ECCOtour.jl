@@ -1817,15 +1817,26 @@ function rotate_velocity!(vars,Γ)
         if haskey(vars,kk) && haskey(vars,vv)
             evel = similar(vars[kk])
             nvel = similar(vars[vv])
-            uC = similar(vars[kk][:,1]) # one level
-            vC = similar(vars[vv][:,1]) # one level
-            for zz = 1: size(vars[kk],2)
+            if ndims(vars[kk]) > 1
+                uC = similar(vars[kk][:,1]) # one level
+                vC = similar(vars[vv][:,1]) # one level
+                for zz = 1: size(vars[kk],2)
 
-                #interpolate velocity to center of C-grid
-                velocity2center!(uC,vC,vars[kk][:,zz],vars[vv][:,zz],Γ)
+                    #interpolate velocity to center of C-grid
+                    velocity2center!(uC,vC,vars[kk][:,zz],vars[vv][:,zz],Γ)
                 
-                evel[:,zz],nvel[:,zz] = rotate_uv(uC,vC,Γ);
+                    evel[:,zz],nvel[:,zz] = rotate_uv(uC,vC,Γ);
+                end
+            elseif ndims(vars[kk]) == 1
+                 uC = similar(vars[kk]) # one level
+                 vC = similar(vars[vv]) # one level
+
+                 #interpolate velocity to center of C-grid
+                 velocity2center!(uC,vC,vars[kk],vars[vv],Γ)               
+                 evel,nvel = rotate_uv(uC,vC,Γ);
+             
             end
+                    
             push!(vars,velchange[kk] => evel)
             push!(vars,velchange[vv] => nvel)
             delete!(vars,kk)
