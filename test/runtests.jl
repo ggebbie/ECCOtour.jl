@@ -14,6 +14,7 @@ using SigmaShift, GoogleDrive
 
     projectdir = dirname(Base.active_project())
     datadir = joinpath(projectdir,"data")
+    srcdir = joinpath(projectdir,"src")
     
     !isdir(datadir) && mkdir(datadir)
 
@@ -25,11 +26,14 @@ using SigmaShift, GoogleDrive
     cd(datadir)
     run(`tar xvzf $filegz`)
 
-    # transport 3d # too large doesn't work
-    url = "https://docs.google.com/uc?export=download&id=1KKk8d_1nQFbM9xQjTelCmWTMfK3SA7U5"
-    filegz = google_download(url,datadir)
+    # transport 3d # too large doesn't work due to virus scan
+    #url = "https://docs.google.com/uc?export=download&id=1KKk8d_1nQFbM9xQjTelCmWTMfK3SA7U5"
+    #filegz = google_download(url,datadir)
+
     cd(datadir)
-    run(`tar xvzf $filegz`)
+    # workaround: use a shell script
+    run(`/bin/sh $srcdir/download_google_drive.sh`)
+    run(`tar xvzf trsp_3d_set1.0000000732.tar.gz`)
 
     ## specific for state
     # the state_3d monthly-average diagnostic output
@@ -124,8 +128,8 @@ using SigmaShift, GoogleDrive
 
                 @time varsregpoles =  mdsio2regularpoles(pathin,filein,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
 
-                                @test maximum(filter(!isnan,varsregpoles["NVELMASS"])) < 2.
-                @test minimum(filter(!isnan,varsregpoles["NVELMASS"])) < -2.
+                @test maximum(filter(!isnan,varsregpoles["NVELMASS"])) < 2.
+                @test minimum(filter(!isnan,varsregpoles["NVELMASS"])) > -2.
 
             end
 
