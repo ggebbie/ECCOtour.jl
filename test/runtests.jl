@@ -1,7 +1,7 @@
 using Revise
 using Test, ECCOtour
 using MITgcmTools, MeshArrays, Statistics, Dierckx
-using SigmaShift
+using SigmaShift, GoogleDrive
 
 @testset "ECCOtour.jl" begin
 
@@ -12,59 +12,87 @@ using SigmaShift
     z = depthlevels(γ)
     pstdz = pressurelevels(z)
 
-    @testset "SigmaShift" begin
+    projectdir = dirname(Base.active_project())
+    datadir = joinpath(projectdir,"data")
+    
+    !isdir(datadir) && mkdir(datadir)
 
-        using GoogleDrive
+    # download sample data sets
+
+    # state 3d
+    url = "https://docs.google.com/uc?export=download&id=1Sst5Y9AUbef1-Vk2ocBgOOiI2kudYRPx"
+    filegz = google_download(url,datadir)
+    cd(datadir)
+    run(`tar xvzf $filegz`)
+
+    # transport 3d # too large doesn't work
+    url = "https://docs.google.com/uc?export=download&id=1KKk8d_1nQFbM9xQjTelCmWTMfK3SA7U5"
+    filegz = google_download(url,datadir)
+    cd(datadir)
+    run(`tar xvzf $filegz`)
+
+    ## specific for state
+    # the state_3d monthly-average diagnostic output
+    stateroot = "state_3d_set1" # 1: θ, 2: S
+
+    # first filter for state_3d_set1
+    filelist = searchdir(datadir,stateroot)
+    # second filter for "data"
+    statefile  = filter(x -> occursin("data",x),filelist)
+
+    # Read from filelist, map to sigma-1, write to file
+    fileroots = Vector{String}()
+    fileroot = rstrip(statefile[1],['.','d','a','t','a'])
+    push!(fileroots,fileroot)
+
+    ## specific for transport
+    transportroot = "trsp_3d_set1" # 1: θ, 2: S
+
+    # first filter for state_3d_set1
+    filelist = searchdir(datadir,transportroot)
+    # second filter for "data"
+    transportfile  = filter(x -> occursin("data",x),filelist)
+
+    # Read from filelist, map to sigma-1, write to file
+    fileroot = rstrip(transportfile[1],['.','d','a','t','a'])
+    push!(fileroots,fileroot)
+
+    @testset "SigmaShift" begin
         
         p₀ = 1000.0; # dbar
-
-        projectdir = dirname(Base.active_project())
-        datadir = joinpath(projectdir,"data")
-       
-        !isdir(datadir) && mkdir(datadir)
-
-        # download sample data set
-        url = "https://docs.google.com/uc?export=download&id=1Sst5Y9AUbef1-Vk2ocBgOOiI2kudYRPx"
-        filegz = google_download(url,datadir)
-        cd(datadir)
-        run(`tar xvzf $filegz`)
-
-        #= future work: test having two input times.
-        copy input into a second file. =#
-
         # DEFINE THE LIST OF SIGMA1 VALUES.
         sig1grid = sigma1grid()
 
-        ## specific for state
-        # the state_3d monthly-average diagnostic output
-        TSroot = "state_3d_set1" # 1: θ, 2: S
 
-        # first filter for state_3d_set1
-        filelist = searchdir(datadir,TSroot)
-        # second filter for "data"
-        datafile  = filter(x -> occursin("data",x),filelist)
-
-        # Read from filelist, map to sigma-1, write to file
-        fileroots = Vector{String}()
-        fileroot = rstrip(datafile[1],['.','d','a','t','a'])
-        push!(fileroots,fileroot)
-
+        ##
         @testset "spline_interpolation" begin
             splorder = 3 # spline order
             varsσ = mdsio2sigma1(datadir,datadir,fileroots,γ,pstdz,sig1grid,splorder)
+
             @test maximum(varsσ["SALT"],NaN32) < 50.
             @test minimum(varsσ["SALT"],NaN32) ≥ 0.0
+
             @test maximum(varsσ["THETA"],NaN32) < 35.
             @test minimum(varsσ["THETA"],NaN32) ≥ -2.5
+
+            @test maximum(varsσ["NVELMASS"],NaN32) < 3.
+            @test minimum(varsσ["NVELMASS"],NaN32) ≥ -3.
+
         end
 
         @testset "linear_interpolation" begin
+
             splorder = 100 # spline order
             varsσ = mdsio2sigma1(datadir,datadir,fileroots,γ,pstdz,sig1grid,splorder)
             @test maximum(varsσ["SALT"],NaN32) < 50.
             @test minimum(varsσ["SALT"],NaN32) ≥ 0.0
+
             @test maximum(varsσ["THETA"],NaN32) < 35.
             @test minimum(varsσ["THETA"],NaN32) ≥ -2.5
+            
+            @test maximum(varsσ["NVELMASS"],NaN32) < 3.
+            @test minimum(varsσ["NVELMASS"],NaN32) ≥ -3.
+
         end
     
         @testset "regularpoles" begin
@@ -77,16 +105,42 @@ using SigmaShift
             λC,λG,ϕC,ϕG,nx,ny,nyarc,nyantarc,λarc,λantarc =
                 factors4regularpoles(γ)
 
-            # load centered longitude
-            # dxc = γ.read(γ.path*"XC.data",MeshArray(γ,Float64))
-            vars = Dict("XC" => γ.read(γ.path*"XC.data",MeshArray(γ,Float64)))
-            dxc_regpoles = vars2regularpoles(vars,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
+            @testset "regularpoles 3d state" begin
 
-            yy = 100
-            for xx = 1:nx
-                println(@test isapprox(dxc_regpoles["XC"][xx,yy],λC[xx], rtol=1e-6))
+                filein = fileroots[1]
+                pathin = datadir
+
+                @time varsregpoles =  mdsio2regularpoles(pathin,filein,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
+
+                @test maximum(filter(!isnan,varsregpoles["SALT"])) < 50.
+                @test minimum(filter(!isnan,varsregpoles["SALT"])) > 0.
+
             end
 
+            @testset "regularpoles 3d transport" begin
+
+                filein = fileroots[2]
+                pathin = datadir
+
+                @time varsregpoles =  mdsio2regularpoles(pathin,filein,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
+
+                                @test maximum(filter(!isnan,varsregpoles["NVELMASS"])) < 2.
+                @test minimum(filter(!isnan,varsregpoles["NVELMASS"])) < -2.
+
+            end
+
+            @testset "regularpoles dxc" begin 
+                # load centered longitude
+                # dxc = γ.read(γ.path*"XC.data",MeshArray(γ,Float64))
+                vars = Dict("XC" => γ.read(γ.path*"XC.data",MeshArray(γ,Float64)))
+                dxc_regpoles = vars2regularpoles(vars,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
+
+                yy = 100
+                for xx = 1:nx
+                    println(@test isapprox(dxc_regpoles["XC"][xx,yy],λC[xx], rtol=1e-6))
+                end
+            end
+            
         end
         
         @testset "MeshArrays" begin

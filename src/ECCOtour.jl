@@ -1043,6 +1043,9 @@ function netcdf2regularpoles(ncfilename,ncvarname,γ,nx,ny,nyarc,λarc,nyantarc,
 
 end
 
+"""
+function mdsio2regularpoles(pathin,filein,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
+"""
 function mdsio2regularpoles(pathin,filein,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
 
     vars = mdsio2dict(pathin,filein,γ)
@@ -1815,9 +1818,13 @@ function rotate_velocity!(vars,Γ)
 
     for (kk,vv) in velvars
         if haskey(vars,kk) && haskey(vars,vv)
+
+            println("rotate velocity of pair",kk,"-",vv)
             evel = similar(vars[kk])
             nvel = similar(vars[vv])
+
             if ndims(vars[kk]) > 1
+
                 uC = similar(vars[kk][:,1]) # one level
                 vC = similar(vars[vv][:,1]) # one level
                 for zz = 1: size(vars[kk],2)
@@ -1827,16 +1834,18 @@ function rotate_velocity!(vars,Γ)
                 
                     evel[:,zz],nvel[:,zz] = rotate_uv(uC,vC,Γ);
                 end
+
             elseif ndims(vars[kk]) == 1
-                 uC = similar(vars[kk]) # one level
+
+                uC = similar(vars[kk]) # one level
                  vC = similar(vars[vv]) # one level
 
-                 #interpolate velocity to center of C-grid
-                 velocity2center!(uC,vC,vars[kk],vars[vv],Γ)               
-                 evel,nvel = rotate_uv(uC,vC,Γ);
-             
+                #interpolate velocity to center of C-grid
+                velocity2center!(uC,vC,vars[kk],vars[vv],Γ)               
+                evel,nvel = rotate_uv(uC,vC,Γ);
+
             end
-                    
+
             push!(vars,velchange[kk] => evel)
             push!(vars,velchange[vv] => nvel)
             delete!(vars,kk)
@@ -1909,9 +1918,13 @@ From Gael Forget, JuliaClimateNotebooks/Transport
     3. Convert to `Eastward/Northward` transport
     4. Display Subdomain Arrays (optional)
 """
-function rotate_uv(uvel,vvel,G)
-    cs=G.AngleCS
-    sn=G.AngleSN
+function rotate_uv(uvel::MeshArrays.gcmarray{T,N,Matrix{T}},vvel::MeshArrays.gcmarray{T,N,Matrix{T}},G) where T<:AbstractFloat where N
+#function rotate_uv(uvel::MeshArrays.gcmarray{T,N,Matrix{T}},vvel::MeshArrays.gcmarray{T,N,Matrix{T}},G)::Tuple{MeshArrays.gcmarray{T,N,Matrix{T}},MeshArrays.gcmarray{T,N,Matrix{T}}} where T<:AbstractFloat where N
+
+    # this kludge must be very slow
+    cs=convert.(T,G.AngleCS)
+    sn=convert.(T,G.AngleSN)
+    
     evel=uvel.*cs-vvel.*sn
     nvel=uvel.*sn+vvel.*cs
 
