@@ -32,7 +32,7 @@ using SigmaShift, GoogleDrive
 
     cd(datadir)
     # workaround: use a shell script
-    run(`/bin/sh $srcdir/download_google_drive.sh`)
+    run(`sh $srcdir/download_google_drive.sh`)
     run(`tar xvzf trsp_3d_set1.0000000732.tar.gz`)
 
     ## specific for state
