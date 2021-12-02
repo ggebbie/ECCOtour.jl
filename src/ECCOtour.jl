@@ -1189,7 +1189,7 @@ function writeregularpoles(vars::Dict{String,Array{Float32,3}},γ,pathout,filesu
 end
 
 """
-function writeregularpoles(vars,pathout,filesuffix,filelog,λC,lonatts,ϕC,latatts)
+function writeregularpoles(vars::Dict{String,Array{Float32,2}},γ,pathout,filesuffix,filelog,λC,lonatts,ϕC,latatts,z,depthatts)
 """
 function writeregularpoles(vars::Dict{String,Array{Float32,2}},γ,pathout,filesuffix,filelog,λC,lonatts,ϕC,latatts,z,depthatts)
 
