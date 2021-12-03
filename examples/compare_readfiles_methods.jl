@@ -1,3 +1,4 @@
+# Warning: setupLLCgrid no longer exists
 # Example: read monthly average temperature/salinity fields on poseidon
 # Here compare reading with read_mdsio versus MeshArrays built-in method.
 # At bottom, also comparing statistics computed via two types of files.

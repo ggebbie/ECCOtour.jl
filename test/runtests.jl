@@ -67,20 +67,17 @@ using SigmaShift, GoogleDrive
         # DEFINE THE LIST OF SIGMA1 VALUES.
         sig1grid = sigma1grid()
 
-
-        ##
         @testset "spline_interpolation" begin
             splorder = 3 # spline order
             varsσ = mdsio2sigma1(datadir,datadir,fileroots,γ,pstdz,sig1grid,splorder)
-
-            @test maximum(varsσ["SALT"],NaN32) < 50.
-            @test minimum(varsσ["SALT"],NaN32) ≥ 0.0
-
-            @test maximum(varsσ["THETA"],NaN32) < 35.
-            @test minimum(varsσ["THETA"],NaN32) ≥ -2.5
-
-            @test maximum(varsσ["NVELMASS"],NaN32) < 3.
-            @test minimum(varsσ["NVELMASS"],NaN32) ≥ -3.
+            for ss in eachindex(sig1grid)
+                @test maximum(mask(varsσ["SALT"][:,ss],-Inf)) < 45.0
+                @test minimum(mask(varsσ["SALT"][:,ss],Inf)) ≥ 0.0
+                @test maximum(mask(varsσ["THETA"][:,ss],-Inf)) < 35.0
+                @test minimum(mask(varsσ["THETA"][:,ss],Inf)) ≥ -3.0
+                @test maximum(mask(varsσ["NVELMASS"][:,ss],-Inf)) < 3.0
+                @test minimum(mask(varsσ["NVELMASS"][:,ss],Inf)) ≥ -3.0
+            end
 
         end
 
@@ -88,15 +85,16 @@ using SigmaShift, GoogleDrive
 
             splorder = 100 # spline order
             varsσ = mdsio2sigma1(datadir,datadir,fileroots,γ,pstdz,sig1grid,splorder)
-            @test maximum(varsσ["SALT"],NaN32) < 50.
-            @test minimum(varsσ["SALT"],NaN32) ≥ 0.0
 
-            @test maximum(varsσ["THETA"],NaN32) < 35.
-            @test minimum(varsσ["THETA"],NaN32) ≥ -2.5
+            for ss in eachindex(sig1grid)
+                @test maximum(mask(varsσ["SALT"][:,ss],-Inf)) < 45.0
+                @test minimum(mask(varsσ["SALT"][:,ss],Inf)) ≥ 0.0
+                @test maximum(mask(varsσ["THETA"][:,ss],-Inf)) < 35.0
+                @test minimum(mask(varsσ["THETA"][:,ss],Inf)) ≥ -3.0
+                @test maximum(mask(varsσ["NVELMASS"][:,ss],-Inf)) < 3.0
+                @test minimum(mask(varsσ["NVELMASS"][:,ss],Inf)) ≥ -3.0
+            end
             
-            @test maximum(varsσ["NVELMASS"],NaN32) < 3.
-            @test minimum(varsσ["NVELMASS"],NaN32) ≥ -3.
-
         end
     
         @testset "regularpoles" begin
@@ -164,14 +162,17 @@ using SigmaShift, GoogleDrive
             lat2[:,2] = latnan;
             @test sum(nancount(lat2)) == 2*sum(nancount(latnan))
 
-            @test maximum(latnan,NaN) ≤ 90.0
-
-            @test minimum(lat,NaN) ≥ -90.0
+            @test maximum(mask(latnan,-Inf)) ≤ 90.0
+            @test minimum(mask(lat,Inf)) ≥ -90.0
 
             @test !isnan(std(lat,mean(lat,NaN),NaN))
 
             # replace NaN with zero
-            @test iszero(nancount(replace!(latnan,NaN=>0.0)))
+            @test iszero(nancount(mask(latnan,0.0)))
+
+            # does this run?
+            faststats(lat)
+            
         end
     end
 end

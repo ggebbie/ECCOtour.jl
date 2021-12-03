@@ -14,7 +14,7 @@ import Statistics.mean, Statistics.std,
 export hanncoeffs, hannsum, hannsum!, hannfilter
 export get_filtermatrix, matrixfilter, matrixspray, columnscale!
 export seasonal_matrices, trend_matrices
-export position_label, searchdir, setupLLCgrid
+export position_label, searchdir
 export listexperiments, expnames, expsymbols, time_label
 export inrectangle, isnino34, issouthpac, isnino3, isnino4, isnino12
 export latlon, latlonC, latlonG
@@ -33,7 +33,7 @@ export regional_mask, apply_regional_mask!, zero2one!, wrapdist
 export centerlon!, read_netcdf
 export extract_timeseries,matmul,position_label,nancount
 export faststats, allstats, std, mean
-export maximum, minimum, mean, std, replace!
+export mean, std, replace!
 export velocity2center, rotate_uv, rotate_velocity!
 #export vars2sigma1, sigma
 
@@ -225,22 +225,30 @@ end
 
 """
     function allstats(x)
-    Compute fast statistics of gcmgrid type using function calls, same as faststats
+    Compute all statistics of gcmgrid type using function calls, same as faststats
+    Warning: assumes land is zero
 # Input
-- `x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}}`: input of gcmarray type
+- `x::MeshArrays.gcmarray{T,N,Matrix{T}}`: input of gcmarray type
 # Output
-- `xbar::Float32`: mean value after discarding dryval
-- `xmax::Float32`: maximum value
-- `xmin::Float32`: minimum value
-- `σx::Float32`: standard deviation
-- `absxbar::Float32`: mean of absolute value
+- `xbar::T`: mean value after discarding dryval
+- `xmax::T`: maximum value
+- `xmin::T`: minimum value
+- `σx::T`: standard deviation
+- `absxbar::T`: mean of absolute value
 """
-function allstats(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}})
+function allstats(x::MeshArrays.gcmarray{T,N,Matrix{T}}) where {N,T<:AbstractFloat}
 
     dryval = 0.f0 # land points are zeroes, use NaN32 for NaN's
 
-    xmax = maximum(x,dryval)
-    xmin = minimum(x,dryval)
+    xmax = -Inf
+    xmin = Inf
+    for n = 1:size(x,2)
+        xmax = maximum(mask(x[:,n],xmax))# some trickery
+        xmin = minimum(mask(x[:,n],xmin))
+    end
+    
+    #xmax = maximum(x,dryval)
+    #xmin = minimum(x,dryval)
     xbar = mean(x,dryval)
 
     # why does it require an explicit call to MeshArrays?
@@ -254,25 +262,24 @@ end
     function faststats(x)
     Compute fast statistics of gcmgrid type using function calls, eliminate redundancy
 # Input
-- `x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}}`: input of gcmarray type
+- `x::MeshArrays.gcmarray{T,1,Matrix{T}}`: input of gcmarray type
 # Output
-- `xbar::Float32`: mean value after discarding dryval
-- `xmax::Float32`: maximum value
-- `xmin::Float32`: minimum value
-- `σx::Float32`: standard deviation
-- `absxbar::Float32`: mean of absolute value
+- `xbar::T`: mean value after discarding dryval
+- `xmax::T`: maximum value
+- `xmin::T`: minimum value
+- `σx::T`: standard deviation
+- `absxbar::T`: mean of absolute value
 """
-function faststats(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}})
-
-    #dryval = 0.f0 # land points are zeroes, use NaN32 for NaN's
-    #dryval = NaN32
-    #isdry(z) = (z == dryval)
+function faststats(x::MeshArrays.gcmarray{T,1,Matrix{T}}) where T<:AbstractFloat
 
     xcount = [sum(count(notnanorzero,x[i])) for i in eachindex(x)]
 
+    xmax = maximum(mask(x,-Inf))
+    xmin = minimum(mask(x,Inf))
+    
     if sum(xcount)>0
-        xmax = maximum([maximum(filter(notnanorzero,x[i])) for i ∈ eachindex(x) if xcount[i] > 0])
-        xmin = minimum([minimum(filter(notnanorzero,x[i])) for i ∈ eachindex(x) if xcount[i] > 0])
+        #xmax = maximum([maximum(filter(notnanorzero,x[i])) for i ∈ eachindex(x) if xcount[i] > 0])
+        #xmin = minimum([minimum(filter(notnanorzero,x[i])) for i ∈ eachindex(x) if xcount[i] > 0])
 
         # compute mean the old fashioned way
         xsum = sum([sum(filter(notnanorzero,x[i])) for i ∈ eachindex(x) if xcount[i] > 0])
@@ -286,11 +293,11 @@ function faststats(x::MeshArrays.gcmarray{Float32,1,Array{Float32,2}})
         absxsum = sum([sum(filter(notnanorzero,abs.(x[i]))) for i ∈ eachindex(x) if xcount[i] > 0]) # works b.c. 0 on land
         absxbar = absxsum/sum(xcount)
     else
-        xbar = NaN
-        xmax = NaN
-        xmin = NaN
-        σx = NaN
-        absxbar = NaN
+        xbar = zero(T)/zero(T)
+        #xmax = zero(T)/zero(T)
+        #xmin = zero(T)/zero(T)
+        σx = zero(T)/zero(T)
+        absxbar = zero(T)/zero(T)
     end
     return xbar, xmax, xmin, σx, absxbar
 end
@@ -1012,7 +1019,7 @@ function replace!(f,a::MeshArrays.gcmarray{T,N,Array{T,2}}}
 - `f::function` = replace a with f(a)
 - `a::MeshArrays.gcmarray{T,N,Array{T,2}}`: gcmarray with variable type and time-dimension
 """
-function replace!(f,a::MeshArrays.gcmarray{T,N,Array{T,2}}) where T<:AbstractFloat where N
+function replace!(f::Function,a::MeshArrays.gcmarray{T,N,Matrix{T}}) where {N,T<:AbstractFloat}
 
     #nf = size(a,1)
     for ff = eachindex(a)
@@ -1642,52 +1649,6 @@ function nancount(field::MeshArrays.gcmarray{T, N, Matrix{T}}) where T<:Abstract
 end
 
 """
-    function maximum
-
-    Compute maximum value of gcmgrid type 
-# Input
-- `x::MeshArrays.gcmarray{T,N,Array{T,2}}`: input of gcmarray type and filter out `dryval`s
-- `dryval::T`: land value to be eliminated in calculation
-# Output
-- `xmax::T`: maximum value of 2D field
-"""
-function maximum(x::MeshArrays.gcmarray{T,N,Array{T,2}},dryval::T) where T<:AbstractFloat where N
-
-    # problem NaN == NaN is false
-    # if isnan(z)
-    #     isdry = isnan
-    # else
-    #     isdry(z) = (z == dryval)
-    # end
-    isnan(dryval) ? isdry = isnan : isdry(z) = (z == dryval)
-    
-    #  vector list of non-dry (wet) elements
-    xcount = [sum(count(!isdry,x[i])) for i in eachindex(x)]
-
-    if sum(xcount) > 0
-        xmax = maximum([maximum(filter(!isdry,x[i])) for i in eachindex(x) if xcount[i] > 0])
-    else
-        xmax = convert(T,NaN)
-    end
-    return xmax
-end
-
-"""
-    function minimum
-
-    Compute minimum value of gcmgrid type 
-    and filter out `dryval`s
-# Input
-- `x::MeshArrays.gcmarray{T,N,Array{T,2}}`: input of gcmarray type and filter out `dryval`s
-- `dryval::T`: land value to be eliminated in calculatio# Output
-- `xmin::T`: minimum value of 2D field
-"""
-function minimum(x::MeshArrays.gcmarray{T,N,Array{T,2}},dryval::T) where T<:AbstractFloat where N
-    xmin = -maximum(-x,dryval)
-    return xmin
-end
-
-"""
     function mean
 
     Compute mean of gcmgrid type using function calls, eliminate redundancy
@@ -1710,7 +1671,6 @@ function mean(x::MeshArrays.gcmarray{T,N,Array{T,2}},dryval::T)::T where T<:Abst
         xsum = sum([sum(filter(!isdry,x[i])) for i in eachindex(x) if xcount[i] > 0])
         xbar = xsum/sum(xcount)
     else
-        #xbar = NaN
         xbar = convert(T,NaN)
     end
     return xbar
@@ -1819,7 +1779,7 @@ function rotate_velocity!(vars,Γ)
     for (kk,vv) in velvars
         if haskey(vars,kk) && haskey(vars,vv)
 
-            println("rotate velocity of pair",kk,"-",vv)
+            println("rotate velocity of pair:",kk,"-",vv)
             evel = similar(vars[kk])
             nvel = similar(vars[vv])
 

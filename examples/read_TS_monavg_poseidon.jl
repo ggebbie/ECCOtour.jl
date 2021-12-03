@@ -1,3 +1,4 @@
+# Warning: setupLLCgrid no longer exists
 # Example: read monthly average temperature/salinity fields on poseidon
 
 using Revise
