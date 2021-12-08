@@ -1,7 +1,7 @@
 using Revise
 using Test, ECCOtour
 using MITgcmTools, MeshArrays, Statistics, Dierckx
-using SigmaShift, GoogleDrive
+using GoogleDrive
 
 @testset "ECCOtour.jl" begin
 
@@ -61,7 +61,7 @@ using SigmaShift, GoogleDrive
     fileroot = rstrip(transportfile[1],['.','d','a','t','a'])
     push!(fileroots,fileroot)
 
-    @testset "SigmaShift" begin
+    @testset "IsopycnalSurfaces" begin
         
         p₀ = 1000.0; # dbar
         # DEFINE THE LIST OF SIGMA1 VALUES.
@@ -83,8 +83,9 @@ using SigmaShift, GoogleDrive
 
         @testset "linear_interpolation" begin
 
-            splorder = 100 # spline order
-            varsσ = mdsio2sigma1(datadir,datadir,fileroots,γ,pstdz,sig1grid,splorder)
+            splorder = 3 # spline order
+            linearinterp = true # override spline order with this optional flag
+            varsσ = mdsio2sigma1(datadir,datadir,fileroots,γ,pstdz,sig1grid,splorder,linearinterp)
 
             for ss in eachindex(sig1grid)
                 @test maximum(mask(varsσ["SALT"][:,ss],-Inf)) < 45.0

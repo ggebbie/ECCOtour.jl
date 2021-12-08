@@ -2,14 +2,14 @@ module ECCOtour
 # write new functions and put them in this module.
 # add them with text below, or create a new file in "src" and include it.
 
-using MeshArrays, MITgcmTools, SigmaShift
+using MeshArrays, MITgcmTools, IsopycnalSurfaces
 using Statistics, PyPlot, Distributions, FFTW,
     LinearAlgebra, StatsBase, LaTeXStrings,
     Dierckx, DelimitedFiles, Interpolations, NetCDF
 
 import Statistics.mean, Statistics.std,
        Base.maximum, Base.minimum, Base.replace!,
-       SigmaShift.vars2sigma1
+       IsopycnalSurfaces.vars2sigma1, IsopycnalSurfaces.sigma1grid
 
 export hanncoeffs, hannsum, hannsum!, hannfilter
 export get_filtermatrix, matrixfilter, matrixspray, columnscale!
@@ -35,7 +35,7 @@ export extract_timeseries,matmul,position_label,nancount
 export faststats, allstats, std, mean
 export mean, std, replace!
 export velocity2center, rotate_uv, rotate_velocity!
-#export vars2sigma1, sigma
+export vars2sigma1, sigma1grid
 
 include("HannFilter.jl")
 include("MatrixFilter.jl")
@@ -871,10 +871,11 @@ end
 - `sig1grid`: σ₁ surface values
 - `γ`: grid description needed for preallocation
 - `splorder`: 1-5, order of spline
+- `linearinterp`: optional logical
 # Output
 - `varsσ::Dict{String,MeshArrays.gcmarray{T,N,Array{T,2}}}`: dict of gcmarrays of variables on sigma1 surfaces
 """
-function vars2sigma1(vars::Dict{String,MeshArrays.gcmarray{T,2,Matrix{T}}},pressure::Vector{Float64},sig1grid::Vector{Float64},γ::gcmgrid,splorder::Integer) where T<:AbstractFloat 
+function vars2sigma1(vars::Dict{String,MeshArrays.gcmarray{T,2,Matrix{T}}},pressure::Vector{Float64},sig1grid::Vector{Float64},γ::gcmgrid,splorder::Integer,linearinterp=false) where T<:AbstractFloat 
 
     # θ and S must exist
     !haskey(vars,"THETA") && error("θ missing")
@@ -915,12 +916,12 @@ function vars2sigma1(vars::Dict{String,MeshArrays.gcmarray{T,2,Matrix{T}}},press
                     σ₁=sigma1column(vcol["THETA"][1:nw],vcol["SALT"][1:nw],pressure[1:nw])
 
                     for (vckey,vcval) in vcol
-                        varσ = var2sigmacolumn(σ₁,vcval[1:nw],sig1grid,splorder)
+                        varσ = var2sigmacolumn(σ₁,vcval[1:nw],sig1grid,splorder,linearinterp)
                         [varsσ[vckey][ff,ss][xx,yy] = convert(T,varσ[ss]) for ss = 1:nσ]
                     end
 
                     # do standard pressure by hand.
-                    pσ = var2sigmacolumn(σ₁,pressure[1:nw],sig1grid,splorder)
+                    pσ = var2sigmacolumn(σ₁,pressure[1:nw],sig1grid,splorder,linearinterp)
                     [varsσ["p"][ff,ss][xx,yy] = convert(T,pσ[ss]) for ss = 1:nσ]
                     
                 end
@@ -934,7 +935,7 @@ end
     function mdsio2sigma1
     Take variables in a filelist, read, map to sigma1, write to file.
 """
-function mdsio2sigma1(pathin::String,pathout::String,fileroots::Vector{String},γ,pstdz,sig1grid,splorder::Integer) 
+function mdsio2sigma1(pathin::String,pathout::String,fileroots::Vector{String},γ,pstdz,sig1grid,splorder::Integer,linearinterp=false) 
     # Read All Variables And Puts Them Into "Vars" Dictionary
 
     # ideally would be more generic and Float64 would be covered.
@@ -949,7 +950,7 @@ function mdsio2sigma1(pathin::String,pathout::String,fileroots::Vector{String},�
     rotate_velocity!(vars,Γ)
 
     # solve for sigma1 on depth levels.
-    @time varsσ = vars2sigma1(vars,pstdz,sig1grid,γ,splorder)
+    @time varsσ = vars2sigma1(vars,pstdz,sig1grid,γ,splorder,linearinterp)
 
     fileprefix = pathout
     # use first filename to get timestamp
