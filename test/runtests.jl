@@ -63,37 +63,34 @@ using GoogleDrive
 
     @testset "IsopycnalSurfaces" begin
         
-        p₀ = 1000.0; # dbar
         # DEFINE THE LIST OF SIGMA1 VALUES.
         sig1grid = sigma1grid()
+        eos_mitgcm = "JMD95"
 
         @testset "spline_interpolation" begin
-            splorder = 3 # spline order
-            varsσ = mdsio2sigma1(datadir,datadir,fileroots,γ,pstdz,sig1grid,splorder)
+            varsσ = mdsio2sigma1(datadir,datadir,fileroots,γ,pstdz,sig1grid,splorder=3,eos=eos_mitgcm)
             for ss in eachindex(sig1grid)
-                @test maximum(mask(varsσ["SALT"][:,ss],-Inf)) < 45.0
-                @test minimum(mask(varsσ["SALT"][:,ss],Inf)) ≥ 0.0
-                @test maximum(mask(varsσ["THETA"][:,ss],-Inf)) < 35.0
-                @test minimum(mask(varsσ["THETA"][:,ss],Inf)) ≥ -3.0
-                @test maximum(mask(varsσ["NVELMASS"][:,ss],-Inf)) < 3.0
-                @test minimum(mask(varsσ["NVELMASS"][:,ss],Inf)) ≥ -3.0
+                @test maximum(MeshArrays.mask(varsσ["SALT"][:,ss],-Inf)) < 45.0
+                @test minimum(MeshArrays.mask(varsσ["SALT"][:,ss],Inf)) ≥ 0.0
+                @test maximum(MeshArrays.mask(varsσ["THETA"][:,ss],-Inf)) < 35.0
+                @test minimum(MeshArrays.mask(varsσ["THETA"][:,ss],Inf)) ≥ -3.0
+                @test maximum(MeshArrays.mask(varsσ["NVELMASS"][:,ss],-Inf)) < 3.0
+                @test minimum(MeshArrays.mask(varsσ["NVELMASS"][:,ss],Inf)) ≥ -3.0
             end
 
         end
 
         @testset "linear_interpolation" begin
 
-            splorder = 3 # spline order
-            linearinterp = true # override spline order with this optional flag
-            varsσ = mdsio2sigma1(datadir,datadir,fileroots,γ,pstdz,sig1grid,splorder,linearinterp)
+            varsσ = mdsio2sigma1(datadir,datadir,fileroots,γ,pstdz,sig1grid,linearinterp=true,eos=eos_mitgcm)
 
             for ss in eachindex(sig1grid)
-                @test maximum(mask(varsσ["SALT"][:,ss],-Inf)) < 45.0
-                @test minimum(mask(varsσ["SALT"][:,ss],Inf)) ≥ 0.0
-                @test maximum(mask(varsσ["THETA"][:,ss],-Inf)) < 35.0
-                @test minimum(mask(varsσ["THETA"][:,ss],Inf)) ≥ -3.0
-                @test maximum(mask(varsσ["NVELMASS"][:,ss],-Inf)) < 3.0
-                @test minimum(mask(varsσ["NVELMASS"][:,ss],Inf)) ≥ -3.0
+                @test maximum(MeshArrays.mask(varsσ["SALT"][:,ss],-Inf)) < 45.0
+                @test minimum(MeshArrays.mask(varsσ["SALT"][:,ss],Inf)) ≥ 0.0
+                @test maximum(MeshArrays.mask(varsσ["THETA"][:,ss],-Inf)) < 35.0
+                @test minimum(MeshArrays.mask(varsσ["THETA"][:,ss],Inf)) ≥ -3.0
+                @test maximum(MeshArrays.mask(varsσ["NVELMASS"][:,ss],-Inf)) < 3.0
+                @test minimum(MeshArrays.mask(varsσ["NVELMASS"][:,ss],Inf)) ≥ -3.0
             end
             
         end
@@ -163,13 +160,13 @@ using GoogleDrive
             lat2[:,2] = latnan;
             @test sum(nancount(lat2)) == 2*sum(nancount(latnan))
 
-            @test maximum(mask(latnan,-Inf)) ≤ 90.0
-            @test minimum(mask(lat,Inf)) ≥ -90.0
+            @test maximum(MeshArrays.mask(latnan,-Inf)) ≤ 90.0
+            @test minimum(MeshArrays.mask(lat,Inf)) ≥ -90.0
 
             @test !isnan(std(lat,mean(lat,NaN),NaN))
 
             # replace NaN with zero
-            @test iszero(nancount(mask(latnan,0.0)))
+            @test iszero(nancount(MeshArrays.mask(latnan,0.0)))
 
             # does this run?
             faststats(lat)

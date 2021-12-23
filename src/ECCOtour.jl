@@ -274,8 +274,8 @@ function faststats(x::MeshArrays.gcmarray{T,1,Matrix{T}}) where T<:AbstractFloat
 
     xcount = [sum(count(notnanorzero,x[i])) for i in eachindex(x)]
 
-    xmax = maximum(mask(x,-Inf))
-    xmin = minimum(mask(x,Inf))
+    xmax = maximum(MeshArrays.mask(x,-Inf))
+    xmin = minimum(MeshArrays.mask(x,Inf))
     
     if sum(xcount)>0
         #xmax = maximum([maximum(filter(notnanorzero,x[i])) for i ∈ eachindex(x) if xcount[i] > 0])
@@ -875,7 +875,7 @@ end
 # Output
 - `varsσ::Dict{String,MeshArrays.gcmarray{T,N,Array{T,2}}}`: dict of gcmarrays of variables on sigma1 surfaces
 """
-function vars2sigma1(vars::Dict{String,MeshArrays.gcmarray{T,2,Matrix{T}}},pressure::Vector{Float64},sig1grid::Vector{Float64},γ::gcmgrid,splorder::Integer,linearinterp=false) where T<:AbstractFloat 
+function vars2sigma1(vars::Dict{String,MeshArrays.gcmarray{T,2,Matrix{T}}},pressure::Vector{Float64},sig1grid::Vector{Float64},γ::gcmgrid;splorder=3,linearinterp=false,eos="JMD95") where T<:AbstractFloat 
 
     # θ and S must exist
     !haskey(vars,"THETA") && error("θ missing")
@@ -913,15 +913,15 @@ function vars2sigma1(vars::Dict{String,MeshArrays.gcmarray{T,2,Matrix{T}}},press
                 end
 
                 if nw > 3 #need >=n+1 points to do order-n interpolation
-                    σ₁=sigma1column(vcol["THETA"][1:nw],vcol["SALT"][1:nw],pressure[1:nw])
+                    σ₁=sigma1column(vcol["THETA"][1:nw],vcol["SALT"][1:nw],pressure[1:nw],eos)
 
                     for (vckey,vcval) in vcol
-                        varσ = var2sigmacolumn(σ₁,vcval[1:nw],sig1grid,splorder,linearinterp)
+                        varσ = var2sigmacolumn(σ₁,vcval[1:nw],sig1grid,splorder=splorder,linearinterp=linearinterp)
                         [varsσ[vckey][ff,ss][xx,yy] = convert(T,varσ[ss]) for ss = 1:nσ]
                     end
 
                     # do standard pressure by hand.
-                    pσ = var2sigmacolumn(σ₁,pressure[1:nw],sig1grid,splorder,linearinterp)
+                    pσ = var2sigmacolumn(σ₁,pressure[1:nw],sig1grid,splorder=splorder,linearinterp=linearinterp)
                     [varsσ["p"][ff,ss][xx,yy] = convert(T,pσ[ss]) for ss = 1:nσ]
                     
                 end
@@ -932,10 +932,20 @@ function vars2sigma1(vars::Dict{String,MeshArrays.gcmarray{T,2,Matrix{T}}},press
 end
 
 """
-    function mdsio2sigma1
+    function mdsio2sigma1(pathin::String,pathout::String,fileroots::Vector{String},γ,pstdz,sig1grid;splorder=3,linearinterp=false,eos="JMD95") 
+
     Take variables in a filelist, read, map to sigma1, write to file.
+
+# Arguments
+- `pathin::String`: path of input
+- `pathout::String`: path of output
+- `fileroots::String`: beginning of file names in pathin
+- `γ`: grid description needed for preallocation
+- `splorder::Integer`: optional keyword argument, default = 3, order of spline
+- `linearinterp::Logical`: optional keyword argument, do linear interpolation?, default = false
+- `eos::String`: optional key argument for equation of state, default = "JMD95"
 """
-function mdsio2sigma1(pathin::String,pathout::String,fileroots::Vector{String},γ,pstdz,sig1grid,splorder::Integer,linearinterp=false) 
+function mdsio2sigma1(pathin::String,pathout::String,fileroots::Vector{String},γ,pstdz,sig1grid;splorder=3,linearinterp=false,eos="JMD95") 
     # Read All Variables And Puts Them Into "Vars" Dictionary
 
     # ideally would be more generic and Float64 would be covered.
@@ -950,7 +960,7 @@ function mdsio2sigma1(pathin::String,pathout::String,fileroots::Vector{String},�
     rotate_velocity!(vars,Γ)
 
     # solve for sigma1 on depth levels.
-    @time varsσ = vars2sigma1(vars,pstdz,sig1grid,γ,splorder,linearinterp)
+    @time varsσ = vars2sigma1(vars,pstdz,sig1grid,γ,splorder=splorder,linearinterp=linearinterp,eos=eos)
 
     fileprefix = pathout
     # use first filename to get timestamp
@@ -1780,7 +1790,7 @@ function rotate_velocity!(vars,Γ)
     for (kk,vv) in velvars
         if haskey(vars,kk) && haskey(vars,vv)
 
-            println("rotate velocity of pair:",kk,"-",vv)
+            println("rotate variable pair:",kk,"-",vv)
             evel = similar(vars[kk])
             nvel = similar(vars[vv])
 
@@ -1799,7 +1809,7 @@ function rotate_velocity!(vars,Γ)
             elseif ndims(vars[kk]) == 1
 
                 uC = similar(vars[kk]) # one level
-                 vC = similar(vars[vv]) # one level
+                vC = similar(vars[vv]) # one level
 
                 #interpolate velocity to center of C-grid
                 velocity2center!(uC,vC,vars[kk],vars[vv],Γ)               
@@ -1856,7 +1866,6 @@ end
 """
 function velocity2center(u,v,G)
 
-    #G = GridLoad(γ;option="full")
     u[findall(G.hFacW[:,1].==0)].=NaN
     v[findall(G.hFacS[:,1].==0)].=NaN;
 
@@ -1880,7 +1889,6 @@ From Gael Forget, JuliaClimateNotebooks/Transport
     4. Display Subdomain Arrays (optional)
 """
 function rotate_uv(uvel::MeshArrays.gcmarray{T,N,Matrix{T}},vvel::MeshArrays.gcmarray{T,N,Matrix{T}},G) where T<:AbstractFloat where N
-#function rotate_uv(uvel::MeshArrays.gcmarray{T,N,Matrix{T}},vvel::MeshArrays.gcmarray{T,N,Matrix{T}},G)::Tuple{MeshArrays.gcmarray{T,N,Matrix{T}},MeshArrays.gcmarray{T,N,Matrix{T}}} where T<:AbstractFloat where N
 
     # this kludge must be very slow
     cs=convert.(T,G.AngleCS)
