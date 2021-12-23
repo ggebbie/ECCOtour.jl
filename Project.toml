@@ -1,7 +1,7 @@
 name = "ECCOtour"
 uuid = "414fb998-b5a0-4a85-b76f-da39d21445ca"
 authors = ["G Jake Gebbie"]
-version = "0.1.11"
+version = "0.1.12"
 
 [deps]
 Conda = "8f4d0f93-b110-5947-807f-2305c1781a2d"
