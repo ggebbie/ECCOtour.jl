@@ -36,6 +36,7 @@ export faststats, allstats, std, mean
 export mean, std, replace!
 export velocity2center, rotate_uv, rotate_velocity!
 export vars2sigma1, sigma1grid
+export landmask
 
 include("HannFilter.jl")
 include("MatrixFilter.jl")
