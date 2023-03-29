@@ -173,4 +173,13 @@ using GoogleDrive
             
         end
     end
+
+    @testset "landmask" begin
+
+        msk = landmask(γ)
+
+        # more water than land?
+        @test sum(msk) < sum(iszero.(msk))
+
+    end
 end
