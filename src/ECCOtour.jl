@@ -1144,7 +1144,7 @@ end
 """
     function land2nan!(msk,γ)
 
-    Replace land points with NaN
+    Replace surface land points with NaN
 """
 function land2nan!(msk,γ)
     land = landmask(γ)
@@ -1153,9 +1153,15 @@ function land2nan!(msk,γ)
     end
 end
 
-function landmask(γ)
+"""
+    function landmask(γ;level=1)
+
+     The land mask at a given depth
+    Default is the surface
+"""
+function landmask(γ;level=1)
     Γ = GridLoad(γ;option="full")
-    return iszero.(Γ.hFacC[:,1]) #is ocean mask
+    return iszero.(Γ.hFacC[:,level]) #is ocean mask
 end
             
 """
