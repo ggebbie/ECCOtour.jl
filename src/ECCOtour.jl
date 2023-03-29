@@ -1118,7 +1118,12 @@ function var2regularpoles(var,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
 
     T = eltype(var)
     NaNT = zero(T)/zero(T)
+
     # remove contamination from land
+    # this is a problem for masks
+    # it also overwrites input (not ok)
+
+    land = landmask(γ)
     replace!(var, 0.0 => NaNT)
 
     #pre-allocate output
@@ -1136,6 +1141,11 @@ function var2regularpoles(var,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
     
 end
 
+function landmask(γ)
+    Γ = GridLoad(γ;option="full")
+    return iszero.(Γ.hFacC[:,1]) is ocean mask
+end
+            
 """
 function writeregularpoles(vars,γ,pathout,filesuffix,filelog,λC,lonatts,ϕC,latatts,z,depthatts)
 """
