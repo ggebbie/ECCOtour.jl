@@ -1143,7 +1143,7 @@ end
 
 function landmask(γ)
     Γ = GridLoad(γ;option="full")
-    return iszero.(Γ.hFacC[:,1]) is ocean mask
+    return iszero.(Γ.hFacC[:,1]) #is ocean mask
 end
             
 """
