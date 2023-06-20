@@ -269,7 +269,9 @@ end
     matrixsaveinterpolation(E,savefield,frootin,frootout,years,γ)
 
     writing it in a funny way to save computation
-    issue with timeseries being read in different files
+    issue with timeseries being read in different files. 
+    Interpolates "savefield" using the E matrix onto a monthly grid. 
+    Then saves the interpolated field "savefield". 
 # Arguments
 - `E`: interpolating spray operator in matrix form
 - `savefield`: field to be saved to multiple files
@@ -279,9 +281,6 @@ end
 - `γ`: GCM grid (meshArray type)
 """
 function matrixsaveinterpolation(E,savefield,frootin,frootout,years,γ)
-
-    nout = size(E,1)
-    nin  = size(E,2)
 
     nyr = length(years)
 
