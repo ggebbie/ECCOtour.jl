@@ -1,4 +1,5 @@
-using Pkg, Conda
+using Pkg
+#using Conda
 
 # this line doesn't seem to be hit
 println("building ECCOtour package")
