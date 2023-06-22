@@ -12,14 +12,14 @@ using MITgcmTools, MeshArrays, Statistics, Dierckx
     z = depthlevels(γ)
     pstdz = pressurelevels(z)
 
-    projectdir() = dirname(Base.active_project())
+    projectdir() = ".." #dirname(Base.active_project())
     projectdir(args...) = joinpath(projectdir(), args...)
     datadir() = joinpath(projectdir(),"data")
     datadir(args...) = joinpath(datadir(), args...)
     srcdir() = joinpath(projectdir(),"src")
     srcdir(args...) = joinpath(srcdir(), args...)
     testdir() = joinpath(projectdir(),"test")
-    testdir(args...) = joinpath(testdir(),"test")
+    testdir(args...) = joinpath(testdir(), args...)
     
     !ispath(datadir()) && mkdir(datadir())
 
@@ -42,8 +42,6 @@ using MITgcmTools, MeshArrays, Statistics, Dierckx
     run(`tar xvzf state_3d_set1.0000000732.tar.gz`)
     run(`tar xvzf trsp_3d_set1.0000000732.tar.gz`)
 
-    !ispath(datadir()) && mkdir(datadir())
-    
     mv("state_3d_set1.0000000732.data",datadir("state_3d_set1.0000000732.data"),force=true)
     mv("trsp_3d_set1.0000000732.data",datadir("trsp_3d_set1.0000000732.data"),force=true)
     mv("state_3d_set1.0000000732.meta",datadir("state_3d_set1.0000000732.meta"),force=true)
