@@ -1301,7 +1301,9 @@ function vars2regularpoles(vars::Dict{String,MeshArrays.gcmarray{T,2,Matrix{T}}}
         varsregpoles[varname] = fill(NaNT,(nx,ny,nz))
 
         for zz = 1:nz
+            println(zz)
             # get regular grid by cropping
+            println(shape(varsregpoles[varname]))
             varsregpoles[varname][:,:,zz]=var2regularpoles(varvals[:,zz],γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
         end
     end
