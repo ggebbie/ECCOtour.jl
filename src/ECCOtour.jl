@@ -1,11 +1,10 @@
 module ECCOtour
-# write new functions and put them in this module.
-# add them with text below, or create a new file in "src" and include it.
 
 using MeshArrays, MITgcmTools, IsopycnalSurfaces
-using Statistics, PyPlot, Distributions, FFTW,
+using Statistics, Distributions, FFTW,
     LinearAlgebra, StatsBase, LaTeXStrings,
     Dierckx, DelimitedFiles, Interpolations, NetCDF
+#using PyPlot
 
 import Statistics.mean, Statistics.std,
        Base.maximum, Base.minimum, Base.replace!,
@@ -38,6 +37,7 @@ export velocity2center, rotate_uv, rotate_velocity!
 export vars2sigma1, sigma1grid
 export sigma2grid, vars2sigma, mdsio2sigma, mdsio2sigma2
 export θbudg2sigma, θbudg2sigma2
+export landmask, land2nan!
 
 include("HannFilter.jl")
 include("MatrixFilter.jl")
@@ -1331,24 +1331,51 @@ function var2regularpoles(var,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
 
     T = eltype(var)
     NaNT = zero(T)/zero(T)
-    # remove contamination from land
-    replace!(var, 0.0 => NaNT)
 
+    # remove contamination from land
+    # this is a problem for masks
+    # going to make the code slow with deepcopy but don't want mutation
+    varnative = deepcopy(var)
+    land2nan!(varnative,γ)
+    
     #pre-allocate output
     varregpoles = fill(NaNT,(nx,ny))
 
     # get regular grid by cropping
-    θcrop =  LLCcropC(var,γ)
+    θcrop =  LLCcropC(varnative,γ)
 
     # interpolate to "regularpoles"
-    θarc = reginterp(var,nx,nyarc,λarc)
-    θantarc = reginterp(var,nx,nyantarc,λantarc)
+    θarc = reginterp(varnative,nx,nyarc,λarc)
+    θantarc = reginterp(varnative,nx,nyantarc,λantarc)
     varregpoles=hcat(θantarc',θcrop,θarc')
 
     return varregpoles
     
 end
 
+"""
+    function land2nan!(msk,γ)
+
+    Replace surface land points with NaN
+"""
+function land2nan!(msk,γ)
+    land = landmask(γ)
+    for ff in eachindex(msk)
+        msk[ff][land[ff]] .= NaN
+    end
+end
+
+"""
+    function landmask(γ;level=1)
+
+     The land mask at a given depth
+    Default is the surface
+"""
+function landmask(γ;level=1)
+    Γ = GridLoad(γ;option="full")
+    return iszero.(Γ.hFacC[:,level]) #is ocean mask
+end
+            
 """
 function writeregularpoles(vars,γ,pathout,filesuffix,filelog,λC,lonatts,ϕC,latatts,z,depthatts)
 """

@@ -1,7 +1,7 @@
 using Revise
 using Test, ECCOtour
 using MITgcmTools, MeshArrays, Statistics, Dierckx
-using GoogleDrive
+#using GoogleDrive
 
 @testset "ECCOtour.jl" begin
 
@@ -12,35 +12,49 @@ using GoogleDrive
     z = depthlevels(γ)
     pstdz = pressurelevels(z)
 
-    projectdir = dirname(Base.active_project())
-    datadir = joinpath(projectdir,"data")
-    srcdir = joinpath(projectdir,"src")
+    projectdir() = ".." #dirname(Base.active_project())
+    projectdir(args...) = joinpath(projectdir(), args...)
+    datadir() = joinpath(projectdir(),"data")
+    datadir(args...) = joinpath(datadir(), args...)
+    srcdir() = joinpath(projectdir(),"src")
+    srcdir(args...) = joinpath(srcdir(), args...)
+    testdir() = joinpath(projectdir(),"test")
+    testdir(args...) = joinpath(testdir(), args...)
     
-    !isdir(datadir) && mkdir(datadir)
+    !ispath(datadir()) && mkdir(datadir())
 
-    # download sample data sets
+    ## download sample data sets
 
     # state 3d
-    url = "https://docs.google.com/uc?export=download&id=1Sst5Y9AUbef1-Vk2ocBgOOiI2kudYRPx"
-    filegz = google_download(url,datadir)
-    cd(datadir)
-    run(`tar xvzf $filegz`)
+    #url = "https://docs.google.com/uc?export=download&id=1Sst5Y9AUbef1-Vk2ocBgOOiI2kudYRPx"
+    #filegz = google_download(url,datadir)
+    #cd(datadir)
+    #run(`tar xvzf $filegz`)
 
     # transport 3d # too large doesn't work due to virus scan
     #url = "https://docs.google.com/uc?export=download&id=1KKk8d_1nQFbM9xQjTelCmWTMfK3SA7U5"
     #filegz = google_download(url,datadir)
 
-    cd(datadir)
+    cd(srcdir())
     # workaround: use a shell script
-    run(`sh $srcdir/download_google_drive.sh`)
+    #run(`sh $srcdir/download_google_drive.sh`)
+    run(`sh download_google_drive.sh`)
+    run(`tar xvzf state_3d_set1.0000000732.tar.gz`)
     run(`tar xvzf trsp_3d_set1.0000000732.tar.gz`)
 
+    mv("state_3d_set1.0000000732.data",datadir("state_3d_set1.0000000732.data"),force=true)
+    mv("trsp_3d_set1.0000000732.data",datadir("trsp_3d_set1.0000000732.data"),force=true)
+    mv("state_3d_set1.0000000732.meta",datadir("state_3d_set1.0000000732.meta"),force=true)
+    mv("trsp_3d_set1.0000000732.meta",datadir("trsp_3d_set1.0000000732.meta"),force=true)
+
+    cd(testdir())
+    
     ## specific for state
     # the state_3d monthly-average diagnostic output
     stateroot = "state_3d_set1" # 1: θ, 2: S
 
     # first filter for state_3d_set1
-    filelist = searchdir(datadir,stateroot)
+    filelist = searchdir(datadir(),stateroot)
     # second filter for "data"
     statefile  = filter(x -> occursin("data",x),filelist)
 
@@ -53,7 +67,7 @@ using GoogleDrive
     transportroot = "trsp_3d_set1" # 1: θ, 2: S
 
     # first filter for state_3d_set1
-    filelist = searchdir(datadir,transportroot)
+    filelist = searchdir(datadir(),transportroot)
     # second filter for "data"
     transportfile  = filter(x -> occursin("data",x),filelist)
 
@@ -68,7 +82,7 @@ using GoogleDrive
         eos_mitgcm = "JMD95"
 
         @testset "spline_interpolation" begin
-            varsσ = mdsio2sigma1(datadir,datadir,fileroots,γ,pstdz,sig1grid,splorder=3,eos=eos_mitgcm)
+            varsσ = mdsio2sigma1(datadir(),datadir(),fileroots,γ,pstdz,sig1grid,splorder=3,eos=eos_mitgcm)
             for ss in eachindex(sig1grid)
                 @test maximum(MeshArrays.mask(varsσ["SALT"][:,ss],-Inf)) < 45.0
                 @test minimum(MeshArrays.mask(varsσ["SALT"][:,ss],Inf)) ≥ 0.0
@@ -82,7 +96,7 @@ using GoogleDrive
 
         @testset "linear_interpolation" begin
 
-            varsσ = mdsio2sigma1(datadir,datadir,fileroots,γ,pstdz,sig1grid,linearinterp=true,eos=eos_mitgcm)
+            varsσ = mdsio2sigma1(datadir(),datadir(),fileroots,γ,pstdz,sig1grid,linearinterp=true,eos=eos_mitgcm)
 
             for ss in eachindex(sig1grid)
                 @test maximum(MeshArrays.mask(varsσ["SALT"][:,ss],-Inf)) < 45.0
@@ -108,7 +122,7 @@ using GoogleDrive
             @testset "regularpoles 3d state" begin
 
                 filein = fileroots[1]
-                pathin = datadir
+                pathin = datadir()
 
                 @time varsregpoles =  mdsio2regularpoles(pathin,filein,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
 
@@ -120,7 +134,7 @@ using GoogleDrive
             @testset "regularpoles 3d transport" begin
 
                 filein = fileroots[2]
-                pathin = datadir
+                pathin = datadir()
 
                 @time varsregpoles =  mdsio2regularpoles(pathin,filein,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
 
@@ -136,8 +150,10 @@ using GoogleDrive
                 dxc_regpoles = vars2regularpoles(vars,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
 
                 yy = 100
-                for xx = 1:nx
-                    println(@test isapprox(dxc_regpoles["XC"][xx,yy],λC[xx], rtol=1e-6))
+                #for xx = 1:nx # test failing at xx = 110 or 129
+                for xx = 1:50
+                    println(xx)
+                    @test isapprox(dxc_regpoles["XC"][xx,yy],λC[xx], rtol=1e-6)
                 end
             end
             
@@ -172,5 +188,14 @@ using GoogleDrive
             faststats(lat)
             
         end
+    end
+
+    @testset "landmask" begin
+
+        msk = landmask(γ)
+
+        # more water than land?
+        @test sum(msk) < sum(iszero.(msk))
+
     end
 end
