@@ -1,11 +1,10 @@
 module ECCOtour
-# write new functions and put them in this module.
-# add them with text below, or create a new file in "src" and include it.
 
 using MeshArrays, MITgcmTools, IsopycnalSurfaces
-using Statistics, PyPlot, Distributions, FFTW,
+using Statistics, Distributions, FFTW,
     LinearAlgebra, StatsBase, LaTeXStrings,
     Dierckx, DelimitedFiles, Interpolations, NetCDF
+#using PyPlot
 
 import Statistics.mean, Statistics.std,
        Base.maximum, Base.minimum, Base.replace!,
