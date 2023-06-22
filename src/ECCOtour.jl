@@ -834,7 +834,7 @@ function latgridArctic(γ)
     popfirst!(ϕG)
 
     # same thing for centered (tracer) grid
-    ϕ,λ = latlonC(γ)
+    ϕ,λ = latlonG(γ)
     jarc -= 1 # update for C grid, subtract one here
     ϕarc = ϕ[1][1,jarc]
     ϕC=collect(range(ϕarc,length=narc,step=Δϕarc))
@@ -870,7 +870,7 @@ end
 function LLCcropC(gcmfield,γ)
     # There is a regular grid inside the LLC grid.
     # Subsample/crop just those points. Put them together correctly.
-    ϕ,λ = latlonC(γ)
+    ϕ,λ = latlonG(γ)
     jarc,jantarc,ϕarc,ϕantarc = croplimitsLLC(ϕ,λ)
     jarc -= 1 # update for C grid, subtract one here
 
