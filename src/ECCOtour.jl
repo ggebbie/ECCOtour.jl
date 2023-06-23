@@ -11,7 +11,7 @@ import Statistics.mean, Statistics.std,
        IsopycnalSurfaces.vars2sigma1, IsopycnalSurfaces.sigma1grid
 
 export hanncoeffs, hannsum, hannsum!, hannfilter
-export get_filtermatrix, matrixfilter, matrixspray, columnscale!, matrixsaveinterpolation
+export get_filtermatrix, matrixfilter, matrixspray, columnscale!
 export seasonal_matrices, trend_matrices
 export position_label, searchdir
 export listexperiments, expnames, expsymbols, time_label
@@ -35,224 +35,11 @@ export faststats, allstats, std, mean
 export mean, std, replace!
 export velocity2center, rotate_uv, rotate_velocity!
 export vars2sigma1, sigma1grid
-export sigma2grid, vars2sigma, mdsio2sigma, mdsio2sigma2
-export θbudg2sigma, θbudg2sigma2
 export landmask, land2nan!
 
 include("HannFilter.jl")
 include("MatrixFilter.jl")
 include("SeasonalCycle.jl")
-
-""" function sigma2grid()
-    Standard chosen from the time-averaged Pacific Ocean Density Configuration. 
-    From this analysis, density extrema were found to be between σ2 ∈ (29, 37) kg per m^3
-# Arguments
-- `z`: value
-# Output
-- `σ₂ grid`: list (vector) of σ₁ values
-"""
-function sigma2grid()
-    σ₂grida = 24:0.1:36.5
-    σ₂grid = σ₂grida[1:3:end]
-    σ₂gridc = 36.53:0.03:37.53
-    σ₂grid = vcat(σ₂grid, σ₂gridc)
-    # σ₂grid = σ₂grid[1:3:end]
-    return σ₂grid
-end
-"""
-    function vars2sigma(vars,p,siggrid,γ,spline_order)
-    map variables onto sigma1 surfaces for gcmarrays
-# Arguments
-- `vars::Dict{String,MeshArrays.gcmarray{T,N,Array{T,2}}}`: dict of gcmarrays
-- `p::Array{Float64,1}` : vertical profile of standard pressures
-- `siggrid`: σ₁ surface values
-- `γ`: grid description needed for preallocation
-- `splorder`: 1-5, order of spline
-- `linearinterp`: optional logical
-# Output
-- `varsσ::Dict{String,MeshArrays.gcmarray{T,N,Array{T,2}}}`: dict of gcmarrays of variables on sigma1 surfaces
-"""
-function vars2sigma(vars::Dict{String,MeshArrays.gcmarray{T,2,Matrix{T}}},pressure::Vector{Float64},siggrid::Vector{Float64},
-                    p₀::Float64, γ::gcmgrid;splorder=3,linearinterp=false,eos="JMD95") where T<:AbstractFloat 
-
-    # θ and S must exist
-    !haskey(vars,"THETA") && error("θ missing")
-    !haskey(vars,"SALT") && error("S missing")
-
-    # loop over faces
-    nf,nz = size(vars["THETA"])
-    nσ = length(siggrid)
-
-    # vcol = Dict with profile/column data
-    # pre-allocate each key in vars
-    vcol = Dict{String,Vector{T}}() # vars in a column
-    varsσ = Dict{String,MeshArrays.gcmarray{T,2,Matrix{T}}}()
-
-    for (key, value) in vars
-        vcol[key] = fill(convert(T,NaN),nz)
-        varsσ[key] = MeshArray(γ,T,nσ); fill!(varsσ[key],convert(T,NaN))
-    end
-    # allocate standard pressure by hand.
-    varsσ["p"] = MeshArray(γ,T,nσ); fill!(varsσ["p"],convert(T,NaN))
-
-    for ff = 1:nf
-        nx,ny = size(vars["THETA"][ff,1])
-        for xx = 1:nx
-            for yy = 1:ny
-                for (vcolname, vcolval) in vars
-                    # vcol = Dict with profile/column data
-                    vcol[vcolname] = [vcolval[ff,zz][xx,yy] for zz = 1:nz]
-                end
-
-                nw = count(notnanorzero,vcol["THETA"]) # number of wet points in column
-                nwS = count(notnanorzero,vcol["SALT"])
-                if nw != nwS
-                    error("T,S zeroes inconsistent")
-                end
-
-                if nw > 3 #need >=n+1 points to do order-n interpolation
-                    σ₀ =sigmacolumn(vcol["THETA"][1:nw],vcol["SALT"][1:nw],pressure[1:nw],p₀,eos)
-
-                    for (vckey,vcval) in vcol
-                        varσ = var2sigmacolumn(σ₀,vcval[1:nw],siggrid,splorder=splorder,linearinterp=linearinterp)
-                        [varsσ[vckey][ff,ss][xx,yy] = convert(T,varσ[ss]) for ss = 1:nσ]
-                    end
-
-                    # do standard pressure by hand.
-                    pσ = var2sigmacolumn(σ₀,pressure[1:nw],siggrid,splorder=splorder,linearinterp=linearinterp)
-                    [varsσ["p"][ff,ss][xx,yy] = convert(T,pσ[ss]) for ss = 1:nσ]
-                    
-                end
-            end
-        end
-    end
-    return varsσ
-end
-
-mdsio2sigma2(pathin::String,pathout::String,fileroots::Vector{String},
-             γ::gcmgrid,pstdz::Vector{Float64},siggrid::Vector{Float64};
-             splorder=3,linearinterp=false,eos="JMD95") = mdsio2sigma(pathin,pathout,fileroots,γ,
-                                                                      pstdz,siggrid, 2000.0, "sigma2";
-                                                                      splorder=splorder,linearinterp=linearinterp,eos=eos) 
-θbudg2sigma2(inv_RAC::MeshArrays.gcmarray{T, 1, Matrix{T}}, inv_RAU::MeshArrays.gcmarray{T, 2, Matrix{T}}, inv_RAV::MeshArrays.gcmarray{T, 2, Matrix{T}},
-             pathin::String,pathout::String,fileroots::Vector{String},
-             γ::gcmgrid,pstdz::Vector{Float64},siggrid::Vector{Float64};
-             splorder=3,linearinterp=false,eos="JMD95") where T<:Real  = θbudg2sigma(inv_RAC, inv_RAU, inv_RAV, pathin,pathout,fileroots,γ,
-                                                                      pstdz,siggrid, 2000.0, "sigma2";
-                                                                      splorder=splorder,linearinterp=linearinterp,eos=eos) 
-
-"""
-function θbudg2sigma(pathin::String,pathout::String,fileroots::Vector{String},γ,pstdz,siggrid;splorder=3,linearinterp=false,eos="TEOS10") 
-
-Take variables in a filelist, read, map to sigma1, write to file.
-
-# Arguments
-- `inv_cell_volumes::MeshArrays.gcmarray{T, 2, Matrix{T}}`: Inverted cell volumes, land should be 0, wet pts should be 1/V
-- `pathin::String`: path of input
-- `pathout::String`: path of output
-- `fileroots::String`: beginning of file names in pathin
-- `γ`: grid description needed for preallocation
-- `splorder::Integer`: optional keyword argument, default = 3, order of spline
-- `linearinterp::Logical`: optional keyword argument, do linear interpolation?, default = false
-- `eos::String`: optional key argument for equation of state, default = "JMD95"
-"""
-function θbudg2sigma(inv_RAC::MeshArrays.gcmarray{T, 1, Matrix{T}}, inv_RAU::MeshArrays.gcmarray{T, 2, Matrix{T}}, inv_RAV::MeshArrays.gcmarray{T, 2, Matrix{T}}, 
-    pathin::String,pathout::String,fileroots::Vector{String},γ::gcmgrid,
-    pstdz::Vector{Float64},siggrid::Vector{Float64}, p₀::Float64, p₀_string::String;splorder=3,linearinterp=false,eos="JMD95") where T<:Real 
-
-    Γ = GridLoad(γ;option="full")
-    vars = Dict{String,MeshArrays.gcmarray{Float32,2,Matrix{Float32}}}()
-    for fileroot in fileroots
-        merge!(vars,mdsio2dict(pathin,fileroot,γ))
-    end
-    println(keys(vars))
-
-    vars["DFr_TH"] = vars["DFrI_TH"] .+ vars["DFrE_TH"]
-    #get units to (°C m³) / s to  (°C m) / s
-    for ijk in eachindex(vars["ADVx_TH"])
-        vars["ADVx_TH"].f[ijk] .= Float32.(vars["ADVx_TH"].f[ijk] .* inv_RAU.f[ijk])
-        vars["DFxE_TH"].f[ijk] .= Float32.(vars["ADVx_TH"].f[ijk] .* inv_RAU.f[ijk])
-        vars["ADVy_TH"].f[ijk] .= Float32.(vars["ADVy_TH"].f[ijk] .* inv_RAV.f[ijk])
-        vars["DFyE_TH"].f[ijk] .= Float32.(vars["DFyE_TH"].f[ijk] .* inv_RAV.f[ijk])
-        vars["ADVr_TH"].f[ijk] .= Float32.(vars["ADVr_TH"].f[ijk] .* inv_RAC.f[ijk[1]])
-        vars["DFr_TH"].f[ijk]  .= Float32.(vars["DFr_TH"].f[ijk]  .* inv_RAC.f[ijk[1]])
-    end
-    #interpolate to grid center 
-
-    for ff=1:5, k=1:49
-        vars["ADVr_TH"].f[ff, k] .= (vars["ADVr_TH"].f[ff, k+1] .+ vars["ADVr_TH"].f[ff, k]) ./ 2
-        vars["DFr_TH"].f[ff, k] .= (vars["DFr_TH"].f[ff, k+1] .+ vars["DFr_TH"].f[ff, k]) ./2 
-    end
-    for ff=1:5
-        vars["ADVr_TH"].f[ff, 50] .= vars["ADVr_TH"].f[ff, 50] ./ 2
-        vars["DFr_TH"].f[ff, 50] .= vars["DFr_TH"].f[ff, 50] ./ 2
-    end
-
-    #only get heat budget
-    keep_names = filter(x -> occursin("TH",x) || occursin("SALT",x),keys(vars))
-    vars = filter(((k,v),) -> k in keep_names, vars)
-    keep_names_again = filter(x -> occursin("Vx_TH",x) || occursin("Vy_TH",x) || 
-                            occursin("xE_TH",x) || occursin("yE_TH",x) ||
-                            occursin("r_TH",x)  ||
-                            occursin("THETA",x) || occursin("SALT",x) ,keys(vars))
-
-    vars = filter(((k,v),) -> k in keep_names_again, vars)
-    # solve for sigma on depth levels.
-    @time varsσ = vars2sigma(vars,pstdz,siggrid,p₀, γ,splorder=splorder,linearinterp=linearinterp,eos=eos)
-
-    fileprefix = pathout
-    # use first filename to get timestamp
-    filesuffix = "_on_" * p₀_string * fileroots[1][14:end]*".data"
-    write_vars(varsσ,fileprefix,filesuffix)
-
-
-
-    return varsσ
-
-end
-
-
-
-"""
-    function mdsio2sigma(pathin::String,pathout::String,fileroots::Vector{String},γ,pstdz,siggrid;splorder=3,linearinterp=false,eos="TEOS10") 
-
-    Take variables in a filelist, read, map to sigma1, write to file.
-
-# Arguments
-- `pathin::String`: path of input
-- `pathout::String`: path of output
-- `fileroots::String`: beginning of file names in pathin
-- `γ`: grid description needed for preallocation
-- `splorder::Integer`: optional keyword argument, default = 3, order of spline
-- `linearinterp::Logical`: optional keyword argument, do linear interpolation?, default = false
-- `eos::String`: optional key argument for equation of state, default = "JMD95"
-"""
-function mdsio2sigma(pathin::String,pathout::String,fileroots::Vector{String},γ::gcmgrid,
-    pstdz::Vector{Float64},siggrid::Vector{Float64}, p₀::Float64, p₀_string::String;splorder=3,linearinterp=false,eos="JMD95") 
-    # Read All Variables And Puts Them Into "Vars" Dictionary
-
-    # ideally would be more generic and Float64 would be covered.
-    vars = Dict{String,MeshArrays.gcmarray{Float32,2,Matrix{Float32}}}()
-    for fileroot in fileroots
-        merge!(vars,mdsio2dict(pathin,fileroot,γ))
-    end
-
-    # check for fields on the velocity (staggered) grid
-    # and rotate them if necessary
-    Γ = GridLoad(γ;option="full")
-    rotate_velocity!(vars,Γ)
-
-    # solve for sigma on depth levels.
-    @time varsσ = vars2sigma(vars,pstdz,siggrid,p₀, γ,splorder=splorder,linearinterp=linearinterp,eos=eos)
-
-    fileprefix = pathout
-    # use first filename to get timestamp
-    filesuffix = "_on_" * p₀_string * fileroots[1][14:end]*".data"
-    write_vars(varsσ,fileprefix,filesuffix)
-
-    return varsσ
-end
-
 
 """
     function position_label(lon,lat)
@@ -834,7 +621,7 @@ function latgridArctic(γ)
     popfirst!(ϕG)
 
     # same thing for centered (tracer) grid
-    ϕ,λ = latlonG(γ)
+    ϕ,λ = latlonC(γ)
     jarc -= 1 # update for C grid, subtract one here
     ϕarc = ϕ[1][1,jarc]
     ϕC=collect(range(ϕarc,length=narc,step=Δϕarc))
@@ -1301,9 +1088,7 @@ function vars2regularpoles(vars::Dict{String,MeshArrays.gcmarray{T,2,Matrix{T}}}
         varsregpoles[varname] = fill(NaNT,(nx,ny,nz))
 
         for zz = 1:nz
-            println(zz)
             # get regular grid by cropping
-            println(size(varsregpoles[varname]))
             varsregpoles[varname][:,:,zz]=var2regularpoles(varvals[:,zz],γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
         end
     end
@@ -2141,55 +1926,5 @@ function rotate_uv(uvel::MeshArrays.gcmarray{T,N,Matrix{T}},vvel::MeshArrays.gcm
 
     return evel,nvel
 end
-
-
-function calc_UV_conv3D!(uFLD::MeshArrays.gcmarray{T, 2, Matrix{T}}, 
-    vFLD::MeshArrays.gcmarray{T, 2, Matrix{T}}, CONV::MeshArrays.gcmarray{T, 2, Matrix{T}}) where T<:Real
-        tmpU, tmpV = exch_UV_cs3D(uFLD,vFLD)
-        for a in eachindex(uFLD.f)
-            (s1,s2)=size(uFLD.f[a])
-            @inbounds tmpU1=view(tmpU.f[a],1:s1,1:s2)
-            @inbounds tmpU2=view(tmpU.f[a],2:s1+1,1:s2)
-            @inbounds tmpV1=view(tmpV.f[a],1:s1,1:s2)
-            @inbounds tmpV2=view(tmpV.f[a],1:s1,2:s2+1)
-            @inbounds CONV.f[a] = tmpU1-tmpU2+tmpV1-tmpV2
-        end
-    end
-    
-function exch_UV_cs3D(fldU::MeshArrays.gcmarray{T, 2, Matrix{T}},
-    fldV::MeshArrays.gcmarray{T, 2, Matrix{T}}) where T<:Real
-    fillval=0f0
-    #step 1
-
-    s=size.(fldU[:, 1].f)
-    nz = size(fldU, 2)
-    nf=fldU.grid.nFaces
-    s=vcat(s,s[3]) #always has 5 faces in LLC90
-    tp=fldU.grid.class
-
-    FLDU=similar(fldU)
-    FLDV=similar(fldV)
-    (ovfW,ovfE,ovfS,ovfN,evfW,evfE,evfS,evfN)=MeshArrays.exch_cs_viewfunctions();
-    for lvl=1:nz, a=1:nf
-        FLDU.f[a, lvl] = fill(fillval,s[a][1]+1,s[a][2]);
-        FLDV.f[a, lvl] = fill(fillval,s[a][1],s[a][2]+1);
-        FLDU.f[a, lvl][1:s[a][1],1:s[a][2]] .= fldU.f[a, lvl];
-        FLDV.f[a, lvl][1:s[a][1],1:s[a][2]] .= fldV.f[a, lvl];
-
-        (jW, jE, jS, jN)=MeshArrays.exch_cs_target(s[a],1)
-        (aW,aE,aS,aN,iW,iE,iS,iN)=MeshArrays.exch_cs_sources(a,s,1)
-
-        if (!iseven)(a)
-            (aE <= nf) && (FLDU.f[a, lvl][jE[1].-1,jE[2].-1].=ovfE(fldU.f[aE, lvl],iE[1],iE[2]))
-            (aN <= nf) && (FLDV.f[a, lvl][jN[1].-1,jN[2].-1].=ovfN(fldU.f[aN, lvl],iN[1],iN[2]))
-        else
-            (aE <= nf) && (FLDU.f[a, lvl][jE[1].-1,jE[2].-1].=evfE(fldV.f[aE, lvl],iE[1],iE[2]))
-            (aN <= nf) && (FLDV.f[a, lvl][jN[1].-1,jN[2].-1].=evfN(fldV.f[aN, lvl],iN[1],iN[2]))
-        end
-    end
-    return FLDU,FLDV
-
-end
-
 
 end #module
