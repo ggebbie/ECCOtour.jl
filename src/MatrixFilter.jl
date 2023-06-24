@@ -1,5 +1,6 @@
 """
-get_filtermatrix(tin,tout)
+    function get_filtermatrix(tin,tout)
+
 # Arguments
 - `tin`: input times
 - `tout`: output times
@@ -32,6 +33,62 @@ function get_filtermatrix(tin,tout)
 
     # for a real function, would want to fix this.
     ival = 3 # first two 6-hourly values off range
+    jval = 1
+
+    for ii = 1:ntout-1
+        Eout2in[ival:ival+nblock-1,jval:jval+1] = Eblock
+        ival += nblock
+        jval += 1
+    end
+
+    # some trimming must be done.
+    Eout2in = Eout2in[1:ntin,:]
+    ETE = Eout2in'*Eout2in
+    Fin2out = ETE\(Eout2in')
+
+    Eout2in = convert(Array{Float32,2},Eout2in)
+    Fin2out = convert(Array{Float32,2},Fin2out)
+
+    return Eout2in, Fin2out
+end
+
+"""
+    function get_filtermatrixfull(tin,tout)
+
+    By Anthony Meza
+
+# Arguments
+- `tin`: input times
+- `tout`: output times
+# Output
+- `Eout2in`: matrix that maps from tout to tin
+- `Fin2out`: matrix that maps from tin to tout
+"""
+function get_filtermatrixfull(tin,tout)
+    # function get_matrixfilter(tin,tout)
+
+    ntin  = length(tin)
+    ntout = length(tout)
+
+    # assume evenly spaced in time
+    Δtout = tout[2]-tout[1]
+
+    # find all hi-res values bounded by tiepoint 1 and 2
+    inrange = x -> ( tout[1] < x <  tout[2]) # found on plot
+    iblock = findall(inrange,collect(tin))
+
+    nblock = length(iblock)
+    Eblock = zeros(nblock,2)
+    for ii = 1:nblock
+        Eblock[ii,1] = -(tin[iblock[ii]] - tout[2])/Δtout
+        Eblock[ii,2] = (tin[iblock[ii]] - tout[1])/Δtout
+    end
+
+    # put the blocks together in a big sparse matrix.
+    Eout2in = zeros(ntin+56,ntout) # make ntin too long and then trim later
+
+    # for a real function, would want to fix this.
+    ival = 1 # first two 6-hourly values off range
     jval = 1
 
     for ii = 1:ntout-1
@@ -205,6 +262,50 @@ function matrixspray(F,rmfield,frootin,frootout,years,γ)
         @time annualcontrib!(field,F[istart:iend,:],rmfield)
         istart = iend+1
 
+        fnameout = frootout*string(years[tt])
+        println("saved file "*fnameout)
+        write(fnameout,field)
+    end
+end
+
+"""
+    function matrixsaveinterpolation(E,savefield,frootin,frootout,years,γ)
+
+    writing it in a funny way to save computation
+    issue with timeseries being read in different files. 
+    Interpolates "savefield" using the E matrix onto a monthly grid. 
+    Then saves the interpolated field "savefield".
+
+    By Anthony Meza
+
+# Arguments
+- `E`: interpolating spray operator in matrix form
+- `savefield`: field to be saved to multiple files
+- `frootin`: filename root of input field
+- `frootout`: filename root of output field
+- `years`: iterator for multiple files
+- `γ`: GCM grid (meshArray type)
+"""
+function matrixsaveinterpolation(E,savefield,frootin,frootout,years,γ)
+
+    nyr = length(years)
+
+    fnamein = frootin*string(years[1])
+    istart = 1
+    nseries = []
+
+    for tt = 1:nyr
+        fnamein = frootin*string(years[tt])
+        println("reading file "*fnamein)
+        field = read_bin(fnamein,Float32,γ); fill!(field,0.0)
+
+        push!(nseries,size(field,2))
+
+        # may need to keep track of indices
+        iend = istart+nseries[end]-1
+        # iend = istart+nt-1
+        @time annualcontrib!(field,E[istart:iend,:],savefield)
+        istart = iend+1
         fnameout = frootout*string(years[tt])
         println("saved file "*fnameout)
         write(fnameout,field)
