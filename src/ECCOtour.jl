@@ -11,7 +11,7 @@ import Statistics.mean, Statistics.std,
        IsopycnalSurfaces.vars2sigma1, IsopycnalSurfaces.sigma1grid
 
 export hanncoeffs, hannsum, hannsum!, hannfilter
-export get_filtermatrix, matrixfilter, matrixspray, columnscale!, matrixsaveinterpolation
+export get_filtermatrix, matrixfilter, matrixspray, columnscale!
 export seasonal_matrices, trend_matrices
 export position_label, searchdir
 export listexperiments, expnames, expsymbols, time_label
@@ -35,13 +35,12 @@ export faststats, allstats, std, mean
 export mean, std, replace!
 export velocity2center, rotate_uv, rotate_velocity!
 export vars2sigma1, sigma1grid
-export sigma2grid, vars2sigma, mdsio2sigma, mdsio2sigma2
-export θbudg2sigma, θbudg2sigma2
 export landmask, land2nan!
 
 include("HannFilter.jl")
 include("MatrixFilter.jl")
 include("SeasonalCycle.jl")
+
 
 """
     function sigma2grid()
@@ -274,7 +273,6 @@ function mdsio2sigma(pathin::String,pathout::String,fileroots::Vector{String},γ
 
     return varsσ
 end
-
 
 """
     function position_label(lon,lat)
@@ -856,7 +854,7 @@ function latgridArctic(γ)
     popfirst!(ϕG)
 
     # same thing for centered (tracer) grid
-    ϕ,λ = latlonG(γ)
+    ϕ,λ = latlonC(γ)
     jarc -= 1 # update for C grid, subtract one here
     ϕarc = ϕ[1][1,jarc]
     ϕC=collect(range(ϕarc,length=narc,step=Δϕarc))
@@ -1323,9 +1321,7 @@ function vars2regularpoles(vars::Dict{String,MeshArrays.gcmarray{T,2,Matrix{T}}}
         varsregpoles[varname] = fill(NaNT,(nx,ny,nz))
 
         for zz = 1:nz
-            println(zz)
             # get regular grid by cropping
-            println(size(varsregpoles[varname]))
             varsregpoles[varname][:,:,zz]=var2regularpoles(varvals[:,zz],γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
         end
     end
@@ -2224,6 +2220,5 @@ function exch_UV_cs3D(fldU::MeshArrays.gcmarray{T, 2, Matrix{T}},
     return FLDU,FLDV
 
 end
-
 
 end #module
