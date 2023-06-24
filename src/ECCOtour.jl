@@ -43,7 +43,8 @@ include("HannFilter.jl")
 include("MatrixFilter.jl")
 include("SeasonalCycle.jl")
 
-""" function sigma2grid()
+"""
+    function sigma2grid()
     Standard chosen from the time-averaged Pacific Ocean Density Configuration. 
     From this analysis, density extrema were found to be between σ2 ∈ (29, 37) kg per m^3
 # Arguments
@@ -59,6 +60,7 @@ function sigma2grid()
     # σ₂grid = σ₂grid[1:3:end]
     return σ₂grid
 end
+
 """
     function vars2sigma(vars,p,siggrid,γ,spline_order)
     map variables onto sigma1 surfaces for gcmarrays
@@ -129,11 +131,31 @@ function vars2sigma(vars::Dict{String,MeshArrays.gcmarray{T,2,Matrix{T}}},pressu
     return varsσ
 end
 
+"""
+    mdsio2sigma2(pathin::String,pathout::String,fileroots::Vector{String},
+             γ::gcmgrid,pstdz::Vector{Float64},siggrid::Vector{Float64};
+             splorder=3,linearinterp=false,eos="JMD95") = mdsio2sigma(pathin,pathout,fileroots,γ,
+                                                                      pstdz,siggrid, 2000.0, "sigma2";
+                                                                      splorder=splorder,linearinterp=linearinterp,eos=eos)
+
+    By Anthony Meza
+"""
 mdsio2sigma2(pathin::String,pathout::String,fileroots::Vector{String},
              γ::gcmgrid,pstdz::Vector{Float64},siggrid::Vector{Float64};
              splorder=3,linearinterp=false,eos="JMD95") = mdsio2sigma(pathin,pathout,fileroots,γ,
                                                                       pstdz,siggrid, 2000.0, "sigma2";
-                                                                      splorder=splorder,linearinterp=linearinterp,eos=eos) 
+                                                                      splorder=splorder,linearinterp=linearinterp,eos=eos)
+
+"""
+θbudg2sigma2(inv_RAC::MeshArrays.gcmarray{T, 1, Matrix{T}}, inv_RAU::MeshArrays.gcmarray{T, 2, Matrix{T}}, inv_RAV::MeshArrays.gcmarray{T, 2, Matrix{T}},
+             pathin::String,pathout::String,fileroots::Vector{String},
+             γ::gcmgrid,pstdz::Vector{Float64},siggrid::Vector{Float64};
+             splorder=3,linearinterp=false,eos="JMD95") where T<:Real  = θbudg2sigma(inv_RAC, inv_RAU, inv_RAV, pathin,pathout,fileroots,γ,
+                                                                      pstdz,siggrid, 2000.0, "sigma2";
+                                                                                     splorder=splorder,linearinterp=linearinterp,eos=eos)
+
+     By Anthony Meza
+"""
 θbudg2sigma2(inv_RAC::MeshArrays.gcmarray{T, 1, Matrix{T}}, inv_RAU::MeshArrays.gcmarray{T, 2, Matrix{T}}, inv_RAV::MeshArrays.gcmarray{T, 2, Matrix{T}},
              pathin::String,pathout::String,fileroots::Vector{String},
              γ::gcmgrid,pstdz::Vector{Float64},siggrid::Vector{Float64};
@@ -2142,20 +2164,32 @@ function rotate_uv(uvel::MeshArrays.gcmarray{T,N,Matrix{T}},vvel::MeshArrays.gcm
     return evel,nvel
 end
 
+"""
+    function calc_UV_conv3D!(uFLD::MeshArrays.gcmarray{T, 2, Matrix{T}}, 
+    vFLD::MeshArrays.gcmarray{T, 2, Matrix{T}}, CONV::MeshArrays.gcmarray{T, 2, Matrix{T}}) where T<:Real
+        tmpU, tmpV = exch_UV_cs3D(uFLD,vFLD)
 
+    By Anthony Meza
+"""
 function calc_UV_conv3D!(uFLD::MeshArrays.gcmarray{T, 2, Matrix{T}}, 
     vFLD::MeshArrays.gcmarray{T, 2, Matrix{T}}, CONV::MeshArrays.gcmarray{T, 2, Matrix{T}}) where T<:Real
         tmpU, tmpV = exch_UV_cs3D(uFLD,vFLD)
-        for a in eachindex(uFLD.f)
-            (s1,s2)=size(uFLD.f[a])
-            @inbounds tmpU1=view(tmpU.f[a],1:s1,1:s2)
-            @inbounds tmpU2=view(tmpU.f[a],2:s1+1,1:s2)
-            @inbounds tmpV1=view(tmpV.f[a],1:s1,1:s2)
-            @inbounds tmpV2=view(tmpV.f[a],1:s1,2:s2+1)
-            @inbounds CONV.f[a] = tmpU1-tmpU2+tmpV1-tmpV2
-        end
+    for a in eachindex(uFLD.f)
+        (s1,s2)=size(uFLD.f[a])
+        @inbounds tmpU1=view(tmpU.f[a],1:s1,1:s2)
+        @inbounds tmpU2=view(tmpU.f[a],2:s1+1,1:s2)
+        @inbounds tmpV1=view(tmpV.f[a],1:s1,1:s2)
+        @inbounds tmpV2=view(tmpV.f[a],1:s1,2:s2+1)
+        @inbounds CONV.f[a] = tmpU1-tmpU2+tmpV1-tmpV2
     end
-    
+end
+
+"""
+    function exch_UV_cs3D(fldU::MeshArrays.gcmarray{T, 2, Matrix{T}},
+        fldV::MeshArrays.gcmarray{T, 2, Matrix{T}}) where T<:Real
+
+    By Anthony Meza
+"""
 function exch_UV_cs3D(fldU::MeshArrays.gcmarray{T, 2, Matrix{T}},
     fldV::MeshArrays.gcmarray{T, 2, Matrix{T}}) where T<:Real
     fillval=0f0

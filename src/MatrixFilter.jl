@@ -1,5 +1,6 @@
 """
-get_filtermatrix(tin,tout)
+    function get_filtermatrix(tin,tout)
+
 # Arguments
 - `tin`: input times
 - `tout`: output times
@@ -52,7 +53,10 @@ function get_filtermatrix(tin,tout)
 end
 
 """
-get_filtermatrixfull(tin,tout)
+    function get_filtermatrixfull(tin,tout)
+
+    By Anthony Meza
+
 # Arguments
 - `tin`: input times
 - `tout`: output times
@@ -103,7 +107,6 @@ function get_filtermatrixfull(tin,tout)
 
     return Eout2in, Fin2out
 end
-
 
 """
     matrixfilter(F,froot,years,γ)
@@ -266,12 +269,15 @@ function matrixspray(F,rmfield,frootin,frootout,years,γ)
 end
 
 """
-    matrixsaveinterpolation(E,savefield,frootin,frootout,years,γ)
+    function matrixsaveinterpolation(E,savefield,frootin,frootout,years,γ)
 
     writing it in a funny way to save computation
     issue with timeseries being read in different files. 
     Interpolates "savefield" using the E matrix onto a monthly grid. 
-    Then saves the interpolated field "savefield". 
+    Then saves the interpolated field "savefield".
+
+    By Anthony Meza
+
 # Arguments
 - `E`: interpolating spray operator in matrix form
 - `savefield`: field to be saved to multiple files
