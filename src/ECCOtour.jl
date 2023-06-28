@@ -1452,21 +1452,22 @@ function writeregularpoles(vars::Dict{String,Array{Float32,3}},γ,pathout,filesu
             fileout,
             varname,
             "lon",
-            Float32.(λC),
+            λC,
             lonatts,
             "lat",
-            Float32.(ϕC),
+            ϕC,
             latatts,
             depthname,
-            Float32.(z),
+            z,
             depthatts,
             atts = varatts,
+            t = NC_FLOAT # Float32
         )
 
-        println("typeof field",typeof(varvals))
-        println("typeof field",typeof(Float32.(varvals)))
+        #println("typeof field",typeof(varvals))
+        #println("typeof field",typeof(Float32.(varvals)))
         #varvals = Float32.(varvals) #convert back to single precision
-        ncwrite(Float32.(varvals), fileout, varname)
+        ncwrite(varvals, fileout, varname)
     end
 end
 
@@ -1513,8 +1514,9 @@ function writeregularpoles(vars::Dict{String,Array{Float32,2}},γ,pathout,filesu
             ϕC,
             latatts,
             atts = varatts,
+            t = NC_FLOAT
         )
-        varvals = Float32.(varvals) #convert back to single precision
+        #varvals = 2.(varvals) #convert back to single precision: handled above L1517
         ncwrite(varvals, fileout, varname)
     end
 end
@@ -1554,7 +1556,8 @@ function writeregularpoles(vars::Dict{String,Array{Float64,3}},γ,pathout,filesu
             depthatts,
             atts = varatts,
         )
-        varvals = Float32.(varvals) #convert back to single precision
+        # wrong: input is double precision in function definition
+        #varvals = Float32.(varvals) #convert back to single precision
         ncwrite(varvals, fileout, fieldDict["fldname"])
     end
 end
@@ -1590,7 +1593,8 @@ function writeregularpoles(vars::Dict{String,Array{Float64,2}},γ,pathout,filesu
             latatts,
             atts = varatts,
         )
-        varvals = Float32.(varvals) #convert back to single precision
+        # function call is double not single precision
+        #varvals = Float32.(varvals) #convert back to single precision
         ncwrite(varvals, fileout, fieldDict["fldname"])
     end
 end

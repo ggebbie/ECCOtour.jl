@@ -1,6 +1,7 @@
 using Revise
 using Test, ECCOtour
 using MITgcmTools, MeshArrays, Statistics, Dierckx
+using NetCDF
 #using GoogleDrive
 
 @testset "ECCOtour.jl" begin
@@ -140,7 +141,8 @@ using MITgcmTools, MeshArrays, Statistics, Dierckx
                 @test minimum(filter(!isnan,varsregpoles["SALT"])) > 0.
 
                 # read regularpoles to see if single or double precision
-                NetCDF.open("../dataTHETA/THETAsuffix.nc")
+                θ = ncread("../dataTHETA/THETAsuffix.nc","THETA")
+                @test eltype(θ) == Float32
             end
 
             @testset "regularpoles 3d transport" begin
