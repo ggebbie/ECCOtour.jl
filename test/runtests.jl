@@ -128,7 +128,7 @@ using MITgcmTools, MeshArrays, Statistics, Dierckx
 
                 filesuffix = "suffix.nc"
                 pathout = pathin
-                filelog = "available_diagnostics.log"
+                filelog = srcdir("available_diagnostics.log")
                 lonatts = Dict("longname" => "Longitude", "units" => "degrees east")
                 latatts = Dict("longname" => "Latitude", "units" => "degrees north")
                 depthatts = Dict("longname" => "Depth", "units" => "m")
@@ -139,6 +139,8 @@ using MITgcmTools, MeshArrays, Statistics, Dierckx
                 @test maximum(filter(!isnan,varsregpoles["SALT"])) < 50.
                 @test minimum(filter(!isnan,varsregpoles["SALT"])) > 0.
 
+                # read regularpoles to see if single or double precision
+                NetCDF.open("../dataTHETA/THETAsuffix.nc")
             end
 
             @testset "regularpoles 3d transport" begin

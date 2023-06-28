@@ -1441,7 +1441,7 @@ function writeregularpoles(vars::Dict{String,Array{Float32,3}},γ,pathout,filesu
         !isdir(pathoutdir) ? mkdir(pathoutdir) : nothing;
 
         # get filename for this month.
-        fileout = pathoutdir*varname*filesuffix
+        fileout = joinpath(pathoutdir,varname*filesuffix)
         println(fileout)
 
         # save in a NetCDF file with info from fieldDict
@@ -1452,19 +1452,21 @@ function writeregularpoles(vars::Dict{String,Array{Float32,3}},γ,pathout,filesu
             fileout,
             varname,
             "lon",
-            λC,
+            Float32.(λC),
             lonatts,
             "lat",
-            ϕC,
+            Float32.(ϕC),
             latatts,
             depthname,
-            z,
+            Float32.(z),
             depthatts,
             atts = varatts,
         )
 
-        varvals = Float32.(varvals) #convert back to single precision
-        ncwrite(varvals, fileout, varname)
+        println("typeof field",typeof(varvals))
+        println("typeof field",typeof(Float32.(varvals)))
+        #varvals = Float32.(varvals) #convert back to single precision
+        ncwrite(Float32.(varvals), fileout, varname)
     end
 end
 
