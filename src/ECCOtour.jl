@@ -1462,6 +1462,8 @@ function writeregularpoles(vars::Dict{String,Array{Float32,3}},γ,pathout,filesu
             depthatts,
             atts = varatts,
         )
+
+        varvals = Float32.(varvals) #convert back to single precision
         ncwrite(varvals, fileout, varname)
     end
 end
@@ -1510,6 +1512,7 @@ function writeregularpoles(vars::Dict{String,Array{Float32,2}},γ,pathout,filesu
             latatts,
             atts = varatts,
         )
+        varvals = Float32.(varvals) #convert back to single precision
         ncwrite(varvals, fileout, varname)
     end
 end
@@ -1549,6 +1552,7 @@ function writeregularpoles(vars::Dict{String,Array{Float64,3}},γ,pathout,filesu
             depthatts,
             atts = varatts,
         )
+        varvals = Float32.(varvals) #convert back to single precision
         ncwrite(varvals, fileout, fieldDict["fldname"])
     end
 end
@@ -1584,6 +1588,7 @@ function writeregularpoles(vars::Dict{String,Array{Float64,2}},γ,pathout,filesu
             latatts,
             atts = varatts,
         )
+        varvals = Float32.(varvals) #convert back to single precision
         ncwrite(varvals, fileout, fieldDict["fldname"])
     end
 end
