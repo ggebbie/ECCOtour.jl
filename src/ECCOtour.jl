@@ -1441,7 +1441,7 @@ function writeregularpoles(vars::Dict{String,Array{Float32,3}},γ,pathout,filesu
         !isdir(pathoutdir) ? mkdir(pathoutdir) : nothing;
 
         # get filename for this month.
-        fileout = pathoutdir*varname*filesuffix
+        fileout = joinpath(pathoutdir,varname*filesuffix)
         println(fileout)
 
         # save in a NetCDF file with info from fieldDict
@@ -1461,9 +1461,12 @@ function writeregularpoles(vars::Dict{String,Array{Float32,3}},γ,pathout,filesu
             z,
             depthatts,
             atts = varatts,
+            t = NC_FLOAT # Float32
         )
 
-        varvals = Float32.(varvals) #convert back to single precision
+        #println("typeof field",typeof(varvals))
+        #println("typeof field",typeof(Float32.(varvals)))
+        #varvals = Float32.(varvals) #convert back to single precision
         ncwrite(varvals, fileout, varname)
     end
 end
@@ -1511,8 +1514,9 @@ function writeregularpoles(vars::Dict{String,Array{Float32,2}},γ,pathout,filesu
             ϕC,
             latatts,
             atts = varatts,
+            t = NC_FLOAT
         )
-        varvals = Float32.(varvals) #convert back to single precision
+        #varvals = 2.(varvals) #convert back to single precision: handled above L1517
         ncwrite(varvals, fileout, varname)
     end
 end
@@ -1552,7 +1556,8 @@ function writeregularpoles(vars::Dict{String,Array{Float64,3}},γ,pathout,filesu
             depthatts,
             atts = varatts,
         )
-        varvals = Float32.(varvals) #convert back to single precision
+        # wrong: input is double precision in function definition
+        #varvals = Float32.(varvals) #convert back to single precision
         ncwrite(varvals, fileout, fieldDict["fldname"])
     end
 end
@@ -1588,7 +1593,8 @@ function writeregularpoles(vars::Dict{String,Array{Float64,2}},γ,pathout,filesu
             latatts,
             atts = varatts,
         )
-        varvals = Float32.(varvals) #convert back to single precision
+        # function call is double not single precision
+        #varvals = Float32.(varvals) #convert back to single precision
         ncwrite(varvals, fileout, fieldDict["fldname"])
     end
 end
