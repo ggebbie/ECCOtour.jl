@@ -1,6 +1,7 @@
 using Revise
 using Test, ECCOtour
 using MITgcmTools, MeshArrays, Statistics, Dierckx
+using NetCDF
 #using GoogleDrive
 
 @testset "ECCOtour.jl" begin
@@ -126,9 +127,22 @@ using MITgcmTools, MeshArrays, Statistics, Dierckx
 
                 @time varsregpoles =  mdsio2regularpoles(pathin,filein,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
 
+                filesuffix = "suffix.nc"
+                pathout = pathin
+                filelog = srcdir("available_diagnostics.log")
+                lonatts = Dict("longname" => "Longitude", "units" => "degrees east")
+                latatts = Dict("longname" => "Latitude", "units" => "degrees north")
+                depthatts = Dict("longname" => "Depth", "units" => "m")
+                
+                @time writeregularpoles(varsregpoles,γ,pathout,filesuffix,filelog,λC,lonatts,
+                                        ϕC,latatts,z,depthatts)
+
                 @test maximum(filter(!isnan,varsregpoles["SALT"])) < 50.
                 @test minimum(filter(!isnan,varsregpoles["SALT"])) > 0.
 
+                # read regularpoles to see if single or double precision
+                θ = ncread("../dataTHETA/THETAsuffix.nc","THETA")
+                @test eltype(θ) == Float32
             end
 
             @testset "regularpoles 3d transport" begin

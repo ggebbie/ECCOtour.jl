@@ -11,7 +11,7 @@ import Statistics.mean, Statistics.std,
        IsopycnalSurfaces.vars2sigma1, IsopycnalSurfaces.sigma1grid
 
 export hanncoeffs, hannsum, hannsum!, hannfilter
-export get_filtermatrix, matrixfilter, matrixspray, columnscale!, matrixsaveinterpolation
+export get_filtermatrix, matrixfilter, matrixspray, columnscale!
 export seasonal_matrices, trend_matrices
 export position_label, searchdir
 export listexperiments, expnames, expsymbols, time_label
@@ -35,8 +35,6 @@ export faststats, allstats, std, mean
 export mean, std, replace!
 export velocity2center, rotate_uv, rotate_velocity!
 export vars2sigma1, sigma1grid
-export sigma2grid, vars2sigma, mdsio2sigma, mdsio2sigma2
-export θbudg2sigma, θbudg2sigma2
 export landmask, land2nan!
 export cons_offset!
 
@@ -75,6 +73,7 @@ function sigma2grid()
     # σ₂grid = σ₂grid[1:3:end]
     return σ₂grid
 end
+
 """
     function vars2sigma(vars,p,siggrid,γ,spline_order)
     map variables onto sigma1 surfaces for gcmarrays
@@ -145,11 +144,31 @@ function vars2sigma(vars::Dict{String,MeshArrays.gcmarray{T,2,Matrix{T}}},pressu
     return varsσ
 end
 
+"""
+    mdsio2sigma2(pathin::String,pathout::String,fileroots::Vector{String},
+             γ::gcmgrid,pstdz::Vector{Float64},siggrid::Vector{Float64};
+             splorder=3,linearinterp=false,eos="JMD95") = mdsio2sigma(pathin,pathout,fileroots,γ,
+                                                                      pstdz,siggrid, 2000.0, "sigma2";
+                                                                      splorder=splorder,linearinterp=linearinterp,eos=eos)
+
+    By Anthony Meza
+"""
 mdsio2sigma2(pathin::String,pathout::String,fileroots::Vector{String},
              γ::gcmgrid,pstdz::Vector{Float64},siggrid::Vector{Float64};
              splorder=3,linearinterp=false,eos="JMD95") = mdsio2sigma(pathin,pathout,fileroots,γ,
                                                                       pstdz,siggrid, 2000.0, "sigma2";
-                                                                      splorder=splorder,linearinterp=linearinterp,eos=eos) 
+                                                                      splorder=splorder,linearinterp=linearinterp,eos=eos)
+
+"""
+θbudg2sigma2(inv_RAC::MeshArrays.gcmarray{T, 1, Matrix{T}}, inv_RAU::MeshArrays.gcmarray{T, 2, Matrix{T}}, inv_RAV::MeshArrays.gcmarray{T, 2, Matrix{T}},
+             pathin::String,pathout::String,fileroots::Vector{String},
+             γ::gcmgrid,pstdz::Vector{Float64},siggrid::Vector{Float64};
+             splorder=3,linearinterp=false,eos="JMD95") where T<:Real  = θbudg2sigma(inv_RAC, inv_RAU, inv_RAV, pathin,pathout,fileroots,γ,
+                                                                      pstdz,siggrid, 2000.0, "sigma2";
+                                                                                     splorder=splorder,linearinterp=linearinterp,eos=eos)
+
+     By Anthony Meza
+"""
 θbudg2sigma2(inv_RAC::MeshArrays.gcmarray{T, 1, Matrix{T}}, inv_RAU::MeshArrays.gcmarray{T, 2, Matrix{T}}, inv_RAV::MeshArrays.gcmarray{T, 2, Matrix{T}},
              pathin::String,pathout::String,fileroots::Vector{String},
              γ::gcmgrid,pstdz::Vector{Float64},siggrid::Vector{Float64};
@@ -268,7 +287,6 @@ function mdsio2sigma(pathin::String,pathout::String,fileroots::Vector{String},γ
 
     return varsσ
 end
-
 
 """
     function position_label(lon,lat)
@@ -850,7 +868,7 @@ function latgridArctic(γ)
     popfirst!(ϕG)
 
     # same thing for centered (tracer) grid
-    ϕ,λ = latlonG(γ)
+    ϕ,λ = latlonC(γ)
     jarc -= 1 # update for C grid, subtract one here
     ϕarc = ϕ[1][1,jarc]
     ϕC=collect(range(ϕarc,length=narc,step=Δϕarc))
@@ -1317,9 +1335,7 @@ function vars2regularpoles(vars::Dict{String,MeshArrays.gcmarray{T,2,Matrix{T}}}
         varsregpoles[varname] = fill(NaNT,(nx,ny,nz))
 
         for zz = 1:nz
-            println(zz)
             # get regular grid by cropping
-            println(size(varsregpoles[varname]))
             varsregpoles[varname][:,:,zz]=var2regularpoles(varvals[:,zz],γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
         end
     end
@@ -1439,7 +1455,7 @@ function writeregularpoles(vars::Dict{String,Array{Float32,3}},γ,pathout,filesu
         !isdir(pathoutdir) ? mkdir(pathoutdir) : nothing;
 
         # get filename for this month.
-        fileout = pathoutdir*varname*filesuffix
+        fileout = joinpath(pathoutdir,varname*filesuffix)
         println(fileout)
 
         # save in a NetCDF file with info from fieldDict
@@ -1459,7 +1475,12 @@ function writeregularpoles(vars::Dict{String,Array{Float32,3}},γ,pathout,filesu
             z,
             depthatts,
             atts = varatts,
+            t = NC_FLOAT # Float32
         )
+
+        #println("typeof field",typeof(varvals))
+        #println("typeof field",typeof(Float32.(varvals)))
+        #varvals = Float32.(varvals) #convert back to single precision
         ncwrite(varvals, fileout, varname)
     end
 end
@@ -1507,7 +1528,9 @@ function writeregularpoles(vars::Dict{String,Array{Float32,2}},γ,pathout,filesu
             ϕC,
             latatts,
             atts = varatts,
+            t = NC_FLOAT
         )
+        #varvals = 2.(varvals) #convert back to single precision: handled above L1517
         ncwrite(varvals, fileout, varname)
     end
 end
@@ -1547,6 +1570,8 @@ function writeregularpoles(vars::Dict{String,Array{Float64,3}},γ,pathout,filesu
             depthatts,
             atts = varatts,
         )
+        # wrong: input is double precision in function definition
+        #varvals = Float32.(varvals) #convert back to single precision
         ncwrite(varvals, fileout, fieldDict["fldname"])
     end
 end
@@ -1582,6 +1607,8 @@ function writeregularpoles(vars::Dict{String,Array{Float64,2}},γ,pathout,filesu
             latatts,
             atts = varatts,
         )
+        # function call is double not single precision
+        #varvals = Float32.(varvals) #convert back to single precision
         ncwrite(varvals, fileout, fieldDict["fldname"])
     end
 end
@@ -2158,20 +2185,32 @@ function rotate_uv(uvel::MeshArrays.gcmarray{T,N,Matrix{T}},vvel::MeshArrays.gcm
     return evel,nvel
 end
 
+"""
+    function calc_UV_conv3D!(uFLD::MeshArrays.gcmarray{T, 2, Matrix{T}}, 
+    vFLD::MeshArrays.gcmarray{T, 2, Matrix{T}}, CONV::MeshArrays.gcmarray{T, 2, Matrix{T}}) where T<:Real
+        tmpU, tmpV = exch_UV_cs3D(uFLD,vFLD)
 
+    By Anthony Meza
+"""
 function calc_UV_conv3D!(uFLD::MeshArrays.gcmarray{T, 2, Matrix{T}}, 
     vFLD::MeshArrays.gcmarray{T, 2, Matrix{T}}, CONV::MeshArrays.gcmarray{T, 2, Matrix{T}}) where T<:Real
         tmpU, tmpV = exch_UV_cs3D(uFLD,vFLD)
-        for a in eachindex(uFLD.f)
-            (s1,s2)=size(uFLD.f[a])
-            @inbounds tmpU1=view(tmpU.f[a],1:s1,1:s2)
-            @inbounds tmpU2=view(tmpU.f[a],2:s1+1,1:s2)
-            @inbounds tmpV1=view(tmpV.f[a],1:s1,1:s2)
-            @inbounds tmpV2=view(tmpV.f[a],1:s1,2:s2+1)
-            @inbounds CONV.f[a] = tmpU1-tmpU2+tmpV1-tmpV2
-        end
+    for a in eachindex(uFLD.f)
+        (s1,s2)=size(uFLD.f[a])
+        @inbounds tmpU1=view(tmpU.f[a],1:s1,1:s2)
+        @inbounds tmpU2=view(tmpU.f[a],2:s1+1,1:s2)
+        @inbounds tmpV1=view(tmpV.f[a],1:s1,1:s2)
+        @inbounds tmpV2=view(tmpV.f[a],1:s1,2:s2+1)
+        @inbounds CONV.f[a] = tmpU1-tmpU2+tmpV1-tmpV2
     end
-    
+end
+
+"""
+    function exch_UV_cs3D(fldU::MeshArrays.gcmarray{T, 2, Matrix{T}},
+        fldV::MeshArrays.gcmarray{T, 2, Matrix{T}}) where T<:Real
+
+    By Anthony Meza
+"""
 function exch_UV_cs3D(fldU::MeshArrays.gcmarray{T, 2, Matrix{T}},
     fldV::MeshArrays.gcmarray{T, 2, Matrix{T}}) where T<:Real
     fillval=0f0
@@ -2206,6 +2245,5 @@ function exch_UV_cs3D(fldU::MeshArrays.gcmarray{T, 2, Matrix{T}},
     return FLDU,FLDV
 
 end
-
 
 end #module
