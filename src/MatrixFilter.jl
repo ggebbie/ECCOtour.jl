@@ -1,61 +1,16 @@
 """
-get_filtermatrix(tin,tout)
+    get_filtermatrix(tin, tout; ival = 3)
+
+This function generates a filter matrix based on the input time arrays `tin` and `tout`. 
+
 # Arguments
-- `tin`: input times
-- `tout`: output times
-# Output
-- `Eout2in`: matrix that maps from tout to tin
-- `Fin2out`: matrix that maps from tin to tout
-"""
-function get_filtermatrix(tin,tout)
-    # function get_matrixfilter(tin,tout)
-
-    ntin  = length(tin)
-    ntout = length(tout)
-
-    # assume evenly spaced in time
-    Δtout = tout[2]-tout[1]
-
-    # find all hi-res values bounded by tiepoint 1 and 2
-    inrange = x -> ( tout[1] < x <  tout[2]) # found on plot
-    iblock = findall(inrange,collect(tin))
-
-    nblock = length(iblock)
-    Eblock = zeros(nblock,2)
-    for ii = 1:nblock
-        Eblock[ii,1] = -(tin[iblock[ii]] - tout[2])/Δtout
-        Eblock[ii,2] = (tin[iblock[ii]] - tout[1])/Δtout
-    end
-
-    # put the blocks together in a big sparse matrix.
-    Eout2in = zeros(ntin+56,ntout) # make ntin too long and then trim later
-
-    # for a real function, would want to fix this.
-    ival = 3 # first two 6-hourly values off range
-    jval = 1
-
-    for ii = 1:ntout-1
-        Eout2in[ival:ival+nblock-1,jval:jval+1] = Eblock
-        ival += nblock
-        jval += 1
-    end
-
-    # some trimming must be done.
-    Eout2in = Eout2in[1:ntin,:]
-    ETE = Eout2in'*Eout2in
-    Fin2out = ETE\(Eout2in')
-
-    Eout2in = convert(Array{Float32,2},Eout2in)
-    Fin2out = convert(Array{Float32,2},Fin2out)
-
-    return Eout2in, Fin2out
-end
-
-"""
-get_filtermatrixfull(tin,tout)
-# Arguments
-- `tin`: input times
-- `tout`: output times
+- `tin`: Input time array.
+- `tout`: Output time array.
+- `ival`: : Optional argument with a default value of 3. 
+            It is used to determine the starting index for the filter.
+                
+e.g  ival = 3 # first two 14-day values of Eout2in are set to zero
+     ival = 1 # all days of Eout2in are allowed to be non-zero 
 # Output
 - `Eout2in`: matrix that maps from tout to tin
 - `Fin2out`: matrix that maps from tin to tout
