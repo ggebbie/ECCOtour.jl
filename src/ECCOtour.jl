@@ -38,12 +38,28 @@ export vars2sigma1, sigma1grid
 export sigma2grid, vars2sigma, mdsio2sigma, mdsio2sigma2
 export θbudg2sigma, θbudg2sigma2
 export landmask, land2nan!
+export cons_offset!
 
 include("HannFilter.jl")
 include("MatrixFilter.jl")
 include("SeasonalCycle.jl")
 
-""" function sigma2grid()
+""" 
+function cons_offset!(X, Δ)
+    Loops through the columns of X and 
+    modifies each gridpoint of X by a constant offset Δ
+# Arguments
+- `X`: MeshArray with 5 faces and n rows to be modified
+- 'Δ': MeshArray with 5 faces
+"""
+function cons_offset!(X::MeshArrays.gcmarray{T,2,Matrix{T}}, 
+    Δ::MeshArrays.gcmarray{T,1,Matrix{T}}) where T<:AbstractFloat 
+    for a in eachindex(X)
+        X.f[a] .+= Δ.f[a[1]]
+    end
+end
+""" 
+function sigma2grid()
     Standard chosen from the time-averaged Pacific Ocean Density Configuration. 
     From this analysis, density extrema were found to be between σ2 ∈ (29, 37) kg per m^3
 # Arguments
