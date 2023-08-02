@@ -42,26 +42,6 @@ include("HannFilter.jl")
 include("MatrixFilter.jl")
 include("SeasonalCycle.jl")
 
-"""
-    cons_offset!(X::MeshArrays.gcmarray{T,2,Matrix{T}}, 
-    Δ::MeshArrays.gcmarray{T,1,Matrix{T}}) where T<:AbstractFloat
-
-Adjust the values of the 2D MeshArray `X` by adding the corresponding values from the 1D MeshArray `Δ`.
-
-# Arguments
-- `X::MeshArrays.gcmarray{T,2,Matrix{T}}`: A 2D MeshArray that will be adjusted.
-- `Δ::MeshArrays.gcmarray{T,1,Matrix{T}}`: A 1D MeshArray containing the offset values to be added to `X`.
-
-# Examples
-```julia
-"""
-function cons_offset!(X::MeshArrays.gcmarray{T,2,Matrix{T}}, 
-    Δ::MeshArrays.gcmarray{T,1,Matrix{T}}) where T<:AbstractFloat 
-    for a in eachindex(X)
-        X.f[a] .+= Δ.f[a[1]]
-    end
-end
-
 """ 
 function sigma2grid()
     Standard chosen from the time-averaged Pacific Ocean Density Configuration. 
