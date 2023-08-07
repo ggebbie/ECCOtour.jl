@@ -164,9 +164,7 @@ using NetCDF
                 dxc_regpoles = vars2regularpoles(vars,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
 
                 yy = 100
-                #for xx = 1:nx # test failing at xx = 110 or 129
                 for xx = 1:50
-                    println(xx)
                     @test isapprox(dxc_regpoles["XC"][xx,yy],λC[xx], rtol=1e-6)
                 end
             end
@@ -212,4 +210,5 @@ using NetCDF
         @test sum(msk) < sum(iszero.(msk))
 
     end
+
 end
