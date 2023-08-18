@@ -36,14 +36,14 @@ export mean, std, replace!
 export velocity2center, rotate_uv, rotate_velocity!
 export vars2sigma1, sigma1grid
 export landmask, land2nan!
+export cons_offset!
 
 include("HannFilter.jl")
 include("MatrixFilter.jl")
 include("SeasonalCycle.jl")
 
-
-"""
-    function sigma2grid()
+""" 
+function sigma2grid()
     Standard chosen from the time-averaged Pacific Ocean Density Configuration. 
     From this analysis, density extrema were found to be between σ2 ∈ (29, 37) kg per m^3
 # Arguments
