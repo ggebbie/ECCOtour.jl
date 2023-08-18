@@ -1,6 +1,10 @@
 using Revise
-using Test, ECCOtour
-using MITgcmTools, MeshArrays, Statistics, Dierckx
+using Test
+using ECCOtour
+using MITgcmTools
+using MeshArrays
+using Statistics
+using Dierckx
 using NetCDF
 #using GoogleDrive
 
@@ -23,18 +27,6 @@ using NetCDF
     testdir(args...) = joinpath(testdir(), args...)
     
     !ispath(datadir()) && mkdir(datadir())
-
-    ## download sample data sets
-
-    # state 3d
-    #url = "https://docs.google.com/uc?export=download&id=1Sst5Y9AUbef1-Vk2ocBgOOiI2kudYRPx"
-    #filegz = google_download(url,datadir)
-    #cd(datadir)
-    #run(`tar xvzf $filegz`)
-
-    # transport 3d # too large doesn't work due to virus scan
-    #url = "https://docs.google.com/uc?export=download&id=1KKk8d_1nQFbM9xQjTelCmWTMfK3SA7U5"
-    #filegz = google_download(url,datadir)
 
     cd(srcdir())
     # workaround: use a shell script
@@ -168,8 +160,43 @@ using NetCDF
                     @test isapprox(dxc_regpoles["XC"][xx,yy],λC[xx], rtol=1e-6)
                 end
             end
+        end
+            
+        @testset "get filtermatrix" begin
+
+            # take biweekly mean. Use triangular filter with break points at:
+            Δi14day = 4*14 # grid index range
+            nt6hr = 4*365*27 #   length(fluxsample_point)
+            i14day = 2.5:Δi14day:nt6hr+56 # goes past end of time by 14 days to be sure
+
+            t6hr_start = 1/8 # 3Z Jan 1 1992
+            Δt6hr = 6/24 # 1/4 of a day
+            t6hr = range(t6hr_start,step=Δt6hr,length=nt6hr)
+
+            # Given a full-resolution timeseries, what values at the tiepoints best represent the timeseries?
+            # Determine tiepoints (in time) where fluxes are adjusted by ECCO in optimization procedure.
+            Δt14day = 14 # units: days
+            t14day_start = 1/2 # 12Z Jan 1 1992 by inspection of figure
+            t14day = range(t14day_start,step=Δt14day,stop=t6hr[end]+14)# goes past the end by one
+            nt14day = length(t14day)
+
+            # Values are added to the t14day tiepoints, then linearly interpolated to fill gaps.
+            # Careful not to store high-resolution data all at same time.
+            # Make a function that takes values at the tiepoints and then makes a full-resolution timeseries.
+            @time E14to6,F6to14 = get_filtermatrix(t6hr,t14day)
+
+            daysperyear = 365.25
+            fcycle = 1/(daysperyear) # units: day^{-1}
+            # for removing seasonal cycle from 14-day averaged timeseries
+            Ecycle,Fcycle = seasonal_matrices(fcycle,t14day)
+
+            identity = F6to14*E14to6
+            for ii in 1:size(identity,1)
+                @test isapprox(identity[ii,ii],1.0,atol=0.01)
+            end
             
         end
+        
         
         @testset "MeshArrays" begin
             ######################################
@@ -210,5 +237,5 @@ using NetCDF
         @test sum(msk) < sum(iszero.(msk))
 
     end
-
+    
 end
