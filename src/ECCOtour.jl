@@ -27,6 +27,10 @@ export timestamp_monthly_v4r4, netcdf2dict, write_vars
 export mdsio2dict, mdsio2sigma1, ncwritefromtemplate
 export netcdf2sigma1, mdsio2regularpoles
 export writeregularpoles, vars2regularpoles, var2regularpoles
+
+export sigma2grid, vars2sigma, mdsio2sigma, mdsio2sigma2
+export θbudg2sigma, θbudg2sigma2
+
 export netcdf2regularpoles, factors4regularpoles
 export regional_mask, apply_regional_mask!, zero2one!, wrapdist
 export centerlon!, read_netcdf
@@ -37,6 +41,8 @@ export velocity2center, rotate_uv, rotate_velocity!
 export vars2sigma1, sigma1grid
 export landmask, land2nan!
 export cons_offset!
+
+
 
 include("HannFilter.jl")
 include("MatrixFilter.jl")
