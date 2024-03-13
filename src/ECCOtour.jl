@@ -1184,7 +1184,7 @@ end
 - `linearinterp::Logical`: optional keyword argument, do linear interpolation?, default = false
 - `eos::String`: optional key argument for equation of state, default = "JMD95"
 """
-function mdsio2sigma1(pathin::String,pathout::String,fileroots::Vector{String},γ,pstdz,sig1grid;splorder=3,linearinterp=false,eos="JMD95") 
+function mdsio2sigma1(pathin::String,pathout::String,fileroots::Vector{String},γ,pstdz,sig1grid;splorder=3,linearinterp=false,eos="JMD95",writefiles=writefiles) 
     # Read All Variables And Puts Them Into "Vars" Dictionary
 
     # ideally would be more generic and Float64 would be covered.
@@ -1204,7 +1204,9 @@ function mdsio2sigma1(pathin::String,pathout::String,fileroots::Vector{String},�
     fileprefix = pathout
     # use first filename to get timestamp
     filesuffix = "_on_sigma1"*fileroots[1][14:end]*".data"
-    write_vars(varsσ,fileprefix,filesuffix)
+    if writefiles
+        write_vars(varsσ,fileprefix,filesuffix)
+    end
 
     return varsσ
 end
