@@ -1363,7 +1363,8 @@ function var2regularpoles(var,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
     # remove contamination from land
     # this is a problem for masks
     # going to make the code slow with deepcopy but don't want mutation
-    varnative = deepcopy(var)
+    #varnative = deepcopy(var)
+    varnative = var
     land2nan!(varnative,γ)
     
     #pre-allocate output
