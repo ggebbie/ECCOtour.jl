@@ -32,9 +32,14 @@ using NetCDF
     # workaround: use a shell script
     #run(`sh $srcdir/download_google_drive.sh`)
     run(`sh download_google_drive.sh`)
+
+    # transport > 40 MB, hits virus scanner, move to WHOI website
+    url = "https://www2.whoi.edu/staff/ggebbie/wp-content/uploads/sites/146/2024/03/trsp_3d_set1.0000000732.tar_.gz"
+    download(url,"trsp_3d_set1.0000000732.tar.gz")
+
     run(`tar xvzf state_3d_set1.0000000732.tar.gz`)
     run(`tar xvzf trsp_3d_set1.0000000732.tar.gz`)
-
+    
     mv("state_3d_set1.0000000732.data",datadir("state_3d_set1.0000000732.data"),force=true)
     mv("trsp_3d_set1.0000000732.data",datadir("trsp_3d_set1.0000000732.data"),force=true)
     mv("state_3d_set1.0000000732.meta",datadir("state_3d_set1.0000000732.meta"),force=true)
@@ -75,7 +80,7 @@ using NetCDF
         eos_mitgcm = "JMD95"
 
         @testset "spline_interpolation" begin
-            varsσ = mdsio2sigma1(datadir(),datadir(),fileroots,γ,pstdz,sig1grid,splorder=3,eos=eos_mitgcm)
+            @time varsσ = mdsio2sigma1(datadir(),datadir(),fileroots,γ,pstdz,sig1grid,splorder=3,eos=eos_mitgcm)
             for ss in eachindex(sig1grid)
                 @test maximum(MeshArrays.mask(varsσ["SALT"][:,ss],-Inf)) < 45.0
                 @test minimum(MeshArrays.mask(varsσ["SALT"][:,ss],Inf)) ≥ 0.0
