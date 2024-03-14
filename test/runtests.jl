@@ -115,8 +115,6 @@ using NetCDF
 
             # Set up Cartesian grid for interpolation.
             # Time for a structure.
-            #λC,λG,ϕC,ϕG,nx,ny,nyarc,nyantarc,λarc,λantarc =
-            #    factors4regularpoles(γ)
             rp_params = factors4regularpoles(γ)
 
             @testset "regularpoles 3d state" begin
@@ -142,17 +140,6 @@ using NetCDF
                     filelog,
                     rp_params,
                     gridatts)
-                # @time writeregularpoles(varsregpoles,
-                #     γ,
-                #     pathout,
-                #     filesuffix,
-                #     filelog,
-                #     λC,
-                #     lonatts,
-                #     ϕC,
-                #     latatts,
-                #     z,
-                #     depthatts)
 
                 @test maximum(filter(!isnan,varsregpoles["SALT"])) < 50.
                 @test minimum(filter(!isnan,varsregpoles["SALT"])) > 0.
@@ -167,7 +154,7 @@ using NetCDF
                 filein = fileroots[2]
                 pathin = datadir()
 
-                @time varsregpoles =  mdsio2regularpoles(pathin,filein,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
+                @time varsregpoles = regularpoles(pathin,filein,γ,rp_params)
 
                 @test maximum(filter(!isnan,varsregpoles["NVELMASS"])) < 2.
                 @test minimum(filter(!isnan,varsregpoles["NVELMASS"])) > -2.
@@ -178,11 +165,10 @@ using NetCDF
                 # load centered longitude
                 # dxc = γ.read(γ.path*"XC.data",MeshArray(γ,Float64))
                 vars = Dict("XC" => γ.read(γ.path*"XC.data",MeshArray(γ,Float64)))
-                dxc_regpoles = vars2regularpoles(vars,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
-
+                dxc_regpoles = regularpoles(vars,γ,rp_params) 
                 yy = 100
                 for xx = 1:50
-                    @test isapprox(dxc_regpoles["XC"][xx,yy],λC[xx], rtol=1e-6)
+                    @test isapprox(dxc_regpoles["XC"][xx,yy],rp_params.λC[xx], rtol=1e-6)
                 end
             end
         end

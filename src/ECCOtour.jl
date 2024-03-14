@@ -25,9 +25,7 @@ export regularlatgrid, LLCcropC, LLCcropG, croplimitsLLC
 export latgridAntarctic, latgridArctic, latgridRegular
 export timestamp_monthly_v4r4, netcdf2dict, write_vars
 export mdsio2dict, mdsio2sigma1, ncwritefromtemplate
-export netcdf2sigma1, mdsio2regularpoles
-export writeregularpoles, vars2regularpoles, var2regularpoles
-
+export netcdf2sigma1, writeregularpoles 
 export sigma2grid, vars2sigma, mdsio2sigma, mdsio2sigma2
 export θbudg2sigma, θbudg2sigma2
 
@@ -41,7 +39,7 @@ export velocity2center, rotate_uv, rotate_velocity!
 export vars2sigma1, sigma1grid
 export landmask, land2nan!
 export cons_offset!
-export RegularpolesParameters
+export RegularpolesParameters, regularpoles
 
 
 include("HannFilter.jl")
@@ -1317,14 +1315,12 @@ end
 """
 function mdsio2regularpoles(pathin,filein,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
 """
-function regularpoles(pathin,filein,γ,params) #nx,ny,nyarc,λarc,nyantarc,λantarc)
-
+function regularpoles(pathin,filein,γ,params::RegularpolesParameters) #nx,ny,nyarc,λarc,nyantarc,λantarc)
     vars = mdsio2dict(pathin,filein,γ)
     Γ = GridLoad(γ;option="full")
     rotate_velocity!(vars,Γ)
     #    return vars2regularpoles(vars,γ,params) #nx,ny,nyarc,λarc,nyantarc,λantarc)
     return regularpoles(vars,γ,params) #nx,ny,nyarc,λarc,nyantarc,λantarc)
-
 end
 
 #function vars2regularpoles(vars::Dict{String,MeshArrays.gcmarray{T,2,Matrix{T}}},γ,nx,ny,nyarc,λarc,nyantarc,λantarc) where T<:AbstractFloat
