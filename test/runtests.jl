@@ -122,7 +122,7 @@ using NetCDF
                 filein = fileroots[1]
                 pathin = datadir()
 
-                @time varsregpoles =  ECCOtour.regularpoles(pathin,filein,γ,rp_params) #nx,ny,nyarc,λarc,nyantarc,λantarc)
+                @time varsregpoles =  regularpoles(pathin,filein,γ,rp_params) #nx,ny,nyarc,λarc,nyantarc,λantarc)
 
                 filesuffix = "suffix.nc"
                 pathout = pathin
@@ -163,9 +163,8 @@ using NetCDF
 
             @testset "regularpoles dxc" begin 
                 # load centered longitude
-                # dxc = γ.read(γ.path*"XC.data",MeshArray(γ,Float64))
                 vars = Dict("XC" => γ.read(γ.path*"XC.data",MeshArray(γ,Float64)))
-                dxc_regpoles = regularpoles(vars,γ,rp_params) 
+                @time dxc_regpoles = ECCOtour.regularpoles(vars,γ,rp_params) 
                 yy = 100
                 for xx = 1:50
                     @test isapprox(dxc_regpoles["XC"][xx,yy],rp_params.λC[xx], rtol=1e-6)

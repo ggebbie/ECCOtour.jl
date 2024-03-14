@@ -28,7 +28,6 @@ export mdsio2dict, mdsio2sigma1, ncwritefromtemplate
 export netcdf2sigma1, writeregularpoles 
 export sigma2grid, vars2sigma, mdsio2sigma, mdsio2sigma2
 export θbudg2sigma, θbudg2sigma2
-
 export netcdf2regularpoles, factors4regularpoles
 export regional_mask, apply_regional_mask!, zero2one!, wrapdist
 export centerlon!, read_netcdf
@@ -909,29 +908,22 @@ function LLCcropC(gcmfield,γ)
     # There is a regular grid inside the LLC grid.
     # Subsample/crop just those points. Put them together correctly.
     ϕ,λ = latlonG(γ)
-    jarc,jantarc,ϕarc,ϕantarc = croplimitsLLC(ϕ,λ)
+    jarc,jantarc,_,_ = croplimitsLLC(ϕ,λ)
     jarc -= 1 # update for C grid, subtract one here
-
-    regfield = gcmfield[1][:,jantarc:jarc]
-    regfield = vcat(regfield,gcmfield[2][:,jantarc:jarc])
-    for i = 4:5
-        tmp = reverse(transpose(gcmfield[i]),dims=2)
-        regfield = vcat(regfield,tmp[:,jantarc:jarc])
-    end
-
-    # handle longitudinal wraparound by hand
-    wrapval = 218
-    xwrap = vcat(wrapval+1:size(regfield,1),1:wrapval)
-    regfield = regfield[xwrap,:]
-    return regfield
+    return joinfields(gcmfield,jarc,jantarc)
 end
 
 function LLCcropG(gcmfield,γ)
     # There is a regular grid inside the LLC grid.
     # Subsample/crop just those points. Put them together correctly.
     ϕ,λ = latlonG(γ)
-    jarc,jantarc,ϕarc,ϕantarc = croplimitsLLC(ϕ,λ)
+    jarc,jantarc,_,_ = croplimitsLLC(ϕ,λ)
+    return joinfields(gcmfield,jarc,jantarc)
+end
 
+function joinfields(gcmfield,jarc,jantarc)
+
+    # no tile 3 (i.e., Arctic tile) because it is not regular
     regfield = gcmfield[1][:,jantarc:jarc]
     regfield = vcat(regfield,gcmfield[2][:,jantarc:jarc])
     for i = 4:5
@@ -942,8 +934,20 @@ function LLCcropG(gcmfield,γ)
     # handle longitudinal wraparound by hand
     wrapval = 218
     xwrap = vcat(wrapval+1:size(regfield,1),1:wrapval)
-    regfield = regfield[xwrap,:]
-    return regfield
+    return regfield[xwrap,:]
+    #return regfield
+
+    # # Why no tile 3 (i.e., Arctic tile)? Cannot get Arctic vals through this method.
+    # regfield = vcat(gcmfield[1][:,jantarc:jarc],
+    #     gcmfield[2][:,jantarc:jarc],
+    #     reverse(transpose(gcmfield[4]),dims=2)[:,jantarc:jarc],
+    #     reverse(transpose(gcmfield[5]),dims=2)[:,jantarc:jarc])
+
+    # # handle longitudinal wraparound by hand
+    # wrapval = 218
+    # xwrap = vcat(wrapval+1:size(regfield,1),1:wrapval)
+    # regfield = regfield[xwrap,:]
+    # return regfield
 end
 
 """
@@ -1376,6 +1380,7 @@ function regularpoles(var,γ,params)
     # this is a problem for masks
     # going to make the code slow with deepcopy but don't want mutation
     varnative = deepcopy(var)
+    #varnative = var 
     land2nan!(varnative,γ)
     
     #pre-allocate output
