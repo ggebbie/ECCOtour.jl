@@ -1,3 +1,4 @@
+using Base: replace_in_print_matrix
 using Revise
 using Test
 using ECCOtour
@@ -114,25 +115,44 @@ using NetCDF
 
             # Set up Cartesian grid for interpolation.
             # Time for a structure.
-            λC,λG,ϕC,ϕG,nx,ny,nyarc,nyantarc,λarc,λantarc =
-                factors4regularpoles(γ)
+            #λC,λG,ϕC,ϕG,nx,ny,nyarc,nyantarc,λarc,λantarc =
+            #    factors4regularpoles(γ)
+            rp_params = factors4regularpoles(γ)
 
             @testset "regularpoles 3d state" begin
 
                 filein = fileroots[1]
                 pathin = datadir()
 
-                @time varsregpoles =  mdsio2regularpoles(pathin,filein,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
+                @time varsregpoles =  ECCOtour.regularpoles(pathin,filein,γ,rp_params) #nx,ny,nyarc,λarc,nyantarc,λantarc)
 
                 filesuffix = "suffix.nc"
                 pathout = pathin
                 filelog = srcdir("available_diagnostics.log")
-                lonatts = Dict("longname" => "Longitude", "units" => "degrees east")
-                latatts = Dict("longname" => "Latitude", "units" => "degrees north")
-                depthatts = Dict("longname" => "Depth", "units" => "m")
+                gridatts = (
+                    lon = Dict("longname" => "Longitude", "units" => "degrees east"),
+                    lat = Dict("longname" => "Latitude", "units" => "degrees north"),
+                    depth = Dict("longname" => "Depth", "units" => "m")
+) 
                 
-                @time writeregularpoles(varsregpoles,γ,pathout,filesuffix,filelog,λC,lonatts,
-                                        ϕC,latatts,z,depthatts)
+                @time writeregularpoles(varsregpoles,
+                    γ,
+                    pathout,
+                    filesuffix,
+                    filelog,
+                    rp_params,
+                    gridatts)
+                # @time writeregularpoles(varsregpoles,
+                #     γ,
+                #     pathout,
+                #     filesuffix,
+                #     filelog,
+                #     λC,
+                #     lonatts,
+                #     ϕC,
+                #     latatts,
+                #     z,
+                #     depthatts)
 
                 @test maximum(filter(!isnan,varsregpoles["SALT"])) < 50.
                 @test minimum(filter(!isnan,varsregpoles["SALT"])) > 0.

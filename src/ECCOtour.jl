@@ -41,12 +41,25 @@ export velocity2center, rotate_uv, rotate_velocity!
 export vars2sigma1, sigma1grid
 export landmask, land2nan!
 export cons_offset!
-
+export RegularpolesParameters
 
 
 include("HannFilter.jl")
 include("MatrixFilter.jl")
 include("SeasonalCycle.jl")
+
+struct RegularpolesParameters{T<:Real,I<:Integer,NT<: NamedTuple}
+    λC::StepRangeLen
+    λG::StepRangeLen
+    ϕC::Vector{T}
+    ϕG::Vector{T}
+    nx::I
+    ny::I
+    nyarc::I
+    nyantarc::I
+    λarc::NT
+    λantarc::NT
+end
 
 """ 
 function sigma2grid()
@@ -639,7 +652,8 @@ function factors4regularpoles(γ)
     nyarc = length(ϕCarc)
     nyantarc = length(ϕCantarc)
 
-    return λC,λG,ϕC,ϕG,nx,ny,nyarc,nyantarc,λarc,λantarc
+    return RegularpolesParameters(λC,λG,ϕC,ϕG,nx,ny,nyarc,nyantarc,λarc,λantarc)
+    #return λC,λG,ϕC,ϕG,nx,ny,nyarc,nyantarc,λarc,λantarc
 end
 
 """
@@ -1296,23 +1310,25 @@ end
 function netcdf2regularpoles(ncfilename,ncvarname,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
 
     vars = netcdf2dict(ncfilename,ncvarname,γ)
-    varsregpoles = vars2regularpoles(vars,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
+    varsregpoles = regularpoles(vars,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
 
 end
 
 """
 function mdsio2regularpoles(pathin,filein,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
 """
-function mdsio2regularpoles(pathin,filein,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
+function regularpoles(pathin,filein,γ,params) #nx,ny,nyarc,λarc,nyantarc,λantarc)
 
     vars = mdsio2dict(pathin,filein,γ)
     Γ = GridLoad(γ;option="full")
     rotate_velocity!(vars,Γ)
-    varsregpoles = vars2regularpoles(vars,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
+    #    return vars2regularpoles(vars,γ,params) #nx,ny,nyarc,λarc,nyantarc,λantarc)
+    return regularpoles(vars,γ,params) #nx,ny,nyarc,λarc,nyantarc,λantarc)
 
 end
 
-function vars2regularpoles(vars::Dict{String,MeshArrays.gcmarray{T,2,Matrix{T}}},γ,nx,ny,nyarc,λarc,nyantarc,λantarc) where T<:AbstractFloat
+#function vars2regularpoles(vars::Dict{String,MeshArrays.gcmarray{T,2,Matrix{T}}},γ,nx,ny,nyarc,λarc,nyantarc,λantarc) where T<:AbstractFloat
+function regularpoles(vars::Dict{String,MeshArrays.gcmarray{T,2,Matrix{T}}},γ,params) where T<:AbstractFloat
 
     varsregpoles = Dict{String,Array{T,3}}()
     NaNT = zero(T)/zero(T)
@@ -1324,27 +1340,28 @@ function vars2regularpoles(vars::Dict{String,MeshArrays.gcmarray{T,2,Matrix{T}}}
         nz = size(varvals,2)
 
         #pre-allocate dict
-        varsregpoles[varname] = fill(NaNT,(nx,ny,nz))
+        varsregpoles[varname] = fill(NaNT,(params.nx,params.ny,nz))
 
         for zz = 1:nz
             # get regular grid by cropping
-            varsregpoles[varname][:,:,zz]=var2regularpoles(varvals[:,zz],γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
+            #varsregpoles[varname][:,:,zz]=var2regularpoles(varvals[:,zz],γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
+            varsregpoles[varname][:,:,zz]=regularpoles(varvals[:,zz],γ,params) #nx,ny,nyarc,λarc,nyantarc,λantarc)
         end
     end
     return varsregpoles
 end
 
 """
-function vars2regularpoles(vars::Dict{String,MeshArrays.gcmarray{T,1,Matrix{T}}},γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
+function regularpoles(vars::Dict{String,MeshArrays.gcmarray{T,1,Matrix{T}}},γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
      variables interpolated onto regularpoles grid
 """
-function vars2regularpoles(vars::Dict{String,MeshArrays.gcmarray{T,1,Matrix{T}}},γ,nx,ny,nyarc,λarc,nyantarc,λantarc) where T<:AbstractFloat
+#function vars2regularpoles(vars::Dict{String,MeshArrays.gcmarray{T,1,Matrix{T}}},γ,nx,ny,nyarc,λarc,nyantarc,λantarc) where T<:AbstractFloat
+function regularpoles(vars::Dict{String,MeshArrays.gcmarray{T,1,Matrix{T}}},γ,params) where T<:AbstractFloat
 
     varsregpoles = Dict{String,Matrix{T}}()
     for (varname, varvals) in vars
-
-        varsregpoles[varname] = var2regularpoles(varvals,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
-
+        #varsregpoles[varname] = var2regularpoles(varvals,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
+        varsregpoles[varname] = regularpoles(varvals,γ,params) 
     end
     return varsregpoles
 end
@@ -1353,7 +1370,8 @@ end
    var2regularpoles
    Take one gcmarray in memory, put on regularpoles grid
 """
-function var2regularpoles(var,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
+#function var2regularpoles(var,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
+function regularpoles(var,γ,params) 
 
     T = eltype(var)
     NaNT = zero(T)/zero(T)
@@ -1365,18 +1383,17 @@ function var2regularpoles(var,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
     land2nan!(varnative,γ)
     
     #pre-allocate output
-    varregpoles = fill(NaNT,(nx,ny))
+    varregpoles = fill(NaNT,(params.nx,params.ny))
 
     # get regular grid by cropping
     θcrop =  LLCcropC(varnative,γ)
 
     # interpolate to "regularpoles"
-    θarc = reginterp(varnative,nx,nyarc,λarc)
-    θantarc = reginterp(varnative,nx,nyantarc,λantarc)
-    varregpoles=hcat(θantarc',θcrop,θarc')
+    θarc = reginterp(varnative,params.nx,params.nyarc,params.λarc)
+    θantarc = reginterp(varnative,params.nx,params.nyantarc,params.λantarc)
+    varregpoles = hcat(θantarc',θcrop,θarc')
 
     return varregpoles
-    
 end
 
 """
@@ -1405,7 +1422,11 @@ end
 """
 function writeregularpoles(vars,γ,pathout,filesuffix,filelog,λC,lonatts,ϕC,latatts,z,depthatts)
 """
-function writeregularpoles(vars::Dict{String,Array{Float32,3}},γ,pathout,filesuffix,filelog,λC,lonatts,ϕC,latatts,z,depthatts)
+#function writeregularpoles(vars::Dict{String,Array{Float32,3}},γ,pathout,filesuffix,filelog,λC,lonatts,ϕC,latatts,z,depthatts)
+function writeregularpoles(vars::Dict{String,Array{Float32,3}},γ,pathout,filesuffix,filelog,params,gridatts)
+    #,ϕC,latatts,z,depthatts)
+
+    z = depthlevels(γ)
 
     for (varname,varvals) in vars
         println(varname)
@@ -1436,7 +1457,7 @@ function writeregularpoles(vars::Dict{String,Array{Float32,3}},γ,pathout,filesu
             
         end
 
-        if depthatts["longname"] == "Sigma-1"
+        if gridatts.depth["longname"] == "Sigma-1"
             depthname = "sigma-1"
         else
             depthname = "depth"
@@ -1458,14 +1479,14 @@ function writeregularpoles(vars::Dict{String,Array{Float32,3}},γ,pathout,filesu
             fileout,
             varname,
             "lon",
-            λC,
-            lonatts,
+            params.λC,
+            gridatts.lon,
             "lat",
-            ϕC,
-            latatts,
+            params.ϕC,
+            gridatts.lat,
             depthname,
             z,
-            depthatts,
+            gridatts.depth,
             atts = varatts,
             t = NC_FLOAT # Float32
         )
