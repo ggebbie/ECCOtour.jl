@@ -58,6 +58,8 @@ struct RegularpolesParameters{T<:Real,I<:Integer,NT<: NamedTuple}
     λantarc::NT
 end
 
+include("basins.jl")
+
 """ 
 function sigma2grid()
     Standard chosen from the time-averaged Pacific Ocean Density Configuration. 
@@ -937,6 +939,7 @@ function joinfields(gcmfield,jarc,jantarc)
     return regfield[xwrap,:]
     #return regfield
 
+    # Slower code
     # # Why no tile 3 (i.e., Arctic tile)? Cannot get Arctic vals through this method.
     # regfield = vcat(gcmfield[1][:,jantarc:jarc],
     #     gcmfield[2][:,jantarc:jarc],
