@@ -39,11 +39,13 @@ export vars2sigma1, sigma1grid
 export landmask, land2nan!
 export cons_offset!
 export RegularpolesParameters, regularpoles
-
+export grid_attributes, times_ecco
+export wet_mask, basin_mask
 
 include("HannFilter.jl")
 include("MatrixFilter.jl")
 include("SeasonalCycle.jl")
+include("basins.jl")
 
 struct RegularpolesParameters{T<:Real,I<:Integer,NT<: NamedTuple}
     λC::StepRangeLen
@@ -57,8 +59,6 @@ struct RegularpolesParameters{T<:Real,I<:Integer,NT<: NamedTuple}
     λarc::NT
     λantarc::NT
 end
-
-include("basins.jl")
 
 """ 
 function sigma2grid()
@@ -959,14 +959,14 @@ end
     assuming using ECCOv4r4
 """
 function timestamp_monthly_v4r4(t)
-    tstart = 1992 + 1/24
-    tend = 2018
-    tecco = range(tstart,step=1/12,stop=2018)
+    tecco = times_ecco()
     year = Int(floor(tecco[t]))
     month = ((t-1)%12)+1
     println("year ",year," month ",month)
     return year,month
 end
+
+times_ecco() = range(1992 + 1/24,step=1/12,stop=2018)
 
 notnanorzero(z) = !iszero(z) && !isnan(z)
 
@@ -1203,7 +1203,7 @@ end
 - `linearinterp::Logical`: optional keyword argument, do linear interpolation?, default = false
 - `eos::String`: optional key argument for equation of state, default = "JMD95"
 """
-function mdsio2sigma1(pathin::String,pathout::String,fileroots::Vector{String},γ,pstdz,sig1grid;splorder=3,linearinterp=false,eos="JMD95",writefiles=writefiles) 
+function mdsio2sigma1(pathin::String,pathout::String,fileroots::Vector{String},γ,pstdz,sig1grid;splorder=3,linearinterp=false,eos="JMD95",writefiles=true) 
     # Read All Variables And Puts Them Into "Vars" Dictionary
 
     # ideally would be more generic and Float64 would be covered.
@@ -1384,9 +1384,12 @@ function regularpoles(var,γ,params)
     # remove contamination from land
     # this is a problem for masks
     # going to make the code slow with deepcopy but don't want mutation
-    varnative = deepcopy(var)
+    varnative = MeshArrays.mask(var,NaN,0.0)
+
+    # older options
+    #varnative = deepcopy(var)
     #varnative = var 
-    land2nan!(varnative,γ)
+    #land2nan!(varnative,γ)
     
     #pre-allocate output
     varregpoles = fill(NaNT,(params.nx,params.ny))
@@ -1405,7 +1408,9 @@ end
 """
     function land2nan!(msk,γ)
 
-    Replace surface land points with NaN
+Replace surface land points with NaN
+
+Deprecate this function: slower than MeshArrays.mask
 """
 function land2nan!(msk,γ)
     land = landmask(γ)
@@ -2263,6 +2268,19 @@ function exch_UV_cs3D(fldU::MeshArrays.gcmarray{T, 2, Matrix{T}},
     end
     return FLDU,FLDV
 
+end
+
+grid_attributes() =  (
+    lon = Dict("longname" => "Longitude", "units" => "degrees east"),
+    lat = Dict("longname" => "Latitude", "units" => "degrees north"),
+    depth = Dict("longname" => "Depth", "units" => "m")
+) 
+
+function wet_mask(Γ)
+    μ =Γ.hFacC[:,1]
+    μ[findall(μ.>0.0)].=1.0
+    μ[findall(μ.==0.0)].=NaN
+    return μ
 end
 
 end #module

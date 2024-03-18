@@ -39,7 +39,7 @@ function basin_mask(basin_name::String,γ)
     pth = MeshArrays.GRID_LLC90
     Γ = GridLoad(γ;option="full")
     basins=read(joinpath(pth,"v4_basin.bin"),MeshArray(γ,Float32))
-    basin_list=ECCOonPoseidon.basinlist()
+    basin_list=basinlist()
     basinID=findall(basin_list.==basin_name)[1]
     basinmask=similar(basins)
     for ff in 1:5
@@ -79,7 +79,8 @@ end
 """
     function land2zero!(msk,γ)
 
-    move to ECCOtour.jl
+# see tests for different masking from MeshArrays
+that could replace this function
 """
 function land2zero!(msk,γ)
     land = landmask(γ)

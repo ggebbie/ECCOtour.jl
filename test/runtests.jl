@@ -1,4 +1,3 @@
-using Base: replace_in_print_matrix
 using Revise
 using Test
 using ECCOtour
@@ -10,7 +9,7 @@ using NetCDF
 #using GoogleDrive
 
 @testset "ECCOtour.jl" begin
-
+    
     pth = MeshArrays.GRID_LLC90
     γ = GridSpec("LatLonCap",pth)
     Γ = GridLoad(γ;option="full")
@@ -28,6 +27,10 @@ using NetCDF
     testdir(args...) = joinpath(testdir(), args...)
     
     !ispath(datadir()) && mkdir(datadir())
+
+    @testset "basin mask" begin
+	include("test_basinmask.jl")
+    end
 
     cd(srcdir())
     # workaround: use a shell script
@@ -127,11 +130,7 @@ using NetCDF
                 filesuffix = "suffix.nc"
                 pathout = pathin
                 filelog = srcdir("available_diagnostics.log")
-                gridatts = (
-                    lon = Dict("longname" => "Longitude", "units" => "degrees east"),
-                    lat = Dict("longname" => "Latitude", "units" => "degrees north"),
-                    depth = Dict("longname" => "Depth", "units" => "m")
-) 
+                gridatts = grid_attributes()
                 
                 @time writeregularpoles(varsregpoles,
                     γ,
@@ -206,7 +205,6 @@ using NetCDF
             end
             
         end
-        
         
         @testset "MeshArrays" begin
             ######################################
