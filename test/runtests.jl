@@ -28,9 +28,9 @@ using NetCDF
     
     !ispath(datadir()) && mkdir(datadir())
 
-    @testset "basin mask" begin
-	include("test_basinmask.jl")
-    end
+    #@testset "basin mask" begin
+    include("test_basinmask.jl")
+    #end
 
     cd(srcdir())
     # workaround: use a shell script
