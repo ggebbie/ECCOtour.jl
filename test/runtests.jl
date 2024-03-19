@@ -11,7 +11,7 @@ using NetCDF
 @testset "ECCOtour.jl" begin
     
     pth = MeshArrays.GRID_LLC90
-    γ = GridSpec("LatLonCap",pth)
+    global γ = GridSpec("LatLonCap",pth)
     Γ = GridLoad(γ;option="full")
     nf = length(γ.fSize)
     z = depthlevels(γ)
@@ -28,9 +28,9 @@ using NetCDF
     
     !ispath(datadir()) && mkdir(datadir())
 
-    #@testset "basin mask" begin
-    include("test_basinmask.jl")
-    #end
+    @testset "basin mask" begin
+        include(testdir("test_basinmask.jl"))
+    end
 
     cd(srcdir())
     # workaround: use a shell script
@@ -39,7 +39,7 @@ using NetCDF
 
     # transport > 40 MB, hits virus scanner, move to WHOI website
     url = "https://www2.whoi.edu/staff/ggebbie/wp-content/uploads/sites/146/2024/03/trsp_3d_set1.0000000732.tar_.gz"
-    download(url,"trsp_3d_set1.0000000732.tar.gz")
+    Downloads.download(url,"trsp_3d_set1.0000000732.tar.gz")
 
     run(`tar xvzf state_3d_set1.0000000732.tar.gz`)
     run(`tar xvzf trsp_3d_set1.0000000732.tar.gz`)
