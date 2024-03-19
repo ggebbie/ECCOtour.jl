@@ -1,12 +1,3 @@
-# for testing, put everything in the data directory
-diagpath = datadir() #diagdir(expt)
-# print output here
-path_out = datadir() #sig1dir(expt)
-!isdir(path_out) && mkdir(path_out) 
-
-pathout = datadir() #regpolesdir(expt)
-!isdir(pathout) && mkdir(pathout) 
-
 maskname =  ["Pacific","South China Sea","East China Sea","Okhotsk Sea","Java Sea","Japan Sea","Timor Sea"]
 hemisphere = :both
 Lsmooth = 5
