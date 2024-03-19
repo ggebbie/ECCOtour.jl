@@ -6,6 +6,7 @@ using MeshArrays
 using Statistics
 using Dierckx
 using NetCDF
+using Downloads
 #using GoogleDrive
 
 @testset "ECCOtour.jl" begin
