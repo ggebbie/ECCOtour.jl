@@ -958,11 +958,18 @@ end
     print year and month given time index
     assuming using ECCOv4r4
 """
-function timestamp_monthly_v4r4(t)
+function timestamp_monthly_v4r4(t::Integer)
     tecco = times_ecco()
     year = Int(floor(tecco[t]))
     month = ((t-1)%12)+1
     println("year ",year," month ",month)
+    return year,month
+end
+function timestamp_monthly_v4r4(datafile::String)
+    tsteps_permonth = 730.4
+    pattern = r"\.(.*?)\." # regex to extract between periods
+    tt = round(Int64,parse(Int64,match(pattern,datafile)[1])/tsteps_permonth)
+    year, month = timestamp_monthly_v4r4(tt)
     return year,month
 end
 
