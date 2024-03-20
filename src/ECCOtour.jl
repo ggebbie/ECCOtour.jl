@@ -1434,10 +1434,14 @@ end
 function writeregularpoles(vars,γ,pathout,filesuffix,filelog,λC,lonatts,ϕC,latatts,z,depthatts)
 """
 #function writeregularpoles(vars::Dict{String,Array{Float32,3}},γ,pathout,filesuffix,filelog,λC,lonatts,ϕC,latatts,z,depthatts)
-function writeregularpoles(vars::Dict{String,Array{Float32,3}},γ,pathout,filesuffix,filelog,params,gridatts)
+function write(vars::Dict{String,Array{Float32,3}},
+    params::RegularpolesParameters,
+    γ::MeshArrays.gcmgrid,
+    pathout,
+    filesuffix,
+    filelog,
+    gridatts)
     #,ϕC,latatts,z,depthatts)
-
-    z = depthlevels(γ)
 
     for (varname,varvals) in vars
         println(varname)
@@ -1461,17 +1465,18 @@ function writeregularpoles(vars::Dict{String,Array{Float32,3}},γ,pathout,filesu
             field = varname
         end
 
+        if gridatts.depth["longname"] == "Sigma-1"
+            depthname = "sigma-1"
+            z = sigma1grid("mixed layer")
+        else
+            depthname = "depth"
+            z = depthlevels(γ)
+        end
+
         if varname == "p"
             fieldDict = Dict("fldname" => "p","title" => "standard pressure", "units" => "dbar", "levs" => length(z))
         else
             fieldDict = read_available_diagnostics(field,filename=filelog)
-            
-        end
-
-        if gridatts.depth["longname"] == "Sigma-1"
-            depthname = "sigma-1"
-        else
-            depthname = "depth"
         end
         
         # make a directory for this output
@@ -2274,6 +2279,13 @@ grid_attributes() =  (
     lon = Dict("longname" => "Longitude", "units" => "degrees east"),
     lat = Dict("longname" => "Latitude", "units" => "degrees north"),
     depth = Dict("longname" => "Depth", "units" => "m")
+) 
+
+# depth is really the vertical coordinate
+sigmagrid_attributes() =  (
+    lon = Dict("longname" => "Longitude", "units" => "degrees east"),
+    lat = Dict("longname" => "Latitude", "units" => "degrees north"),
+    depth = Dict("longname" => "Sigma-1", "units" => "kg/m^3 - 1000")
 ) 
 
 function wet_mask(Γ)
