@@ -6,12 +6,13 @@ using MeshArrays
 using Statistics
 using Dierckx
 using NetCDF
+using Downloads
 #using GoogleDrive
 
 @testset "ECCOtour.jl" begin
-
+    
     pth = MeshArrays.GRID_LLC90
-    γ = GridSpec("LatLonCap",pth)
+    global γ = GridSpec("LatLonCap",pth)
     Γ = GridLoad(γ;option="full")
     nf = length(γ.fSize)
     z = depthlevels(γ)
@@ -28,6 +29,10 @@ using NetCDF
     
     !ispath(datadir()) && mkdir(datadir())
 
+    @testset "basin mask" begin
+        include(testdir("test_basinmask.jl"))
+    end
+
     cd(srcdir())
     # workaround: use a shell script
     #run(`sh $srcdir/download_google_drive.sh`)
@@ -35,7 +40,7 @@ using NetCDF
 
     # transport > 40 MB, hits virus scanner, move to WHOI website
     url = "https://www2.whoi.edu/staff/ggebbie/wp-content/uploads/sites/146/2024/03/trsp_3d_set1.0000000732.tar_.gz"
-    download(url,"trsp_3d_set1.0000000732.tar.gz")
+    Downloads.download(url,"trsp_3d_set1.0000000732.tar.gz")
 
     run(`tar xvzf state_3d_set1.0000000732.tar.gz`)
     run(`tar xvzf trsp_3d_set1.0000000732.tar.gz`)
@@ -114,26 +119,28 @@ using NetCDF
 
             # Set up Cartesian grid for interpolation.
             # Time for a structure.
-            λC,λG,ϕC,ϕG,nx,ny,nyarc,nyantarc,λarc,λantarc =
-                factors4regularpoles(γ)
+            rp_params = factors4regularpoles(γ)
 
             @testset "regularpoles 3d state" begin
 
                 filein = fileroots[1]
                 pathin = datadir()
 
-                @time varsregpoles =  mdsio2regularpoles(pathin,filein,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
+                @time varsregpoles =  regularpoles(pathin,filein,γ,rp_params) #nx,ny,nyarc,λarc,nyantarc,λantarc)
 
                 filesuffix = "suffix.nc"
                 pathout = pathin
                 filelog = srcdir("available_diagnostics.log")
-                lonatts = Dict("longname" => "Longitude", "units" => "degrees east")
-                latatts = Dict("longname" => "Latitude", "units" => "degrees north")
-                depthatts = Dict("longname" => "Depth", "units" => "m")
+                gridatts = grid_attributes()
                 
-                @time writeregularpoles(varsregpoles,γ,pathout,filesuffix,filelog,λC,lonatts,
-                                        ϕC,latatts,z,depthatts)
-
+                @time write(varsregpoles,
+                    rp_params,
+                    γ,
+                    pathout,
+                    filesuffix,
+                    filelog,
+                    gridatts)
+                    
                 @test maximum(filter(!isnan,varsregpoles["SALT"])) < 50.
                 @test minimum(filter(!isnan,varsregpoles["SALT"])) > 0.
 
@@ -147,7 +154,7 @@ using NetCDF
                 filein = fileroots[2]
                 pathin = datadir()
 
-                @time varsregpoles =  mdsio2regularpoles(pathin,filein,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
+                @time varsregpoles = regularpoles(pathin,filein,γ,rp_params)
 
                 @test maximum(filter(!isnan,varsregpoles["NVELMASS"])) < 2.
                 @test minimum(filter(!isnan,varsregpoles["NVELMASS"])) > -2.
@@ -156,13 +163,11 @@ using NetCDF
 
             @testset "regularpoles dxc" begin 
                 # load centered longitude
-                # dxc = γ.read(γ.path*"XC.data",MeshArray(γ,Float64))
                 vars = Dict("XC" => γ.read(γ.path*"XC.data",MeshArray(γ,Float64)))
-                dxc_regpoles = vars2regularpoles(vars,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
-
+                @time dxc_regpoles = ECCOtour.regularpoles(vars,γ,rp_params) 
                 yy = 100
                 for xx = 1:50
-                    @test isapprox(dxc_regpoles["XC"][xx,yy],λC[xx], rtol=1e-6)
+                    @test isapprox(dxc_regpoles["XC"][xx,yy],rp_params.λC[xx], rtol=1e-6)
                 end
             end
         end
@@ -201,7 +206,6 @@ using NetCDF
             end
             
         end
-        
         
         @testset "MeshArrays" begin
             ######################################

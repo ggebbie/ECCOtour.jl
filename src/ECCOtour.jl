@@ -7,8 +7,10 @@ using Statistics, Distributions, FFTW,
 #using PyPlot
 
 import Statistics.mean, Statistics.std,
-       Base.maximum, Base.minimum, Base.replace!,
-       IsopycnalSurfaces.vars2sigma1, IsopycnalSurfaces.sigma1grid
+    Base.maximum, Base.minimum, Base.replace!,
+    Base.write,
+    IsopycnalSurfaces.vars2sigma1,
+    IsopycnalSurfaces.sigma1grid
 
 export hanncoeffs, hannsum, hannsum!, hannfilter
 export get_filtermatrix, matrixfilter, matrixspray, columnscale!
@@ -25,12 +27,9 @@ export regularlatgrid, LLCcropC, LLCcropG, croplimitsLLC
 export latgridAntarctic, latgridArctic, latgridRegular
 export timestamp_monthly_v4r4, netcdf2dict, write_vars
 export mdsio2dict, mdsio2sigma1, ncwritefromtemplate
-export netcdf2sigma1, mdsio2regularpoles
-export writeregularpoles, vars2regularpoles, var2regularpoles
-
+export netcdf2sigma1, writeregularpoles 
 export sigma2grid, vars2sigma, mdsio2sigma, mdsio2sigma2
 export θbudg2sigma, θbudg2sigma2
-
 export netcdf2regularpoles, factors4regularpoles
 export regional_mask, apply_regional_mask!, zero2one!, wrapdist
 export centerlon!, read_netcdf
@@ -41,12 +40,27 @@ export velocity2center, rotate_uv, rotate_velocity!
 export vars2sigma1, sigma1grid
 export landmask, land2nan!
 export cons_offset!
-
-
+export RegularpolesParameters, regularpoles
+export grid_attributes, times_ecco
+export wet_mask, basin_mask
 
 include("HannFilter.jl")
 include("MatrixFilter.jl")
 include("SeasonalCycle.jl")
+include("basins.jl")
+
+struct RegularpolesParameters{T<:Real,I<:Integer,NT<: NamedTuple}
+    λC::StepRangeLen
+    λG::StepRangeLen
+    ϕC::Vector{T}
+    ϕG::Vector{T}
+    nx::I
+    ny::I
+    nyarc::I
+    nyantarc::I
+    λarc::NT
+    λantarc::NT
+end
 
 """ 
 function sigma2grid()
@@ -639,7 +653,8 @@ function factors4regularpoles(γ)
     nyarc = length(ϕCarc)
     nyantarc = length(ϕCantarc)
 
-    return λC,λG,ϕC,ϕG,nx,ny,nyarc,nyantarc,λarc,λantarc
+    return RegularpolesParameters(λC,λG,ϕC,ϕG,nx,ny,nyarc,nyantarc,λarc,λantarc)
+    #return λC,λG,ϕC,ϕG,nx,ny,nyarc,nyantarc,λarc,λantarc
 end
 
 """
@@ -897,29 +912,22 @@ function LLCcropC(gcmfield,γ)
     # There is a regular grid inside the LLC grid.
     # Subsample/crop just those points. Put them together correctly.
     ϕ,λ = latlonG(γ)
-    jarc,jantarc,ϕarc,ϕantarc = croplimitsLLC(ϕ,λ)
+    jarc,jantarc,_,_ = croplimitsLLC(ϕ,λ)
     jarc -= 1 # update for C grid, subtract one here
-
-    regfield = gcmfield[1][:,jantarc:jarc]
-    regfield = vcat(regfield,gcmfield[2][:,jantarc:jarc])
-    for i = 4:5
-        tmp = reverse(transpose(gcmfield[i]),dims=2)
-        regfield = vcat(regfield,tmp[:,jantarc:jarc])
-    end
-
-    # handle longitudinal wraparound by hand
-    wrapval = 218
-    xwrap = vcat(wrapval+1:size(regfield,1),1:wrapval)
-    regfield = regfield[xwrap,:]
-    return regfield
+    return joinfields(gcmfield,jarc,jantarc)
 end
 
 function LLCcropG(gcmfield,γ)
     # There is a regular grid inside the LLC grid.
     # Subsample/crop just those points. Put them together correctly.
     ϕ,λ = latlonG(γ)
-    jarc,jantarc,ϕarc,ϕantarc = croplimitsLLC(ϕ,λ)
+    jarc,jantarc,_,_ = croplimitsLLC(ϕ,λ)
+    return joinfields(gcmfield,jarc,jantarc)
+end
 
+function joinfields(gcmfield,jarc,jantarc)
+
+    # no tile 3 (i.e., Arctic tile) because it is not regular
     regfield = gcmfield[1][:,jantarc:jarc]
     regfield = vcat(regfield,gcmfield[2][:,jantarc:jarc])
     for i = 4:5
@@ -930,8 +938,21 @@ function LLCcropG(gcmfield,γ)
     # handle longitudinal wraparound by hand
     wrapval = 218
     xwrap = vcat(wrapval+1:size(regfield,1),1:wrapval)
-    regfield = regfield[xwrap,:]
-    return regfield
+    return regfield[xwrap,:]
+    #return regfield
+
+    # Slower code
+    # # Why no tile 3 (i.e., Arctic tile)? Cannot get Arctic vals through this method.
+    # regfield = vcat(gcmfield[1][:,jantarc:jarc],
+    #     gcmfield[2][:,jantarc:jarc],
+    #     reverse(transpose(gcmfield[4]),dims=2)[:,jantarc:jarc],
+    #     reverse(transpose(gcmfield[5]),dims=2)[:,jantarc:jarc])
+
+    # # handle longitudinal wraparound by hand
+    # wrapval = 218
+    # xwrap = vcat(wrapval+1:size(regfield,1),1:wrapval)
+    # regfield = regfield[xwrap,:]
+    # return regfield
 end
 
 """
@@ -939,15 +960,22 @@ end
     print year and month given time index
     assuming using ECCOv4r4
 """
-function timestamp_monthly_v4r4(t)
-    tstart = 1992 + 1/24
-    tend = 2018
-    tecco = range(tstart,step=1/12,stop=2018)
+function timestamp_monthly_v4r4(t::Integer)
+    tecco = times_ecco()
     year = Int(floor(tecco[t]))
     month = ((t-1)%12)+1
     println("year ",year," month ",month)
     return year,month
 end
+function timestamp_monthly_v4r4(datafile::String)
+    tsteps_permonth = 730.4
+    pattern = r"\.(.*?)\." # regex to extract between periods
+    tt = round(Int64,parse(Int64,match(pattern,datafile)[1])/tsteps_permonth)
+    year, month = timestamp_monthly_v4r4(tt)
+    return year,month
+end
+
+times_ecco() = range(1992 + 1/24,step=1/12,stop=2018)
 
 notnanorzero(z) = !iszero(z) && !isnan(z)
 
@@ -1184,7 +1212,7 @@ end
 - `linearinterp::Logical`: optional keyword argument, do linear interpolation?, default = false
 - `eos::String`: optional key argument for equation of state, default = "JMD95"
 """
-function mdsio2sigma1(pathin::String,pathout::String,fileroots::Vector{String},γ,pstdz,sig1grid;splorder=3,linearinterp=false,eos="JMD95") 
+function mdsio2sigma1(pathin::String,pathout::String,fileroots::Vector{String},γ,pstdz,sig1grid;splorder=3,linearinterp=false,eos="JMD95",writefiles=true) 
     # Read All Variables And Puts Them Into "Vars" Dictionary
 
     # ideally would be more generic and Float64 would be covered.
@@ -1204,7 +1232,9 @@ function mdsio2sigma1(pathin::String,pathout::String,fileroots::Vector{String},�
     fileprefix = pathout
     # use first filename to get timestamp
     filesuffix = "_on_sigma1"*fileroots[1][14:end]*".data"
-    write_vars(varsσ,fileprefix,filesuffix)
+    if writefiles
+        write_vars(varsσ,fileprefix,filesuffix)
+    end
 
     return varsσ
 end
@@ -1296,23 +1326,23 @@ end
 function netcdf2regularpoles(ncfilename,ncvarname,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
 
     vars = netcdf2dict(ncfilename,ncvarname,γ)
-    varsregpoles = vars2regularpoles(vars,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
+    varsregpoles = regularpoles(vars,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
 
 end
 
 """
 function mdsio2regularpoles(pathin,filein,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
 """
-function mdsio2regularpoles(pathin,filein,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
-
+function regularpoles(pathin,filein,γ,params::RegularpolesParameters) #nx,ny,nyarc,λarc,nyantarc,λantarc)
     vars = mdsio2dict(pathin,filein,γ)
     Γ = GridLoad(γ;option="full")
     rotate_velocity!(vars,Γ)
-    varsregpoles = vars2regularpoles(vars,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
-
+    #    return vars2regularpoles(vars,γ,params) #nx,ny,nyarc,λarc,nyantarc,λantarc)
+    return regularpoles(vars,γ,params) #nx,ny,nyarc,λarc,nyantarc,λantarc)
 end
 
-function vars2regularpoles(vars::Dict{String,MeshArrays.gcmarray{T,2,Matrix{T}}},γ,nx,ny,nyarc,λarc,nyantarc,λantarc) where T<:AbstractFloat
+#function vars2regularpoles(vars::Dict{String,MeshArrays.gcmarray{T,2,Matrix{T}}},γ,nx,ny,nyarc,λarc,nyantarc,λantarc) where T<:AbstractFloat
+function regularpoles(vars::Dict{String,MeshArrays.gcmarray{T,2,Matrix{T}}},γ,params) where T<:AbstractFloat
 
     varsregpoles = Dict{String,Array{T,3}}()
     NaNT = zero(T)/zero(T)
@@ -1324,27 +1354,28 @@ function vars2regularpoles(vars::Dict{String,MeshArrays.gcmarray{T,2,Matrix{T}}}
         nz = size(varvals,2)
 
         #pre-allocate dict
-        varsregpoles[varname] = fill(NaNT,(nx,ny,nz))
+        varsregpoles[varname] = fill(NaNT,(params.nx,params.ny,nz))
 
         for zz = 1:nz
             # get regular grid by cropping
-            varsregpoles[varname][:,:,zz]=var2regularpoles(varvals[:,zz],γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
+            #varsregpoles[varname][:,:,zz]=var2regularpoles(varvals[:,zz],γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
+            varsregpoles[varname][:,:,zz]=regularpoles(varvals[:,zz],γ,params) #nx,ny,nyarc,λarc,nyantarc,λantarc)
         end
     end
     return varsregpoles
 end
 
 """
-function vars2regularpoles(vars::Dict{String,MeshArrays.gcmarray{T,1,Matrix{T}}},γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
+function regularpoles(vars::Dict{String,MeshArrays.gcmarray{T,1,Matrix{T}}},γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
      variables interpolated onto regularpoles grid
 """
-function vars2regularpoles(vars::Dict{String,MeshArrays.gcmarray{T,1,Matrix{T}}},γ,nx,ny,nyarc,λarc,nyantarc,λantarc) where T<:AbstractFloat
+#function vars2regularpoles(vars::Dict{String,MeshArrays.gcmarray{T,1,Matrix{T}}},γ,nx,ny,nyarc,λarc,nyantarc,λantarc) where T<:AbstractFloat
+function regularpoles(vars::Dict{String,MeshArrays.gcmarray{T,1,Matrix{T}}},γ,params) where T<:AbstractFloat
 
     varsregpoles = Dict{String,Matrix{T}}()
     for (varname, varvals) in vars
-
-        varsregpoles[varname] = var2regularpoles(varvals,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
-
+        #varsregpoles[varname] = var2regularpoles(varvals,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
+        varsregpoles[varname] = regularpoles(varvals,γ,params) 
     end
     return varsregpoles
 end
@@ -1353,7 +1384,8 @@ end
    var2regularpoles
    Take one gcmarray in memory, put on regularpoles grid
 """
-function var2regularpoles(var,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
+#function var2regularpoles(var,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
+function regularpoles(var,γ,params) 
 
     T = eltype(var)
     NaNT = zero(T)/zero(T)
@@ -1361,28 +1393,33 @@ function var2regularpoles(var,γ,nx,ny,nyarc,λarc,nyantarc,λantarc)
     # remove contamination from land
     # this is a problem for masks
     # going to make the code slow with deepcopy but don't want mutation
-    varnative = deepcopy(var)
-    land2nan!(varnative,γ)
+    varnative = MeshArrays.mask(var,NaN,0.0)
+
+    # older options
+    #varnative = deepcopy(var)
+    #varnative = var 
+    #land2nan!(varnative,γ)
     
     #pre-allocate output
-    varregpoles = fill(NaNT,(nx,ny))
+    varregpoles = fill(NaNT,(params.nx,params.ny))
 
     # get regular grid by cropping
     θcrop =  LLCcropC(varnative,γ)
 
     # interpolate to "regularpoles"
-    θarc = reginterp(varnative,nx,nyarc,λarc)
-    θantarc = reginterp(varnative,nx,nyantarc,λantarc)
-    varregpoles=hcat(θantarc',θcrop,θarc')
+    θarc = reginterp(varnative,params.nx,params.nyarc,params.λarc)
+    θantarc = reginterp(varnative,params.nx,params.nyantarc,params.λantarc)
+    varregpoles = hcat(θantarc',θcrop,θarc')
 
     return varregpoles
-    
 end
 
 """
     function land2nan!(msk,γ)
 
-    Replace surface land points with NaN
+Replace surface land points with NaN
+
+Deprecate this function: slower than MeshArrays.mask
 """
 function land2nan!(msk,γ)
     land = landmask(γ)
@@ -1403,9 +1440,24 @@ function landmask(γ;level=1)
 end
             
 """
-function writeregularpoles(vars,γ,pathout,filesuffix,filelog,λC,lonatts,ϕC,latatts,z,depthatts)
+`function write(vars::Dict{String,Array{Float32,3}},
+    params::RegularpolesParameters,
+    γ::MeshArrays.gcmgrid,
+    pathout,
+    filesuffix,
+    filelog,
+    gridatts)`
+
+
 """
-function writeregularpoles(vars::Dict{String,Array{Float32,3}},γ,pathout,filesuffix,filelog,λC,lonatts,ϕC,latatts,z,depthatts)
+function write(vars::Dict{String,Array{Float32,3}},
+    params::RegularpolesParameters,
+    γ::MeshArrays.gcmgrid,
+    pathout,
+    filesuffix,
+    filelog,
+    gridatts)
+    #,ϕC,latatts,z,depthatts)
 
     for (varname,varvals) in vars
         println(varname)
@@ -1429,17 +1481,18 @@ function writeregularpoles(vars::Dict{String,Array{Float32,3}},γ,pathout,filesu
             field = varname
         end
 
+        if gridatts.depth["longname"] == "Sigma-1"
+            depthname = "sigma-1"
+            z = sigma1grid("mixed layer")
+        else
+            depthname = "depth"
+            z = depthlevels(γ)
+        end
+
         if varname == "p"
             fieldDict = Dict("fldname" => "p","title" => "standard pressure", "units" => "dbar", "levs" => length(z))
         else
             fieldDict = read_available_diagnostics(field,filename=filelog)
-            
-        end
-
-        if depthatts["longname"] == "Sigma-1"
-            depthname = "sigma-1"
-        else
-            depthname = "depth"
         end
         
         # make a directory for this output
@@ -1458,14 +1511,14 @@ function writeregularpoles(vars::Dict{String,Array{Float32,3}},γ,pathout,filesu
             fileout,
             varname,
             "lon",
-            λC,
-            lonatts,
+            params.λC,
+            gridatts.lon,
             "lat",
-            ϕC,
-            latatts,
+            params.ϕC,
+            gridatts.lat,
             depthname,
             z,
-            depthatts,
+            gridatts.depth,
             atts = varatts,
             t = NC_FLOAT # Float32
         )
@@ -2236,6 +2289,26 @@ function exch_UV_cs3D(fldU::MeshArrays.gcmarray{T, 2, Matrix{T}},
     end
     return FLDU,FLDV
 
+end
+
+grid_attributes() =  (
+    lon = Dict("longname" => "Longitude", "units" => "degrees east"),
+    lat = Dict("longname" => "Latitude", "units" => "degrees north"),
+    depth = Dict("longname" => "Depth", "units" => "m")
+) 
+
+# depth is really the vertical coordinate
+sigmagrid_attributes() =  (
+    lon = Dict("longname" => "Longitude", "units" => "degrees east"),
+    lat = Dict("longname" => "Latitude", "units" => "degrees north"),
+    depth = Dict("longname" => "Sigma-1", "units" => "kg/m^3 - 1000")
+) 
+
+function wet_mask(Γ)
+    μ =Γ.hFacC[:,1]
+    μ[findall(μ.>0.0)].=1.0
+    μ[findall(μ.==0.0)].=NaN
+    return μ
 end
 
 end #module
