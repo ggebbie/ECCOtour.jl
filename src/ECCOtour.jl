@@ -7,8 +7,10 @@ using Statistics, Distributions, FFTW,
 #using PyPlot
 
 import Statistics.mean, Statistics.std,
-       Base.maximum, Base.minimum, Base.replace!,
-       IsopycnalSurfaces.vars2sigma1, IsopycnalSurfaces.sigma1grid
+    Base.maximum, Base.minimum, Base.replace!,
+    Base.write,
+    IsopycnalSurfaces.vars2sigma1,
+    IsopycnalSurfaces.sigma1grid
 
 export hanncoeffs, hannsum, hannsum!, hannfilter
 export get_filtermatrix, matrixfilter, matrixspray, columnscale!
@@ -1438,9 +1440,16 @@ function landmask(γ;level=1)
 end
             
 """
-function writeregularpoles(vars,γ,pathout,filesuffix,filelog,λC,lonatts,ϕC,latatts,z,depthatts)
+`function write(vars::Dict{String,Array{Float32,3}},
+    params::RegularpolesParameters,
+    γ::MeshArrays.gcmgrid,
+    pathout,
+    filesuffix,
+    filelog,
+    gridatts)`
+
+
 """
-#function writeregularpoles(vars::Dict{String,Array{Float32,3}},γ,pathout,filesuffix,filelog,λC,lonatts,ϕC,latatts,z,depthatts)
 function write(vars::Dict{String,Array{Float32,3}},
     params::RegularpolesParameters,
     γ::MeshArrays.gcmgrid,

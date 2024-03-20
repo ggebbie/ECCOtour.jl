@@ -133,14 +133,14 @@ using Downloads
                 filelog = srcdir("available_diagnostics.log")
                 gridatts = grid_attributes()
                 
-                @time writeregularpoles(varsregpoles,
+                @time write(varsregpoles,
+                    rp_params,
                     γ,
                     pathout,
                     filesuffix,
                     filelog,
-                    rp_params,
                     gridatts)
-
+                    
                 @test maximum(filter(!isnan,varsregpoles["SALT"])) < 50.
                 @test minimum(filter(!isnan,varsregpoles["SALT"])) > 0.
 
