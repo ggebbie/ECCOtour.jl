@@ -1531,25 +1531,51 @@ function write(vars::Dict{String,Array{Float32,3}},
 end
 
 """
-function writeregularpoles(vars::Dict{String,Array{Float32,2}},γ,pathout,filesuffix,filelog,λC,lonatts,ϕC,latatts,z,depthatts)
+function write(vars::Dict{String,Array{Float32,2}},γ,pathout,filesuffix,filelog,λC,lonatts,ϕC,latatts,z,depthatts)
 """
-function writeregularpoles(vars::Dict{String,Array{Float32,2}},γ,pathout,filesuffix,filelog,λC,lonatts,ϕC,latatts,z,depthatts)
+function write(vars::Dict{String,Array{Float32,2}},
+    params::RegularpolesParameters,
+    γ::MeshArrays.gcmgrid,
+    pathout,
+    filesuffix,
+    filelog,
+    gridatts)
 
     for (varname,varvals) in vars
-        if varname[1] == 'E'
+        println(varname)
+        # Some names are a little inconsistent
+        # Useful to pull meta-data from these locations
+        if varname == "EVELMASS"
             field = "UE_VEL_C"
-        elseif varname[1] == 'N'
+        elseif varname == "NVELMASS"
             field = "VN_VEL_C"
-        elseif varname[1] == 'W'
+        elseif varname == "WVELMASS"
             field = "WVEL"
-        elseif varname[end] == 'N'
+        elseif varname == "oceTAUN"
             field = "oceTAUY"
-        elseif varname[end] == 'E'
+        elseif varname == "oceTAUE"
             field = "oceTAUX"
+        elseif varname == "GM_PsiN"
+            field = "GM_PsiY"
+        elseif varname == "GM_PsiE"
+            field = "GM_PsiX"
         else
             field = varname
         end
-        fieldDict = read_available_diagnostics(field,filename=filelog)
+
+        if gridatts.depth["longname"] == "Sigma-1"
+            depthname = "sigma-1"
+            z = sigma1grid("mixed layer")
+        else
+            depthname = "depth"
+            z = depthlevels(γ)
+        end
+
+        if varname == "p"
+            fieldDict = Dict("fldname" => "p","title" => "standard pressure", "units" => "dbar", "levs" => length(z))
+        else
+            fieldDict = read_available_diagnostics(field,filename=filelog)
+        end
 
         # make a directory for this output
         pathoutdir = pathout*varname*"/"
@@ -1567,14 +1593,18 @@ function writeregularpoles(vars::Dict{String,Array{Float32,2}},γ,pathout,filesu
             fileout,
             varname,
             "lon",
-            λC,
-            lonatts,
+            params.λC,
+            gridatts.lon,
             "lat",
-            ϕC,
-            latatts,
+            params.ϕC,
+            gridatts.lat,
+            depthname,
+            z,
+            gridatts.depth,
             atts = varatts,
-            t = NC_FLOAT
+            t = NC_FLOAT # Float32
         )
+
         #varvals = 2.(varvals) #convert back to single precision: handled above L1517
         ncwrite(varvals, fileout, varname)
     end
