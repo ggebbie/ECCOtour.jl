@@ -1531,7 +1531,7 @@ function write(vars::Dict{String,Array{Float32,3}},
 end
 
 """
-function write(vars::Dict{String,Array{Float32,2}},γ,pathout,filesuffix,filelog,λC,lonatts,ϕC,latatts,z,depthatts)
+function write(vars::Dict{String,Array{Float32,2}},params,γ,pathout,filesuffix,filelog,gridatts)
 """
 function write(vars::Dict{String,Array{Float32,2}},
     params::RegularpolesParameters,
