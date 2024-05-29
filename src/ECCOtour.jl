@@ -1563,14 +1563,6 @@ function write(vars::Dict{String,Array{Float32,2}},
             field = varname
         end
 
-        if gridatts.depth["longname"] == "Sigma-1"
-            depthname = "sigma-1"
-            z = sigma1grid("mixed layer")
-        else
-            depthname = "depth"
-            z = depthlevels(γ)
-        end
-
         if varname == "p"
             fieldDict = Dict("fldname" => "p","title" => "standard pressure", "units" => "dbar", "levs" => length(z))
         else
