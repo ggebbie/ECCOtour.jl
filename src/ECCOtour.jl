@@ -1598,9 +1598,6 @@ function write(vars::Dict{String,Array{Float32,2}},
             "lat",
             params.ϕC,
             gridatts.lat,
-            depthname,
-            z,
-            gridatts.depth,
             atts = varatts,
             t = NC_FLOAT # Float32
         )
