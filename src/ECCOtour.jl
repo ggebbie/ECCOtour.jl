@@ -44,10 +44,32 @@ export RegularpolesParameters, regularpoles
 export grid_attributes, times_ecco
 export wet_mask, basin_mask
 
+#statements for budgets.jl
+export extract_ocnTAU, extract_eulerian_velocities, 
+extract_eulerian_and_bolus_velocities,
+extract_lateral_heatbudget, extract_vertical_heatbudget, 
+calc_bolus, extract_sθ, UVtoTrsp
+
+#statements for grid_tools.jl
+export get_msk, findlatlon, findmin, 
+densityJMD95, get_cell_volumes, get_cell_thickness, 
+get_geothermalheating,
+calc_W_conv3D!, calc_UV_conv3D!, exch_UV_llc90, 
+interpolate_to_lateral_faces, interpolate_to_vertical_faces!, 
+cons_offset!, wet_pts, region_mask
+
+#statements for Grid_Operations.jl 
+export lateral_sum, vertical_sum, zonal_sum, zonal_average, ma_curl
+
 include("HannFilter.jl")
 include("MatrixFilter.jl")
 include("SeasonalCycle.jl")
 include("basins.jl")
+
+include("Budgets.jl")
+include("Grid_Tools.jl")
+include("Grid_Operations.jl")
+
 
 struct RegularpolesParameters{T<:Real,I<:Integer,NT<: NamedTuple}
     λC::StepRangeLen
@@ -2228,26 +2250,6 @@ function rotate_uv(uvel::MeshArrays.gcmarray{T,N,Matrix{T}},vvel::MeshArrays.gcm
     nvel=uvel.*sn+vvel.*cs
 
     return evel,nvel
-end
-
-"""
-    function calc_UV_conv3D!(uFLD::MeshArrays.gcmarray{T, 2, Matrix{T}}, 
-    vFLD::MeshArrays.gcmarray{T, 2, Matrix{T}}, CONV::MeshArrays.gcmarray{T, 2, Matrix{T}}) where T<:Real
-        tmpU, tmpV = exch_UV_cs3D(uFLD,vFLD)
-
-    By Anthony Meza
-"""
-function calc_UV_conv3D!(uFLD::MeshArrays.gcmarray{T, 2, Matrix{T}}, 
-    vFLD::MeshArrays.gcmarray{T, 2, Matrix{T}}, CONV::MeshArrays.gcmarray{T, 2, Matrix{T}}) where T<:Real
-        tmpU, tmpV = exch_UV_cs3D(uFLD,vFLD)
-    for a in eachindex(uFLD.f)
-        (s1,s2)=size(uFLD.f[a])
-        @inbounds tmpU1=view(tmpU.f[a],1:s1,1:s2)
-        @inbounds tmpU2=view(tmpU.f[a],2:s1+1,1:s2)
-        @inbounds tmpV1=view(tmpV.f[a],1:s1,1:s2)
-        @inbounds tmpV2=view(tmpV.f[a],1:s1,2:s2+1)
-        @inbounds CONV.f[a] = tmpU1-tmpU2+tmpV1-tmpV2
-    end
 end
 
 """
