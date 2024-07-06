@@ -2253,26 +2253,6 @@ function rotate_uv(uvel::MeshArrays.gcmarray{T,N,Matrix{T}},vvel::MeshArrays.gcm
 end
 
 """
-    function calc_UV_conv3D!(uFLD::MeshArrays.gcmarray{T, 2, Matrix{T}}, 
-    vFLD::MeshArrays.gcmarray{T, 2, Matrix{T}}, CONV::MeshArrays.gcmarray{T, 2, Matrix{T}}) where T<:Real
-        tmpU, tmpV = exch_UV_cs3D(uFLD,vFLD)
-
-    By Anthony Meza
-"""
-function calc_UV_conv3D!(uFLD::MeshArrays.gcmarray{T, 2, Matrix{T}}, 
-    vFLD::MeshArrays.gcmarray{T, 2, Matrix{T}}, CONV::MeshArrays.gcmarray{T, 2, Matrix{T}}) where T<:Real
-        tmpU, tmpV = exch_UV_cs3D(uFLD,vFLD)
-    for a in eachindex(uFLD.f)
-        (s1,s2)=size(uFLD.f[a])
-        @inbounds tmpU1=view(tmpU.f[a],1:s1,1:s2)
-        @inbounds tmpU2=view(tmpU.f[a],2:s1+1,1:s2)
-        @inbounds tmpV1=view(tmpV.f[a],1:s1,1:s2)
-        @inbounds tmpV2=view(tmpV.f[a],1:s1,2:s2+1)
-        @inbounds CONV.f[a] = tmpU1-tmpU2+tmpV1-tmpV2
-    end
-end
-
-"""
     function exch_UV_cs3D(fldU::MeshArrays.gcmarray{T, 2, Matrix{T}},
         fldV::MeshArrays.gcmarray{T, 2, Matrix{T}}) where T<:Real
 

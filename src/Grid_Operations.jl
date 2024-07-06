@@ -1,11 +1,11 @@
-function sum(ma::MeshArrays.gcmarray{T, N, Matrix{T}}) where T<:AbstractFloat where N
-    tmp = zeros(T, 1)
-    for a in eachindex(ma)
-        tmp .+= sum(T, ma.f[a])
-    end
+# function sum(ma::MeshArrays.gcmarray{T, N, Matrix{T}}) where T<:AbstractFloat where N
+#     tmp = zeros(T, 1)
+#     for a in eachindex(ma)
+#         tmp .+= sum(T, ma.f[a])
+#     end
 
-    return tmp[1]
-end
+#     return tmp[1]
+# end
 
 function vertical_sum(ma::MeshArrays.gcmarray{T, 2, Matrix{T}}) where T<:AbstractFloat
     γ = ma.grid #grid info

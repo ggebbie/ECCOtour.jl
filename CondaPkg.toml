@@ -1,3 +1,4 @@
 [deps]
 cartopy = ""
+matplotlib = ""
 seaborn = ""
