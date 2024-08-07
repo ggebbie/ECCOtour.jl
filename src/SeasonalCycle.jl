@@ -8,7 +8,7 @@
 - `E`: matrix that solves E*parameters= seasonal cycle
 - `F=E†`: generalized inverse of `E`
 """
-function seasonal_matrices(fcycle,t,overtones=1)
+function seasonal_matrices(fcycle,t,overtones=1, fit_mean = true)
 
     ω = 2π * fcycle # day^{-1} , seasonal frequency
     nt = length(t)
@@ -29,6 +29,11 @@ function seasonal_matrices(fcycle,t,overtones=1)
         println(length(sin.(i*ω*t)))
         E[:,i+1] = sin.(i*ω*t)
         E[:,i+freqs+1] = cos.(i*ω*t)
+    end
+
+    # If mean is not fitted, remove the first column
+    if !fit_mean
+        E = E[:, 2:end]
     end
 
     F = (E'*E)\E' # least squares estimator
@@ -67,3 +72,24 @@ function trend_matrices(t)
 end
 
 
+"""
+    function mean_matrices(t)
+        
+    computes the mean using matrix inversions
+# Arguments
+- `t`: time
+# Output
+- `E`: matrix that solves E*parameters= timeseries
+- `F=E†`: generalized inverse of `E`
+"""
+function mean_matrices(t)
+    nt = length(t)
+
+    # Create the matrix E for fitting the mean
+    E = ones(Float32, nt, 1)
+    println(size(E))
+
+    F = (E' * E) \ E' # least squares estimator
+
+    return E, F
+end

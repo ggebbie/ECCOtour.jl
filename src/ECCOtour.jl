@@ -14,7 +14,7 @@ import Statistics.mean, Statistics.std,
 
 export hanncoeffs, hannsum, hannsum!, hannfilter
 export get_filtermatrix, matrixfilter, matrixspray, columnscale!
-export seasonal_matrices, trend_matrices
+export seasonal_matrices, trend_matrices, mean_matrices
 export position_label, searchdir
 export listexperiments, expnames, expsymbols, time_label
 export inrectangle, isnino34, issouthpac, isnino3, isnino4, isnino12
