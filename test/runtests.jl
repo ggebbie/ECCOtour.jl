@@ -32,7 +32,9 @@ using Downloads
     @testset "basin mask" begin
         include(testdir("test_basinmask.jl"))
     end
-
+    @testset "SeasonalCycle" begin
+        include(testdir("test_seasonalcycle.jl"))
+    end
     cd(srcdir())
     # workaround: use a shell script
     #run(`sh $srcdir/download_google_drive.sh`)
