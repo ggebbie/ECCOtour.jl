@@ -4,7 +4,7 @@ t = 1:365  # One year of daily data
 overtones = 2
 
 # Test fit_mean function
-E_mean, F_mean = fit_mean(t)
+E_mean, F_mean = mean_matrices(t)
 @test size(E_mean) == (365, 1)
 @test all(E_mean[:, 1] .== 1.0)
 
